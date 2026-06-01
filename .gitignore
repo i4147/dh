@@ -1,0 +1,12 @@
+*.env
+.env
+__pycache__/
+*.py[cod]
+*$py.class
+credential.json
+.venv/
+simz.json
+out/
+output/
+*.log
+*.tmp
