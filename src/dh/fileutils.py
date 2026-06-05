@@ -1,15 +1,8 @@
 from os import scandir as os_scandir
 from functools import lru_cache
 from pathlib import Path
-from .const import IMG_EXT
+from .const import IMG_EXT, CHUNK_SIZE, ZERO_DOT_THREE, SKIP_DIRS, THRESHOLD, SDCARD, EMULATED
 from typing import Generator
-
-CHUNK_SIZE = 32768
-ZERO_POINT_THREE = 0.3
-SKIP_DIRS = {".git", "__pycache__", ".mypy_cache", ".ruff_cache", ".pytest_cache"}
-THRESHOLD = 2 * 1024 * 1024
-SDCARD = "/sdcard"
-EMULATED = "/storage/emulated/0"
 
 
 def read_lines(path: str | Path, ke: bool = True):
@@ -449,7 +442,7 @@ def is_binary(path: Path | str) -> bool:
             return True
         text_chars = bytearray(range(32, 127)) + b"\n\r\t\x08"
         nontext = sum((1 for b in chunk if b not in text_chars))
-        return nontext / len(chunk) > ZERO_POINT_THREE
+        return nontext / len(chunk) > ZERO_DOT_THREE
     except Exception:
         return True
 

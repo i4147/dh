@@ -458,3 +458,24 @@ def get_words(text: str) -> list[str]:
         tokens.append(m.group(0))
         i += 1
     return tokens if tokens else words
+
+
+def have_doc(code: str | bytes) -> bool:
+    if isinstance(code, bytes):
+        try:
+            code = code.decode("utf8")
+        except:
+            return False
+    from ast import parse as ast_parse
+    from ast import get_docstring as ast_get_docstring
+
+    try:
+        tree = ast_parse(code)
+        doc = ast_get_docstring(tree)
+        del tree
+        has_doc = doc is not None
+        del doc
+        has_comment = "#" in code
+        return has_doc or has_comment
+    except:
+        return False

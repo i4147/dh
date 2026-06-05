@@ -104,6 +104,7 @@ from .logutils import init_logger
 from .misc import sunique, version_to_tuple
 from .jobutils import mpf, mpf2, mpf3, mpf4, mpf5, mpf6
 from .textutils import (
+    have_doc,
     is_none_english,
     count_words,
     is_alpha,

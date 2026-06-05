@@ -1,7 +1,6 @@
 from pathlib import Path
 from .fileutils import runcmd
-
-CHUNK_SIZE = 524288
+from .const import CHUNK_SIZE
 
 
 def get_openssl_hash(path, alg):

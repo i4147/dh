@@ -3,10 +3,7 @@ from collections.abc import Callable, Iterable
 from multiprocessing import get_context
 from pathlib import Path
 from typing import Any, Union
-
-CHUNK_SIZE = 32768
-MAX_WORKERS: int = 4
-CONTEXT_METHOD: str = "spawn"
+from .const import CHUNK_SIZE, MAX_WORKERS, CONTEXT_METHOD
 
 
 def mpf(process_function: Callable, files: list[Path], **kwargs):
