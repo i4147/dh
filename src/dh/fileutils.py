@@ -1,3 +1,4 @@
+from os import scandir as os_scandir
 from functools import lru_cache
 from pathlib import Path
 from .const import IMG_EXT
@@ -11,13 +12,13 @@ SDCARD = "/sdcard"
 EMULATED = "/storage/emulated/0"
 
 
-def read_lines(path: str | Path, keep_ends: bool = True):
+def read_lines(path: str | Path, ke: bool = True):
     path = Path(path)
     if path.stat().st_size > THRESHOLD:
-        return read_lines_mmap(path, keep_ends)
+        return read_lines_mmap(path, ke)
     data = Path(path).read_bytes()
     text = data.decode("utf-8", errors="replace")
-    lines = text.splitlines(keepends=keep_ends)
+    lines = text.splitlines(keepends=ke)
     if not lines[-1].endswith(("\n", "\r\n", "\r")) and data.endswith(b"\n"):
         lines.append("")
     return lines
@@ -52,14 +53,6 @@ def gext(path: str | Path) -> str:
     return suffs[0]
 
 
-def content_hash(data: bytes) -> str:
-    from hashlib import sha256
-
-    if not isinstance(data, bytes):
-        data = data.encode("utf8")
-    return sha256(data).hexdigest()
-
-
 def mkdr(path: str | Path, exist_ok: bool = True) -> bool:
     path = Path(path)
     if path.exists():
@@ -79,15 +72,15 @@ def decode_base64(data: str) -> bytes:
     return b64decode(cleaned, validate=False)
 
 
-def rmf(path: str | Path) -> bool:
+def rmfile(path: str | Path) -> bool:
     path = Path(path)
-    if not path.exists():
+    if not path.is_file() or not path.exists():
         return False
     path.unlink(missing_ok=True)
     return True
 
 
-def rmrf(path: str | Path) -> bool:
+def rmdir(path: str | Path) -> bool:
     from shutil import rmtree as shutil_rmtree
 
     path = Path(path)
@@ -110,13 +103,13 @@ def find_large_files(path: str | Path, min_size_mb: float = 1.0) -> list[tuple[P
     from operator import itemgetter
 
     path = Path(path)
-    files = [p for p in path.rglob("*") if p.is_file()]
-    min_bytes = min_size_mb * 1024 * 1024
+    files = get_files(path)
+    min_bytes = min_size_mb * 1048576
     large_files = []
     for file in files:
         size = file.stat().st_size
         if size >= min_bytes:
-            large_files.append((file, size / (1024 * 1024)))
+            large_files.append((file, size / 1048576))
     return sorted(large_files, key=itemgetter(1), reverse=True)
 
 
@@ -127,16 +120,47 @@ def get_base64(original_string: str) -> str:
     return b64encode(bytes_data).decode("utf-8")
 
 
+def get_dirs_recursive(path: str | Path) -> list[Path]:
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Path does not exist: {path}")
+    if not path.is_dir():
+        raise NotADirectoryError(f"Path is not a directory: {path}")
+    dirs = []
+
+    def _recurse(current_path: Path) -> None:
+        try:
+            for item in current_path.iterdir():
+                if item.is_symlink():
+                    continue
+                if item.is_dir():
+                    dirs.append(item)
+                    _recurse(item)
+        except PermissionError:
+            pass
+
+    _recurse(path)
+    return sorted(dirs)
+
+
 def get_dirs(path: str | Path) -> list[Path]:
-    try:
-        path = Path(path)
-        if not path.exists():
-            return []
-        if path.is_file():
-            return []
-        return [item for item in path.rglob("*") if item.is_dir()]
-    except Exception:
+    path = Path(path)
+    if not path.is_dir():
         return []
+    dirs = []
+    stack = [path]
+    while stack:
+        current = stack.pop()
+        try:
+            with os_scandir(current) as entries:
+                for entry in entries:
+                    if entry.is_dir(follow_symlinks=False):
+                        dir_path = Path(entry.path)
+                        dirs.append(dir_path)
+                        stack.append(dir_path)
+        except (PermissionError, OSError):
+            continue
+    return dirs
 
 
 def get_file_age(path: str | Path, str_mode: bool = False):
@@ -246,20 +270,6 @@ def get_random_filename(length: int = 10) -> str:
     return "".join((choice(letters) for _ in range(length)))
 
 
-def get_sha256(path: str | Path) -> str:
-    from hashlib import sha256
-
-    path = Path(path)
-    h = sha256()
-    try:
-        with path.open("rb") as f:
-            for chunk in iter(lambda: f.read(CHUNK_SIZE), b""):
-                h.update(chunk)
-        return h.hexdigest()
-    except:
-        return ""
-
-
 def hex2dec(s: str) -> int:
     return int(s, 16)
 
@@ -290,25 +300,18 @@ def is_python_file(path: str | Path) -> bool:
         return False
     if not path.stat().st_size:
         return False
-    if path.is_symlink() or not path.is_file() or ".git" in path.parts:
-        return False
-    if path.suffix == ".py":
+    if path.is_file() and path.suffix == ".py":
         return True
+    if not path.is_file() or ".git" in path.parts:
+        return False
     if not path.suffix:
-        content = ""
-        try:
-            content = path.read_text(encoding="utf-8")
-        except:
-            print(f"{path} read error")
-            return False
+        content = path.read_text(encoding="utf-8")
         if not content:
             return False
-        first_line = content.split("\n")[0]
-        if first_line.startswith("#!") and "python" in first_line:
+        if content.startswith("#!") and "python" in content[:100]:
             return True
         try:
-            tree = ast_parse(content)
-            del tree
+            _ = ast_parse(content)
             return True
         except:
             return False
@@ -435,16 +438,6 @@ def reverse_dict(input_dict: dict) -> dict:
     return dict(rev)
 
 
-def run_command(cmd, shell: bool = True) -> tuple[int, str, str]:
-    from subprocess import run as subprocess_run
-
-    try:
-        result = subprocess_run(cmd, shell=shell, capture_output=True, text=True)
-        return (result.returncode, result.stdout, result.stderr)
-    except Exception as e:
-        return (-1, "", str(e))
-
-
 def is_binary(path: Path | str) -> bool:
     path = Path(path)
     try:
@@ -465,44 +458,6 @@ def is_text_file(path: str | Path) -> bool:
     return not is_binary(path)
 
 
-def is_none_english(path: str | Path) -> bool:
-    from string import printable
-
-    path = Path(path)
-    try:
-        if not path.is_file():
-            return False
-        if is_binary(path):
-            return False
-        content = path.read_text(encoding="utf-8")
-        english_chars = set(printable + "!@#$%^&*()-'::;,?+×÷=/_€£¥₩")
-        return any((char not in english_chars and (not char.isspace()) for char in content))
-    except Exception:
-        return False
-
-
-def count_words(path: str | Path) -> dict:
-    from collections import Counter
-    from string import punctuation
-
-    path = Path(path)
-    if is_binary(path):
-        return {}
-    text = path.read_text(encoding="utf-8")
-    if text:
-        text = str(" ".join(list(text)))
-        text = text.lower()
-        for p in punctuation:
-            text = text.replace(p, "")
-        text = text.replace('"', "")
-        text = text.replace("-", " ")
-        text = text.replace("'", "")
-        text = text.replace("_", " ")
-        words = text.split()
-        return Counter(words)
-    return {}
-
-
 def fsz(sz: float) -> str:
     sz = abs(int(sz))
     units = ("B", "KB", "MB", "GB", "TB")
@@ -519,39 +474,62 @@ def format_size(sz: float) -> str:
     return fsz(sz)
 
 
-def get_files(root: str | Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
-    from os import walk, scandir
-    from os.path import islink, join as path_join
-
-    root = str(Path(root).resolve())
-    out = []
-
-    if ext is not None:
-        extensions = tuple(ext) if isinstance(ext, list) else tuple(ext)
-    else:
-        extensions = None
-
-    for dirpath, dirnames, filenames in walk(root, followlinks=False):
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and (include_hidden or not d.startswith("."))]
-
-        for filename in filenames:
-            if not include_hidden and filename.startswith("."):
-                continue
-
-            filepath = path_join(dirpath, filename)
-
-            if islink(filepath):
-                continue
-
-            if extensions is not None and not filename.endswith(extensions):
-                continue
-
-            out.append(Path(filepath).resolve())
-
-    return out
+def get_files(path: str | Path, ext: tuple[str] | None = None) -> list[Path]:
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Path does not exist: {path}")
+    if not path.is_dir():
+        raise NotADirectoryError(f"Path is not a directory: {path}")
+    ext = tuple(ext) if ext else None
+    files = []
+    stack = [path]
+    while stack:
+        current = stack.pop()
+        try:
+            with os_scandir(current) as entries:
+                for entry in entries:
+                    if entry.is_symlink():
+                        continue
+                    if entry.is_dir(follow_symlinks=False):
+                        stack.append(Path(entry.path))
+                    elif entry.is_file(follow_symlinks=False):
+                        if ext is None or entry.name.endswith(ext):
+                            files.append(Path(entry.path))
+        except (PermissionError, OSError):
+            continue
+    return sorted(files)
 
 
-def get_files2(
+def get_files2(root: str | Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
+    root_path = Path(root).resolve()
+    if not root_path.exists() or not root_path.is_dir():
+        raise ValueError("Invalid path")
+    extensions = tuple(ext) if ext else None
+    files = []
+
+    def _recurse(current_path: Path) -> None:
+        try:
+            for entry in os_scandir(current_path):
+                if entry.is_symlink():
+                    continue
+                if entry.name in SKIP_DIRS:
+                    continue
+                if not include_hidden and entry.name.startswith("."):
+                    continue
+                if entry.is_file(follow_symlinks=False):
+                    if extensions is None or entry.name.endswith(extensions):
+                        files.append(Path(entry.path).resolve())
+                elif entry.is_dir(follow_symlinks=False):
+                    _recurse(Path(entry.path))
+        except PermissionError:
+            pass
+
+    _recurse(root_path)
+    del extensions, root_path
+    return sorted(files)
+
+
+def get_files_iter2(
     root: str | Path, include_hidden: bool = True, ext: list[str] | None = None
 ) -> Generator[Path, None, None]:
     from os.path import islink, join as path_join
@@ -559,22 +537,16 @@ def get_files2(
 
     root = str(Path(root).resolve())
     extensions = tuple(ext) if ext else None
-
     for dirpath, dirnames, filenames in walk(root, followlinks=False):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and (include_hidden or not d.startswith("."))]
-
         for filename in filenames:
             if not include_hidden and filename.startswith("."):
                 continue
-
             full_path = path_join(dirpath, filename)
-
             if islink(full_path):
                 continue
-
             if extensions is not None and not filename.endswith(extensions):
                 continue
-
             yield Path(full_path).resolve()
 
 
@@ -604,6 +576,58 @@ def get_size(path: str | Path) -> int:
     return 0
 
 
+def get_dirs_iter(path: str | Path):
+    """
+    Generator version using os_scandir().
+    Most efficient for extremely large trees.
+    """
+    path = Path(path)
+    if not path.is_dir():
+        return
+    stack = [path]
+    while stack:
+        current = stack.pop()
+        try:
+            with os_scandir(current) as entries:
+                for entry in entries:
+                    if entry.is_dir(follow_symlinks=False):
+                        dir_path = Path(entry.path)
+                        yield dir_path
+                        stack.append(dir_path)
+        except (PermissionError, OSError):
+            continue
+
+
+def get_files_iter(path: str | Path, ext: list[str] | None = None):
+    """
+    Generator version - yields files as they're found.
+    Most memory-efficient for extremely large trees.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Path does not exist: {path}")
+    if not path.is_dir():
+        raise NotADirectoryError(f"Path is not a directory: {path}")
+    if ext:
+        ext = [e.lower() if e.startswith(".") else f".{e.lower()}" for e in ext]
+    stack = [path]
+    while stack:
+        current = stack.pop()
+        try:
+            with os_scandir(current) as entries:
+                for entry in entries:
+                    if entry.is_symlink():
+                        continue
+                    if entry.is_dir(follow_symlinks=False):
+                        stack.append(Path(entry.path))
+                    elif entry.is_file(follow_symlinks=False):
+                        file_path = Path(entry.path)
+                        if ext is None or file_path.suffix.lower() in ext:
+                            yield file_path
+        except (PermissionError, OSError):
+            continue
+
+
 def get_nobinary(path: str | Path) -> list[Path]:
     return [f for f in get_files(path) if not is_binary(f)]
 
@@ -616,10 +640,12 @@ def get_pyfiles(path: str | Path) -> list[Path]:
     if path.is_dir():
         allfiles = get_files(path)
         pyfiles = [p for p in allfiles if p.suffix == ".py"]
-        no_ext = [p for p in allfiles if not p.suffix and not p.is_symlink()]
+        no_ext = [p for p in allfiles if not p.suffix]
         del allfiles
         if no_ext:
             for f in no_ext:
+                if f.name.startswith("."):
+                    continue
                 if is_python_file(f):
                     pyfiles.append(f)
     return pyfiles
@@ -831,7 +857,8 @@ def write_txt_file(path: str | Path, data: str, overwrite: bool = False) -> bool
         return False
 
 
-def should_skip(path: Path) -> bool:
+def should_skip(path: str | Path) -> bool:
+    path = Path(path)
     return bool(path.is_symlink() or not SKIP_DIRS.isdisjoint(path.parts))
 
 
@@ -890,3 +917,48 @@ def restore_bak(path: str | Path) -> bool:
         return True
     else:
         return False
+
+
+def get_files(path: str | Path, ext: tuple[str] | None = None) -> list[Path]:
+    path = Path(path)
+    files: list[Path] = []
+    ext = tuple(ext) if ext else None
+    try:
+        with os_scandir(path) as it:
+            for entry in it:
+                if entry.is_symlink():
+                    continue
+                if entry.is_file(follow_symlinks=False):
+                    if ext is None or entry.name.endswith(ext):
+                        files.append(Path(entry.path))
+                elif entry.is_dir(follow_symlinks=False):
+                    files.extend(get_files(entry.path, ext))
+    except OSError:
+        pass
+    return files
+
+
+def get_dirz(path: str | Path) -> list[Path]:
+    path = Path(path)
+    dirs: list[Path] = []
+    try:
+        with os_scandir(path) as it:
+            for entry in it:
+                if entry.is_dir(follow_symlinks=False):
+                    dirs.append(Path(entry.path))
+                    dirs.extend(get_dirz(Path(entry.path)))
+    except OSError:
+        pass  # permission denied etc.
+    return dirs
+
+
+def _walk_dirs(p: Path, acc: list[Path]) -> None:
+    try:
+        with os_scandir(p) as it:
+            for entry in it:
+                if entry.is_dir(follow_symlinks=False):
+                    child = Path(entry.path)
+                    acc.append(child)
+                    _walk_dirs(child, acc)
+    except OSError:
+        pass

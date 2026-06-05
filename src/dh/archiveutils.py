@@ -138,7 +138,6 @@ def _check_tar_with_brotli(path: str | Path) -> bool:
 def _check_tar_with_zstd(path: str | Path) -> bool:
     path = Path(path).resolve()
     extract_path = path.with_name(path.name.replace(".tar.zst", ""))
-
     try:
         with tarfile.open(path, "r:zst") as f:
             f.extractall(path=extract_path, filter="data")

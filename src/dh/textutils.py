@@ -7,14 +7,16 @@ from re import IGNORECASE as re_IGNORECASE
 from re import UNICODE as re_UNICODE
 from re import compile as re_compile
 from typing import Sequence, Union
+from dh import is_binary
+from pathlib import Path
 
-_WORD_RE = re_compile("\\b[\\w']+\\b", re_UNICODE)
-_SENTENCE_RE = re_compile("(?<=[.!?])\\s+")
-_MULTISPACE_RE = re_compile("\\s+")
-_URL_RE = re_compile("https?://\\S+|www\\.\\S+", re_IGNORECASE)
-_HTML_RE = re_compile("<[^>]+>")
+_WORD_RE = re_compile(r"\b[\w']+\b", re_UNICODE)
+_SENTENCE_RE = re_compile(r"(?<=[.!?])\s+")
+_MULTISPACE_RE = re_compile(r"\s+")
+_URL_RE = re_compile(r"https?://\S+|www\.\S+", re_IGNORECASE)
+_HTML_RE = re_compile(r"<[^>]+>")
 _EMOJI_RE = re_compile(
-    "[\\U0001f300-\\U0001f5ff\\U0001f600-\\U0001f64f\\U0001f680-\\U0001f6ff\\U0001f700-\\U0001f77f\\U0001f780-\\U0001f7ff\\U0001f800-\\U0001f8ff\\U0001f900-\\U0001f9ff\\U0001fa00-\\U0001fa6f\\U0001fa70-\\U0001faff\\U00002702-\\U000027b0\\U000024c2-\\U0001f251]+",
+    r"[\U0001f300-\U0001f5ff\U0001f600-\U0001f64f\U0001f680-\U0001f6ff\U0001f700-\U0001f77f\U0001f780-\U0001f7ff\U0001f800-\U0001f8ff\U0001f900-\U0001f9ff\U0001fa00-\U0001fa6f\U0001fa70-\U0001faff\U00002702-\U000027b0\U000024c2-\U0001f251]+",
     flags=re_UNICODE,
 )
 STOP_WORDS = {
@@ -151,32 +153,14 @@ def clean_text(text: str, keep_emoji: bool = True) -> str:
     text = _HTML_RE.sub(SPACE, text)
     text = _URL_RE.sub(SPACE, text)
     if not keep_emoji:
-        text = _EMOJI_re.sub(SPACE, text)
+        text = _EMOJI_RE.sub(SPACE, text)
     text = text.lower()
-    text = _MULTISPACE_re.sub(SPACE, text).strip()
+    text = _MULTISPACE_RE.sub(SPACE, text).strip()
     return text
 
 
 def remove_stop_words(tokens: Sequence[str], stop_words: set[str] = STOP_WORDS) -> list[str]:
     return [t for t in tokens if t not in stop_words]
-
-
-def get_words(text: str) -> list[str]:
-    from re import finditer as re_finditer
-
-    if not text:
-        return []
-    text = clean_text(text, keep_emoji=True)
-    words = _WORD_RE.findall(text)
-    emojis = _EMOJI_RE.findall(text)
-    if not emojis:
-        return words
-    tokens = []
-    i = 0
-    for m in re_finditer("\\b[\\w']+\\b|[\\U000024C2-\\U0001FAFF\\u2702-\\u27B0]+", text, re_UNICODE):
-        tokens.append(m.group(0))
-        i += 1
-    return tokens if tokens else words
 
 
 def get_sentences(text: str) -> list[str]:
@@ -422,3 +406,55 @@ def is_upper(txt, ps: bool = False):
             return False
     del dps
     return True
+
+
+def is_none_english(path: str | Path) -> bool:
+    from string import printable
+
+    path = Path(path)
+    try:
+        if not path.is_file():
+            return False
+        if is_binary(path):
+            return False
+        content = path.read_text(encoding="utf-8")
+        english_chars = set(printable + "!@#$%^&*()-'::;,?+×÷=/_€£¥₩")
+        return any((char not in english_chars and (not char.isspace()) for char in content))
+    except Exception:
+        return False
+
+
+def count_words(path: str | Path) -> dict:
+    from collections import Counter
+    from string import punctuation
+
+    path = Path(path)
+    if is_binary(path):
+        return {}
+    text = path.read_text(encoding="utf-8")
+    if text:
+        text = str(" ".join(list(text)))
+        text = text.lower()
+        for p in punctuation:
+            text = text.replace(p, "")
+        words = text.split()
+        return Counter(words)
+    return {}
+
+
+def get_words(text: str) -> list[str]:
+    from re import finditer as re_finditer
+
+    if not text:
+        return []
+    text = clean_text(text, keep_emoji=True)
+    words = _WORD_RE.findall(text)
+    emojis = _EMOJI_RE.findall(text)
+    if not emojis:
+        return words
+    tokens = []
+    i = 0
+    for m in re_finditer(r"\b[\w']+\b|[\U000024C2-\U0001FAFF\u2702-\u27B0]+", text, re_UNICODE):
+        tokens.append(m.group(0))
+        i += 1
+    return tokens if tokens else words

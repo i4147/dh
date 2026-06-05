@@ -21,8 +21,10 @@ def _construct_key(previous_key, separator, new_key, replace_separators=None):
 
 def flatten(nested_dict, separator="_", root_keys_to_ignore=None, replace_separators=None):
     if not isinstance(nested_dict, dict):
+        msg = "type error"
         raise Exception(msg)
     if not isinstance(separator, str):
+        msg = "type error"
         raise Exception(msg)
     if root_keys_to_ignore is None:
         root_keys_to_ignore = set()

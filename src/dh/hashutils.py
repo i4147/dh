@@ -1,60 +1,41 @@
-class ChkSUM:
-    from hashlib import sha256, sha512
+from pathlib import Path
+from .fileutils import runcmd
 
-    def __init__(self):
-        self._algorithms = {}
-        try:
-            dummy = sha256()
-            self._algorithms["sha256"] = self._hashlib_sha256
-        except NameError:
-            self._algorithms["sha256"] = self._openssl_sha256
-        try:
-            dummy = sha512()
-            self._algorithms["sha512"] = self._hashlib_sha512
-        except NameError:
-            self._algorithms["sha512"] = self._openssl_sha512
+CHUNK_SIZE = 524288
 
-    def _hashlib(self, algorithm, filename):
-        try:
-            with open(filename, "rb") as filep:
-                for chunk in iter(lambda: filep.read(32768), b""):
-                    algorithm.update(chunk)
-            return algorithm.hexdigest()
-        except OSError:
-            return ""
 
-    def _hashlib_sha256(self, filename):
-        return self._hashlib(sha256(), filename)
+def get_openssl_hash(path, alg):
+    from re import match as re_match
 
-    def _hashlib_sha512(self, filename):
-        return self._hashlib(sha512(), filename)
-
-    def _openssl(self, algorithm, filename):
-        from re import match as re_match
-        from subprocess import get_output
-
-        cmd = ["openssl", "dgst", "-hex", "-r", algorithm, filename]
-        output = get_output(cmd)
-        if output is None:
-            return ""
-        matchz = re_match("^(\\\\S+) ", output)
-        if matchz:
-            return matchz.group(1)
+    if not alg.startswith("-"):
+        alg = "-" + alg
+    cmd = ["openssl", "dgst", "-hex", "-r", alg, str(path)]
+    _, output, _ = runcmd(cmd)
+    if output is None:
         return ""
+    matchz = re_match(r"^(\S+) ", output)
+    if matchz:
+        return matchz.group(1)
+    return ""
 
-    def _openssl_sha256(self, filename):
-        return self._openssl("-sha256", filename)
 
-    def _openssl_sha512(self, filename):
-        return self._openssl("-sha512", filename)
+def content_hash(data: bytes) -> str:
+    from hashlib import sha256
 
-    def sha256(self, filename):
-        return self._algorithms["sha256"](filename)
+    if not isinstance(data, bytes):
+        data = data.encode("utf8")
+    return sha256(data).hexdigest()
 
-    def sha512(self, filename):
-        return self._algorithms["sha512"](filename)
 
-    def hash(self, filename, algorithm):
-        if algorithm in self._algorithms:
-            return self._algorithms[algorithm](filename)
+def get_sha256(path: str | Path) -> str:
+    from hashlib import sha256
+
+    path = Path(path)
+    h = sha256()
+    try:
+        with path.open("rb") as f:
+            for chunk in iter(lambda: f.read(CHUNK_SIZE), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    except:
         return ""

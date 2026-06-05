@@ -2,7 +2,6 @@ from re import IGNORECASE as re_IGNORECASE
 from re import UNICODE as re_UNICODE
 from re import compile as re_compile
 from typing import Any, Callable, Pattern
-
 from typing import Any, Callable, Dict
 from inspect import getfullargspec
 from functools import wraps
@@ -32,7 +31,6 @@ def _func_args_as_dict(func: Callable[..., Any], *args: Any, **kwargs: Any):
 
 
 def validator(func: Callable[..., Any]):
-
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any):
         return True if func(*args, **kwargs) else ValidationFailure(func, _func_args_as_dict(func, *args, **kwargs))
