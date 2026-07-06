@@ -1,0 +1,28 @@
+Metadata-Version: 2.4
+Name: dh
+Version: 1.4.7
+Summary: A Python package named dh
+Author: unforgivenii147
+Author-email: Isaac Onagh <mkalafsaz@gmail.com>
+Platform: any
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+
+# dh
+
+## Description
+
+A Python package named dh.
+
+## Installation
+
+```bash
+pip install -e .
+```
+
+Usage
+
+```python
+import dh
+```

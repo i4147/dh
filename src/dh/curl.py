@@ -1,8 +1,5 @@
-import contextlib
-import json
-import os
-import subprocess
 import re
+import subprocess
 from io import BytesIO
 
 try:
@@ -15,7 +12,7 @@ class CurlHeader:
     def __init__(self) -> None:
         self._buf = BytesIO()
 
-    def write(self, buff: bytes | str) -> int:
+    def write(self, buff: (bytes | str)) -> int:
         if isinstance(buff, str):
             buff = buff.encode("utf-8")
         self._buf.write(buff)
@@ -23,7 +20,7 @@ class CurlHeader:
 
     def setvalue_from_file(self, in_filename: str) -> None:
         self._buf = BytesIO()
-        with open(in_filename, "r", encoding="utf-8") as f:
+        with open(in_filename, encoding="utf-8") as f:
             for line in f:
                 self.write(line.strip() + "\r\n")
 
@@ -40,7 +37,7 @@ class GetURL:
         self.insecure = False
         self.http_proxy: str | None = None
 
-    def get_content_length(self, hdr: str | CurlHeader) -> int | None:
+    def get_content_length(self, hdr: (str | CurlHeader)) -> int | None:
         text = hdr.getvalue() if isinstance(hdr, CurlHeader) else hdr
         m = re.search("^Content-Length:\\s*(\\d+)", text, re.IGNORECASE | re.MULTILINE)
         return int(m.group(1)) if m else None
@@ -72,28 +69,28 @@ class GetURLpyCurl(GetURL):
     def is_available() -> bool:
         return pycurl is not None
 
-    def get(self, url: str, headers: dict[str, str] | None = None, **kwargs) -> bytes:
+    def get(self, url: str, headers: (dict[str, str] | None) = None, **kwargs) -> bytes:
         return self._fetch(url, method="GET", headers=headers, data=None, **kwargs)
 
-    def post(self, url: str, data: bytes | str | None = None, headers: dict[str, str] | None = None, **kwargs) -> bytes:
-        """Perform a POST request and return the response body."""
+    def post(
+        self, url: str, data: (bytes | str | None) = None, headers: (dict[str, str] | None) = None, **kwargs
+    ) -> bytes:
         return self._fetch(url, method="POST", headers=headers, data=data, **kwargs)
 
     def _fetch(
         self,
         url: str,
         method: str = "GET",
-        headers: dict[str, str] | None = None,
-        data: bytes | str | None = None,
+        headers: (dict[str, str] | None) = None,
+        data: (bytes | str | None) = None,
         **kwargs,
     ) -> bytes:
-        """Choose pycurl or subprocess based on availability."""
         if self.is_available():
             return self._fetch_pycurl(url, method, headers, data, **kwargs)
         return self._fetch_subprocess(url, method, headers, data)
 
     def _fetch_pycurl(
-        self, url: str, method: str, headers: dict[str, str] | None, data: bytes | str | None, **kwargs
+        self, url: str, method: str, headers: (dict[str, str] | None), data: (bytes | str | None), **kwargs
     ) -> bytes:
         body_buffer = BytesIO()
         self.header_buffer = CurlHeader()
@@ -126,7 +123,7 @@ class GetURLpyCurl(GetURL):
         return body_buffer.getvalue()
 
     def _fetch_subprocess(
-        self, url: str, method: str, headers: dict[str, str] | None, data: bytes | str | None
+        self, url: str, method: str, headers: (dict[str, str] | None), data: (bytes | str | None)
     ) -> bytes:
         cmd = ["curl", "-sS", "-L", "--fail", "-i"]
         if self.insecure:
@@ -141,17 +138,17 @@ class GetURLpyCurl(GetURL):
             for k, v in headers.items():
                 cmd.extend(["-H", f"{k}: {v}"])
         cmd.append(url)
-        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+        proc = subprocess.run(cmd, capture_output=True, timeout=30)
         if proc.returncode != 0:
-            raise RuntimeError(
-                f"curl failed with code {proc.returncode}: {proc.stderr.decode('utf-8', errors='replace')}"
-            )
+            msg = f"curl failed with code {proc.returncode}: {proc.stderr.decode('utf-8', errors='replace')}"
+            raise RuntimeError(msg)
         raw = proc.stdout
         header_end = raw.find(b"\r\n\r\n")
         if header_end == -1:
             header_end = raw.find(b"\n\n")
         if header_end == -1:
-            raise ValueError("Could not separate headers from body")
+            msg = "Could not separate headers from body"
+            raise ValueError(msg)
         header_part = raw[:header_end]
         body = raw[header_end + len(b"\r\n\r\n" if b"\r\n\r\n" in raw[: header_end + 4] else b"\n\n") :]
         self.header_buffer = CurlHeader()
@@ -161,6 +158,5 @@ class GetURLpyCurl(GetURL):
 
 
 def cdownload(url: str, **kwargs) -> bytes:
-    """Convenience function: download *url* using pycurl (or fallback to curl)."""
     downloader = GetURLpyCurl()
     return downloader.get(url, **kwargs)

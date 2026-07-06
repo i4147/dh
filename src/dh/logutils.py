@@ -4,16 +4,16 @@ from pathlib import Path
 
 
 def init_logger(
-    name: str | None,
+    name: (str | None),
     level: int = logging.INFO,
-    log_file: str | Path | None = None,
+    log_file: (str | Path | None) = None,
     fmt: str = "[%(levelname)s] %(message)s",
-    datefmt: str | None = None,
+    datefmt: (str | None) = None,
     console: bool = True,
     file_mode: str = "w",
     encoding: str = "utf-8",
     propagate: bool = False,
-    handlers: list[logging.Handler] | None = None,
+    handlers: (list[logging.Handler] | None) = None,
 ) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(level)

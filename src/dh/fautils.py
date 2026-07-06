@@ -1,4 +1,4 @@
-def get_persian_date(dformat=None):
+def get_persian_date(dformat=None) -> str | None:
     from datetime import datetime as datetime_datetime
 
     weeks = ["یکشنبه", "دوشنبه", "سه شنبه", "چهارشنبه", "پنج شنبه", "جمعه", "شنبه"]
@@ -20,7 +20,7 @@ def get_persian_date(dformat=None):
         if year == i:
             y = 3
     if y == 1:
-        year -= (month < 3 or (month == 3 and day < 21)) and 622 or 621
+        year -= ((month < 3 or (month == 3 and day < 21)) and 622) or 621
         if month == 1:
             month, day = (10, day + 10) if day < 21 else (11, day - 20)
         elif month == 2:
@@ -38,7 +38,7 @@ def get_persian_date(dformat=None):
         elif month in {11, 12}:
             month, day = (month - 3, day + 9) if day < 22 else (month - 2, day - 21)
     if y == 2:
-        year -= (month < 3 or (month == 3 and day < 20)) and 622 or 621
+        year -= ((month < 3 or (month == 3 and day < 20)) and 622) or 621
         if month == 1:
             month, day = (10, day + 10) if day < 21 else (11, day - 20)
         elif month == 2:
@@ -64,7 +64,7 @@ def get_persian_date(dformat=None):
         elif month == 12:
             month, day = (9, day + 10) if day < 21 else (10, day - 20)
     if y == 3:
-        year -= (month < 3 or (month == 3 and day < 21)) and 622 or 621
+        year -= ((month < 3 or (month == 3 and day < 21)) and 622) or 621
         if month == 1:
             month, day = (10, day + 11) if day < 20 else (11, day - 19)
         elif month == 2:
@@ -120,7 +120,7 @@ def to_persian_digits(s: str) -> str:
     return s.translate(str.maketrans(string_digits, "۰۱۲۳۴۵۶۷۸۹"))
 
 
-def gregorian_to_jalali(gy: int, gm: int, gd: int):
+def gregorian_to_jalali(gy: int, gm: int, gd: int) -> tuple[int, int, int]:
     g_days: list[int] = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
     gy2: int = gy - 1600
     gm2: int = gm - 1
@@ -142,4 +142,4 @@ def gregorian_to_jalali(gy: int, gm: int, gd: int):
         j_day_no -= 186
         jm = 7 + j_day_no // 30
         jd = 1 + j_day_no % 30
-    return (jy, jm, jd)
+    return jy, jm, jd

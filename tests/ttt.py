@@ -1,6 +1,4 @@
-import mimetypes
 from pathlib import Path
-from typing import Optional
 
 from chardet import detect
 from dh import BIN_EXT

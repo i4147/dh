@@ -1,149 +1,76 @@
-from collections import deque
 from collections.abc import Callable, Iterable
 from multiprocessing import get_context
 from pathlib import Path
-from typing import Any, Union
-from .const import CHUNK_SIZE, MAX_WORKERS, CONTEXT_METHOD
+from typing import Any, ParamSpec, TypeVar
+
+from .const import MAX_WORKERS
+
+P = ParamSpec("P")
+T = TypeVar("T")
+R = TypeVar("R")
 
 
-def mpf(process_function: Callable, files: list[Path], **kwargs):
+def mpf_joblib(process_function: Callable, files: list[Path], **kwargs):
     from joblib import Parallel, delayed
 
-    return Parallel(n_jobs=-1)((delayed(process_function)(file, **kwargs) for file in files))
+    file_strings = [str(f) for f in files]
+    return Parallel(n_jobs=-1)(delayed(process_function)(file_str, **kwargs) for file_str in file_strings)
 
 
-def mpf2(
-    processing_function: Callable, files: list[str], chunk_size: int = 500, n_jobs: int = -1, **kwargs
-) -> list[Any]:
-    from joblib import Parallel, delayed
-
-    all_results = []
-    total_files = len(files)
-    num_chunks = (total_files + chunk_size - 1) // chunk_size
-    for i in range(num_chunks):
-        start_index = i * chunk_size
-        end_index = min((i + 1) * chunk_size, total_files)
-        file_chunk = files[start_index:end_index]
-        delayed_tasks = [delayed(processing_function)(file, **kwargs) for file in file_chunk]
-        chunk_results = Parallel(n_jobs=n_jobs)(delayed_tasks)
-        all_results.extend(chunk_results)
-    return all_results
+def mpf_map(func: Callable, items: Iterable[Any]) -> list:
+    with get_context(CONTEXT_METHOD).Pool(MAX_WORKERS) as p:
+        return p.map(func, items)
 
 
-def mpf3(func: Callable[[Any], Any], items: Iterable[Any]):
+def mpf_async(func: Callable[[Any], Any], items: Iterable[Any]):
+    with get_context("spawn").Pool(MAX_WORKERS) as p:
+        async_results = [p.apply_async(func, (item,)) for item in items]
+        results = []
+        for i, async_result in enumerate(async_results):
+            try:
+                results.append(async_result.get(timeout=30))
+            except Exception as e:
+                print(f"Item {i} failed: {e}")
+                results.append(None)
+        return results
+
+
+def mpf_starmap[T, R](func: Callable[[T], R], items: Iterable[T]) -> list[R]:
+    items_list = list(items)
+    args = [(item,) for item in items_list]
+    with get_context("spawn").Pool(16) as pool:
+        return pool.starmap(func, args)
+
+
+def mpf_starmap2(func: Callable[[Any], Any], items: Iterable[Any]):
     args = [(f,) for f in items]
-    with get_context("spawn").Pool(4) as p:
+    with get_context("spawn").Pool(MAX_WORKERS) as p:
         return p.starmap(func, args)
 
 
-def mpf4(
-    func: Callable[[Any], Any], items: Iterable[Any], max_in_flight: int = 4, num_processes: int = 4
-) -> list[Union[Any, Exception]]:
-    with get_context(CONTEXT_METHOD).Pool(processes=num_processes) as p:
-        results_list: list[Union[Any, Exception]] = [None] * len(list(items))
-        indexed_items = list(enumerate(items))
-        pending_results = deque()
-        task_iterator = iter(indexed_items)
-        try:
-            while True:
-                while len(pending_results) < max_in_flight:
-                    try:
-                        original_index, item = next(task_iterator)
-                        async_result = p.apply_async(func, (item,))
-                        pending_results.append((original_index, async_result))
-                    except StopIteration:
-                        break
-                    except Exception as e:
-                        results_list[original_index] = e
-                if not pending_results and len(results_list) == len(indexed_items):
-                    break
-                process_a_result = len(pending_results) >= max_in_flight or len(pending_results) > 0
-                if process_a_result and pending_results:
-                    try:
-                        original_index, async_result = pending_results.popleft()
-                        result = async_result.get()
-                        results_list[original_index] = result
-                    except Exception as e:
-                        results_list[original_index] = e
-                elif not pending_results and len(results_list) == len(indexed_items):
-                    break
-        except Exception as e:
-            msg = "error"
-            raise Exception(msg)
-    return results_list
+def mpf_starmap3(func: Callable, item_tuples: Iterable[tuple]) -> list:
+    with get_context("spawn").Pool(MAX_WORKERS) as p:
+        return p.starmap(func, item_tuples)
 
 
-def mpf5(
-    processing_function: Callable, files: list[str], chunk_size: int = 500, n_jobs: int = -1, **kwargs
-) -> list[Any]:
-    from joblib import Parallel, delayed
-
-    all_results = []
-    total_files = len(files)
-    num_chunks = (total_files + chunk_size - 1) // chunk_size
-    for i in range(num_chunks):
-        start_index = i * chunk_size
-        end_index = min((i + 1) * chunk_size, total_files)
-        file_chunk = files[start_index:end_index]
-        total = len(file_chunk)
-        delayed_tasks = []
-        for file in file_chunk:
-
-            def wrapped_processing_function(f, **kw):
-                return processing_function(f, **kw)
-
-            delayed_tasks.append(delayed(wrapped_processing_function)(file, **kwargs))
-            chunk_results = Parallel(n_jobs=n_jobs)(delayed_tasks)
-        all_results.extend(chunk_results)
-    return all_results
+def mpf_imap(func: Callable[[Any], Any], items: Iterable[Any]):
+    with get_context("spawn").Pool(MAX_WORKERS) as p:
+        chunksize = max(1, len(list(items)) // (MAX_WORKERS * 4)) if items else 1
+        return list(p.imap_unordered(func, items, chunksize=chunksize))
 
 
-def mpf6(
-    func: Callable[[Any], Any], items: Iterable[Any], max_in_flight: int = 4, num_processes: int = 4
-) -> list[Union[Any, Exception]]:
-    with get_context(CONTEXT_METHOD).Pool(processes=num_processes) as p:
-        results_list: list[Union[Any, Exception]] = [None] * len(list(items))
-        indexed_items = list(enumerate(items))
-        pending_results = deque()
-        task_iterator = iter(indexed_items)
-        try:
-            while True:
-                while len(pending_results) < max_in_flight:
-                    try:
-                        original_index, item = next(task_iterator)
-                        async_result = p.apply_async(func, (item,))
-                        pending_results.append((original_index, async_result))
-                    except StopIteration:
-                        break
-                    except Exception as e:
-                        results_list[original_index] = e
-                if (
-                    not pending_results
-                    and len(results_list) == len(indexed_items)
-                    and all((r is not None for r in results_list))
-                ):
-                    break
-                if len(pending_results) == 0 and len(results_list) == len(indexed_items):
-                    break
-                process_a_result = len(pending_results) >= max_in_flight or (
-                    len(pending_results) > 0 and next(task_iterator, None) is None
-                )
-                if process_a_result and len(pending_results) > 0 and (next(task_iterator, None) is None):
-                    task_iterator = iter(indexed_items)
-                if process_a_result and pending_results:
-                    try:
-                        original_index, async_result = pending_results.popleft()
-                        result = async_result.get()
-                        results_list[original_index] = result
-                    except Exception as e:
-                        results_list[original_index] = e
-                    if not pending_results and len(results_list) == len(indexed_items):
-                        break
-                elif not pending_results and len(results_list) == len(indexed_items):
-                    break
-                elif not pending_results and len(results_list) != len(indexed_items):
-                    pass
-        except Exception as e:
-            msg = "error"
-            raise Exception(msg)
-    return results_list
+def mpf_imap2(func: Callable[[Any], Any], items: Iterable[Any]):
+    with get_context("spawn").Pool(MAX_WORKERS) as p:
+        results = []
+        for result in p.imap_unordered(func, items):
+            results.append(result)
+        return results
+
+
+def mpf_imap3(func: Callable[[Any], Any], items: Iterable[Any]):
+    with get_context("spawn").Pool(MAX_WORKERS) as p:
+        yield from p.imap_unordered(func, items)
+
+
+mpf = mpf_joblib
+mpf3 = mpf_joblib

@@ -1,4 +1,13 @@
-from typing import Any, Iterable
+from __future__ import annotations
+
+import os
+import sys
+from functools import cache
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from typing import Any
 
 ATTRIBUTES: dict[str, int] = {
     "bold": 1,
@@ -31,66 +40,61 @@ HIGHLIGHTS: dict[str, int] = {
 }
 COLORS: dict[str, int] = {
     "black": 30,
-    "grey": 90,
-    "red": 91,
-    "green": 92,
-    "yellow": 93,
-    "blue": 94,
-    "magenta": 95,
-    "cyan": 96,
-    "light_grey": 97,
+    "grey": 30,
+    "red": 31,
+    "green": 32,
+    "yellow": 33,
+    "blue": 34,
+    "magenta": 35,
+    "cyan": 36,
+    "light_grey": 37,
     "dark_grey": 90,
-    "light_red": 31,
-    "light_green": 32,
-    "light_yellow": 33,
-    "light_blue": 34,
-    "light_magenta": 35,
-    "light_cyan": 36,
-    "white": 37,
+    "light_red": 91,
+    "light_green": 92,
+    "light_yellow": 93,
+    "light_blue": 94,
+    "light_magenta": 95,
+    "light_cyan": 96,
+    "white": 97,
 }
 RESET = "\x1b[0m"
-from functools import cache
 
 
 @cache
-def can_colorize(*, no_color: bool | None = None, force_color: bool | None = None) -> bool:
-    from os import environ as os_environ
-    from os import isatty as os_isatty
-    from sys import stdout as sys_stdout
-
+def can_colorize(*, no_color: (bool | None) = None, force_color: (bool | None) = None) -> bool:
     if no_color is not None and no_color:
         return False
     if force_color is not None and force_color:
         return True
-    if os_environ.get("ANSI_COLORS_DISABLED"):
+    if os.environ.get("ANSI_COLORS_DISABLED"):
         return False
-    if os_environ.get("NO_COLOR"):
+    if os.environ.get("NO_COLOR"):
         return False
-    if os_environ.get("FORCE_COLOR"):
+    if os.environ.get("FORCE_COLOR"):
         return True
-    if os_environ.get("TERM") == "dumb":
+    if os.environ.get("TERM") == "dumb":
         return False
-    if not hasattr(sys_stdout, "fileno"):
+    if not hasattr(sys.stdout, "fileno"):
         return False
     try:
-        return os_isatty(sys_stdout.fileno())
+        return os.isatty(sys.stdout.fileno())
     except OSError:
-        return sys_stdout.isatty()
+        return sys.stdout.isatty()
 
 
 def colored(
     text: object,
-    color: str | tuple[int, int, int] | None = None,
-    on_color: str | tuple[int, int, int] | None = None,
-    attrs: Iterable[str] | None = None,
+    color: (str | tuple[int, int, int] | None) = None,
+    on_color: (str | tuple[int, int, int] | None) = None,
+    attrs: (Iterable[str] | None) = None,
     *,
-    no_color: bool | None = None,
-    force_color: bool | None = None,
+    no_color: (bool | None) = None,
+    force_color: (bool | None) = None,
 ) -> str:
     result = str(text)
     if not can_colorize(no_color=no_color, force_color=force_color):
         return result
-    fmt_str = "\x1b[5;%dm%s"
+    fmt_str = "\x1b[%dm%s"
     rgb_fore_fmt_str = "\x1b[38;2;%d;%d;%dm%s"
     rgb_back_fmt_str = "\x1b[48;2;%d;%d;%dm%s"
     if color is not None:
@@ -112,12 +116,15 @@ def colored(
 
 def cprint(
     text: object,
-    color: str | tuple[int, int, int] | None = "cyan",
-    on_color: str | tuple[int, int, int] | None = None,
-    attrs: Iterable[str] | None = None,
+    color: (str | tuple[int, int, int] | None) = None,
+    on_color: (str | tuple[int, int, int] | None) = None,
+    attrs: (Iterable[str] | None) = None,
     *,
-    no_color: bool | None = None,
-    force_color: bool | None = None,
+    no_color: (bool | None) = None,
+    force_color: (bool | None) = None,
     **kwargs: Any,
 ) -> None:
     print(colored(text, color, on_color, attrs, no_color=no_color, force_color=force_color), **kwargs)
+
+
+__all__ = ["ATTRIBUTES", "COLORS", "HIGHLIGHTS", "RESET", "can_colorize", "colored", "cprint"]

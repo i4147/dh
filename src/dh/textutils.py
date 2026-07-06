@@ -1,15 +1,24 @@
 from __future__ import annotations
-import string
+
 from collections import Counter
 from functools import lru_cache
+from io import StringIO
 from math import sqrt as math_sqrt
+from pathlib import Path
 from re import IGNORECASE as re_IGNORECASE
 from re import UNICODE as re_UNICODE
 from re import compile as re_compile
-from typing import Sequence, Union
-from dh import is_binary
-from pathlib import Path
+from string import ascii_lowercase, ascii_uppercase, digits
+from typing import TYPE_CHECKING, Union
 
+from .const import DOC_TH1, DOC_TH2
+from .fileutils import is_binary
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+
+DOC_TH = DOC_TH1, DOC_TH2
 _WORD_RE = re_compile(r"\b[\w']+\b", re_UNICODE)
 _SENTENCE_RE = re_compile(r"(?<=[.!?])\s+")
 _MULTISPACE_RE = re_compile(r"\s+")
@@ -155,8 +164,7 @@ def clean_text(text: str, keep_emoji: bool = True) -> str:
     if not keep_emoji:
         text = _EMOJI_RE.sub(SPACE, text)
     text = text.lower()
-    text = _MULTISPACE_RE.sub(SPACE, text).strip()
-    return text
+    return _MULTISPACE_RE.sub(SPACE, text).strip()
 
 
 def remove_stop_words(tokens: Sequence[str], stop_words: set[str] = STOP_WORDS) -> list[str]:
@@ -164,9 +172,6 @@ def remove_stop_words(tokens: Sequence[str], stop_words: set[str] = STOP_WORDS) 
 
 
 def get_sentences(text: str) -> list[str]:
-    """
-    Simple sentence splitter.
-    """
     if not text:
         return []
     text = text.strip()
@@ -175,17 +180,10 @@ def get_sentences(text: str) -> list[str]:
 
 
 def tokenize(text: str) -> list[str]:
-    """
-    Alias for get_words(text).
-    """
     return get_words(text)
 
 
 def sentiment_score(text: str) -> float:
-    """
-    Returns a score in [-1, 1] approximately:
-    positive > 0, negative < 0.
-    """
     if not text:
         return 0.0
     tokens = get_words(text)
@@ -216,7 +214,7 @@ def sentiment_label(text: str, positive_threshold: float = 0.15, negative_thresh
 def jaccard_similarity(a: Union[str, Sequence[str]], b: Union[str, Sequence[str]]) -> float:
     ta = set(get_words(a) if isinstance(a, str) else a)
     tb = set(get_words(b) if isinstance(b, str) else b)
-    if not ta and (not tb):
+    if not ta and not tb:
         return 1.0
     if not ta or not tb:
         return 0.0
@@ -231,9 +229,9 @@ def cosine_similarity(a: Union[str, Sequence[str]], b: Union[str, Sequence[str]]
     if not ca or not cb:
         return 0.0
     common = set(ca) & set(cb)
-    dot = sum((ca[t] * cb[t] for t in common))
-    norm_a = math_sqrt(sum((v * v for v in ca.values())))
-    norm_b = math_sqrt(sum((v * v for v in cb.values())))
+    dot = sum(ca[t] * cb[t] for t in common)
+    norm_a = math_sqrt(sum(v * v for v in ca.values()))
+    norm_b = math_sqrt(sum(v * v for v in cb.values()))
     if norm_a == 0 or norm_b == 0:
         return 0.0
     return dot / (norm_a * norm_b)
@@ -241,9 +239,6 @@ def cosine_similarity(a: Union[str, Sequence[str]], b: Union[str, Sequence[str]]
 
 @lru_cache(maxsize=4096)
 def levenshtein_distance(a: str, b: str) -> int:
-    """
-    Memory-efficient Levenshtein distance.
-    """
     if a == b:
         return 0
     if not a:
@@ -251,7 +246,7 @@ def levenshtein_distance(a: str, b: str) -> int:
     if not b:
         return len(a)
     if len(a) < len(b):
-        a, b = (b, a)
+        a, b = b, a
     previous = list(range(len(b) + 1))
     for i, ca in enumerate(a, 1):
         current = [i]
@@ -265,7 +260,7 @@ def levenshtein_distance(a: str, b: str) -> int:
 
 
 def levenshtein_similarity(a: str, b: str) -> float:
-    if not a and (not b):
+    if not a and not b:
         return 1.0
     dist = levenshtein_distance(a, b)
     return 1.0 - dist / max(len(a), len(b), 1)
@@ -276,7 +271,7 @@ def jaro_winkler_similarity(s1: str, s2: str, prefix_scale: float = 0.1) -> floa
         return 1.0
     if not s1 or not s2:
         return 0.0
-    len1, len2 = (len(s1), len(s2))
+    len1, len2 = len(s1), len(s2)
     match_distance = max(len1, len2) // 2 - 1
     s1_matches = [False] * len1
     s2_matches = [False] * len2
@@ -309,7 +304,7 @@ def jaro_winkler_similarity(s1: str, s2: str, prefix_scale: float = 0.1) -> floa
     m = matches
     jaro = (m / len1 + m / len2 + (m - transpositions) / m) / 3.0
     prefix = 0
-    for c1, c2 in zip(s1, s2):
+    for c1, c2 in zip(s1, s2, strict=False):
         if c1 == c2:
             prefix += 1
         else:
@@ -320,18 +315,15 @@ def jaro_winkler_similarity(s1: str, s2: str, prefix_scale: float = 0.1) -> floa
 
 
 def partial_ratio(a: str, b: str) -> float:
-    """
-    Fuzzy similarity between 0 and 1 based on best matching substring.
-    """
-    if not a and (not b):
+    if not a and not b:
         return 1.0
     if not a or not b:
         return 0.0
     if len(a) > len(b):
-        a, b = (b, a)
+        a, b = b, a
     best = 0.0
     la = len(a)
-    for i in range(0, len(b) - la + 1):
+    for i in range(len(b) - la + 1):
         sub = b[i : i + la]
         sim = levenshtein_similarity(a, sub)
         if sim > best:
@@ -341,74 +333,59 @@ def partial_ratio(a: str, b: str) -> float:
     return best * 100
 
 
-LOWER = set(string.ascii_lowercase)
-UPPER = set(string.ascii_uppercase)
-DIGIT = set(string.digits)
+LOWER = set(ascii_lowercase)
+UPPER = set(ascii_uppercase)
+DIGIT = set(digits)
 ALPHA = set(list(LOWER) + list(UPPER))
-SPACE = set([" "])
+SPACE = {" "}
 
 
-def is_digit(txt, ps: bool = False):
-    if ps:
-        dps = set(list(DIGIT) + list(SPACE))
-    else:
-        dps = DIGIT
+def is_digit(txt, ps: bool = False) -> bool:
+    dps = set(list(DIGIT) + list(SPACE)) if ps else DIGIT
     for k in range(len(txt) - 1):
-        if not txt[k] in dps:
+        if txt[k] not in dps:
             return False
     del dps
     return True
 
 
-def is_alphanum(txt, ps: bool = False):
-    if ps:
-        dps = set(list(ALPHA) + list(DIGIT) + list(SPACE))
-    else:
-        dps = set(list(ALPHA) + list(DIGIT))
+def is_alphanum(txt, ps: bool = False) -> bool:
+    dps = set(list(ALPHA) + list(DIGIT) + list(SPACE)) if ps else set(list(ALPHA) + list(DIGIT))
     for k in range(len(txt) - 1):
-        if not txt[k] in dps:
+        if txt[k] not in dps:
             return False
     del dps
     return True
 
 
-def is_alpha(txt, ps: bool = False):
-    if ps:
-        dps = set(list(ALPHA) + list(SPACE))
-    else:
-        dps = ALPHA
+def is_alpha(txt, ps: bool = False) -> bool:
+    dps = set(list(ALPHA) + list(SPACE)) if ps else ALPHA
     for k in range(len(txt) - 1):
-        if not txt[k] in dps:
+        if txt[k] not in dps:
             return False
     del dps
     return True
 
 
-def is_lower(txt, ps: bool = False):
-    if ps:
-        dps = set(list(LOWER) + list(SPACE))
-    else:
-        dps = LOWER
+def is_lower(txt, ps: bool = False) -> bool:
+    dps = set(list(LOWER) + list(SPACE)) if ps else LOWER
     for k in range(len(txt) - 1):
-        if not txt[k] in dps:
+        if txt[k] not in dps:
             return False
     del dps
     return True
 
 
-def is_upper(txt, ps: bool = False):
-    if ps:
-        dps = set(list(UPPER) + list(SPACE))
-    else:
-        dps = UPPER
+def is_upper(txt, ps: bool = False) -> bool:
+    dps = set(list(UPPER) + list(SPACE)) if ps else UPPER
     for k in range(len(txt) - 1):
-        if not txt[k] in dps:
+        if txt[k] not in dps:
             return False
     del dps
     return True
 
 
-def is_none_english(path: str | Path) -> bool:
+def is_none_english(path: (str | Path)) -> bool:
     from string import printable
 
     path = Path(path)
@@ -419,12 +396,12 @@ def is_none_english(path: str | Path) -> bool:
             return False
         content = path.read_text(encoding="utf-8")
         english_chars = set(printable + "!@#$%^&*()-'::;,?+×÷=/_€£¥₩")
-        return any((char not in english_chars and (not char.isspace()) for char in content))
+        return any(char not in english_chars and not char.isspace() for char in content)
     except Exception:
         return False
 
 
-def count_words(path: str | Path) -> dict:
+def count_words(path: (str | Path)) -> dict:
     from collections import Counter
     from string import punctuation
 
@@ -457,25 +434,53 @@ def get_words(text: str) -> list[str]:
     for m in re_finditer(r"\b[\w']+\b|[\U000024C2-\U0001FAFF\u2702-\u27B0]+", text, re_UNICODE):
         tokens.append(m.group(0))
         i += 1
-    return tokens if tokens else words
+    return tokens or words
 
 
-def have_doc(code: str | bytes) -> bool:
-    if isinstance(code, bytes):
-        try:
-            code = code.decode("utf8")
-        except:
-            return False
-    from ast import parse as ast_parse
-    from ast import get_docstring as ast_get_docstring
+def html_escape(text: str) -> str:
+    from html import escape
+
+    return escape(text, quote=True)
+
+
+def has_doc(code: str) -> bool:
+    try:
+        tokens = tokenize.generate_tokens(StringIO(code).readline)
+        for tok_type, _, _, _, _ in tokens:
+            if tok_type == tokenize.COMMENT:
+                return True
+    except:
+        pass
+    import ast
 
     try:
-        tree = ast_parse(code)
-        doc = ast_get_docstring(tree)
-        del tree
-        has_doc = doc is not None
-        del doc
-        has_comment = "#" in code
-        return has_doc or has_comment
-    except:
-        return False
+        tree = ast.parse(code)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                if ast.get_docstring(node) is not None:
+                    return True
+    except SyntaxError:
+        pass
+    return False
+
+
+def remove_blank_lines(text: str | Path) -> str:
+    content = text
+    if isinstance(text, Path):
+        content = text.read_text(encoding="utf-8")
+
+    if not isinstance(text, (str, Path)):
+        return str(text)
+
+    if isinstance(text, str) and Path(text).exists():
+        content = Path(text).read_text(encoding="utf-8")
+    lines = content.splitlines(keepends=True)
+    result_lines = []
+    prev_blank = False
+    for line in lines:
+        is_blank = line.strip() == ""
+        if is_blank and prev_blank:
+            continue
+        result_lines.append(line)
+        prev_blank = is_blank
+    return "".join(result_lines)

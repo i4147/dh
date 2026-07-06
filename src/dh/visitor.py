@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Any, Union
 
 NodeType = Union[list, str, int, bool, dict]
@@ -32,7 +33,7 @@ class JsonEncoder(Visitor):
     def visit_list(self, node: list) -> str:
         self.indent_level += 1
         indent_after_bracket = self._get_indent()
-        items_str = f",\n{indent_after_bracket}".join((self.visit(item) for item in node))
+        items_str = f",\n{indent_after_bracket}".join(self.visit(item) for item in node)
         self.indent_level -= 1
         indent_before_bracket = self._get_indent()
         return f"[\n{indent_after_bracket}{items_str}\n{indent_before_bracket}]"
@@ -50,7 +51,7 @@ class JsonEncoder(Visitor):
         self.indent_level += 1
         indent_after_brace = self._get_indent()
         items_str = f",\n{indent_after_brace}".join(
-            (f"{self._escape_str(key)}: {self.visit(value)}" for key, value in sorted(node.items()))
+            f"{self._escape_str(key)}: {self.visit(value)}" for key, value in sorted(node.items())
         )
         self.indent_level -= 1
         indent_before_brace = self._get_indent()

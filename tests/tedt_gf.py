@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 import pytest
@@ -28,7 +27,7 @@ def get_files(directory: Path, extensions: list[str] | None = None) -> list[Path
 
 
 @pytest.fixture
-def setup_test_directory(tmp_path: Path):
+def setup_test_directory(tmp_path: Path) -> dict[str, Path | list[Path]]:
     base_dir = tmp_path / "test_root"
     base_dir.mkdir()
     (base_dir / "file1.txt").write_text("content1")
@@ -63,48 +62,38 @@ def setup_test_directory(tmp_path: Path):
         pytest.skip(f"Could not create symlinks: {e}. Skipping symlink tests.")
     empty_subdir = base_dir / "empty_subdir"
     empty_subdir.mkdir()
-    expected_files_default = sorted(
-        [
-            base_dir / "file1.txt",
-            base_dir / "file2.log",
-            base_dir / "document",
-            base_dir / "config_file",
-            base_dir / "script.py",
-            base_dir / "data.json",
-            subdir1 / "subfile1.txt",
-            subdir1 / "archive.zip",
-            subdir1 / "readme",
-            subdir2 / "main.py",
-            subdir2 / "notes",
-            subdir2 / "temp.log",
-        ]
-    )
-    expected_files_no_ext = sorted(
-        [
-            base_dir / "document",
-            base_dir / "config_file",
-            subdir1 / "readme",
-            subdir2 / "notes",
-        ]
-    )
-    expected_files_txt = sorted(
-        [
-            base_dir / "file1.txt",
-            subdir1 / "subfile1.txt",
-        ]
-    )
-    expected_files_py = sorted(
-        [
-            base_dir / "script.py",
-            subdir2 / "main.py",
-        ]
-    )
-    expected_files_log = sorted(
-        [
-            base_dir / "file2.log",
-            subdir2 / "temp.log",
-        ]
-    )
+    expected_files_default = sorted([
+        base_dir / "file1.txt",
+        base_dir / "file2.log",
+        base_dir / "document",
+        base_dir / "config_file",
+        base_dir / "script.py",
+        base_dir / "data.json",
+        subdir1 / "subfile1.txt",
+        subdir1 / "archive.zip",
+        subdir1 / "readme",
+        subdir2 / "main.py",
+        subdir2 / "notes",
+        subdir2 / "temp.log",
+    ])
+    expected_files_no_ext = sorted([
+        base_dir / "document",
+        base_dir / "config_file",
+        subdir1 / "readme",
+        subdir2 / "notes",
+    ])
+    expected_files_txt = sorted([
+        base_dir / "file1.txt",
+        subdir1 / "subfile1.txt",
+    ])
+    expected_files_py = sorted([
+        base_dir / "script.py",
+        subdir2 / "main.py",
+    ])
+    expected_files_log = sorted([
+        base_dir / "file2.log",
+        subdir2 / "temp.log",
+    ])
     return {
         "base_dir": base_dir,
         "expected_files_default": expected_files_default,
@@ -115,7 +104,7 @@ def setup_test_directory(tmp_path: Path):
     }
 
 
-def test_get_files_default(setup_test_directory):
+def test_get_files_default(setup_test_directory) -> None:
     data = setup_test_directory
     base_dir = data["base_dir"]
     expected = data["expected_files_default"]
@@ -124,7 +113,7 @@ def test_get_files_default(setup_test_directory):
     assert all(f.is_file() and not f.is_symlink() for f in result)
 
 
-def test_get_files_no_extensions_explicit(setup_test_directory):
+def test_get_files_no_extensions_explicit(setup_test_directory) -> None:
     data = setup_test_directory
     base_dir = data["base_dir"]
     expected = data["expected_files_default"]
@@ -133,7 +122,7 @@ def test_get_files_no_extensions_explicit(setup_test_directory):
     assert all(f.is_file() and not f.is_symlink() for f in result)
 
 
-def test_get_files_none_extensions(setup_test_directory):
+def test_get_files_none_extensions(setup_test_directory) -> None:
     data = setup_test_directory
     base_dir = data["base_dir"]
     expected = data["expected_files_default"]
@@ -142,7 +131,7 @@ def test_get_files_none_extensions(setup_test_directory):
     assert all(f.is_file() and not f.is_symlink() for f in result)
 
 
-def test_get_files_no_extension_files_only(setup_test_directory):
+def test_get_files_no_extension_files_only(setup_test_directory) -> None:
     data = setup_test_directory
     base_dir = data["base_dir"]
     expected = data["expected_files_no_ext"]
@@ -151,7 +140,7 @@ def test_get_files_no_extension_files_only(setup_test_directory):
     assert all(f.is_file() and not f.is_symlink() and f.suffix == "" for f in result)
 
 
-def test_get_files_specific_extensions(setup_test_directory):
+def test_get_files_specific_extensions(setup_test_directory) -> None:
     data = setup_test_directory
     base_dir = data["base_dir"]
     expected = sorted(data["expected_files_txt"] + data["expected_files_py"])
@@ -161,7 +150,7 @@ def test_get_files_specific_extensions(setup_test_directory):
     assert all(f.suffix in [".txt", ".py"] for f in result)
 
 
-def test_get_files_specific_extensions_no_dot(setup_test_directory):
+def test_get_files_specific_extensions_no_dot(setup_test_directory) -> None:
     data = setup_test_directory
     base_dir = data["base_dir"]
     expected = data["expected_files_log"]
@@ -171,7 +160,7 @@ def test_get_files_specific_extensions_no_dot(setup_test_directory):
     assert all(f.suffix == ".log" for f in result)
 
 
-def test_get_files_mixed_extensions_and_no_ext(setup_test_directory):
+def test_get_files_mixed_extensions_and_no_ext(setup_test_directory) -> None:
     data = setup_test_directory
     base_dir = data["base_dir"]
     expected = sorted(data["expected_files_log"] + data["expected_files_no_ext"])
@@ -181,7 +170,7 @@ def test_get_files_mixed_extensions_and_no_ext(setup_test_directory):
     assert all(f.suffix in [".log", ""] for f in result)
 
 
-def test_get_files_non_existent_directory(tmp_path: Path):
+def test_get_files_non_existent_directory(tmp_path: Path) -> None:
     non_existent_dir = tmp_path / "i_do_not_exist"
     assert not non_existent_dir.exists()
     result = get_files(non_existent_dir)
@@ -190,7 +179,7 @@ def test_get_files_non_existent_directory(tmp_path: Path):
     assert result_with_ext == []
 
 
-def test_get_files_empty_directory(setup_test_directory):
+def test_get_files_empty_directory(setup_test_directory) -> None:
     data = setup_test_directory
     empty_subdir = data["base_dir"] / "empty_subdir"
     assert not any(empty_subdir.iterdir())
@@ -202,7 +191,7 @@ def test_get_files_empty_directory(setup_test_directory):
     assert result_no_ext == []
 
 
-def test_get_files_symlinks_only_ignored(setup_test_directory):
+def test_get_files_symlinks_only_ignored(setup_test_directory) -> None:
     data = setup_test_directory
     base_dir = data["base_dir"]
     symlink_to_txt = base_dir / "symlinked_file.log"
@@ -224,7 +213,7 @@ def test_get_files_symlinks_only_ignored(setup_test_directory):
     assert sorted(result_default) == sorted(expected_regular_files)
 
 
-def test_get_files_recursive_search(setup_test_directory):
+def test_get_files_recursive_search(setup_test_directory) -> None:
     data = setup_test_directory
     base_dir = data["base_dir"]
     subdir1_files = [base_dir / "subdir1" / f for f in ["subfile1.txt", "archive.zip", "readme"]]
@@ -241,7 +230,7 @@ def test_get_files_recursive_search(setup_test_directory):
     assert base_dir / "document" in result_no_ext
 
 
-def test_get_files_with_pathlib_path_object(setup_test_directory):
+def test_get_files_with_pathlib_path_object(setup_test_directory) -> None:
     data = setup_test_directory
     base_dir_path = Path(data["base_dir"])
     expected = data["expected_files_default"]
@@ -249,7 +238,7 @@ def test_get_files_with_pathlib_path_object(setup_test_directory):
     assert sorted(result) == sorted(expected)
 
 
-def test_get_files_with_dot_in_filename_no_extension(setup_test_directory):
+def test_get_files_with_dot_in_filename_no_extension(setup_test_directory) -> None:
     data = setup_test_directory
     base_dir = data["base_dir"]
     (base_dir / ".profile").write_text("profile content")

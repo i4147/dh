@@ -1,6 +1,7 @@
 from pathlib import Path
-from .fileutils import runcmd
+
 from .const import CHUNK_SIZE
+from .fileutils import runcmd
 
 
 def get_openssl_hash(path, alg):
@@ -12,7 +13,7 @@ def get_openssl_hash(path, alg):
     _, output, _ = runcmd(cmd)
     if output is None:
         return ""
-    matchz = re_match(r"^(\S+) ", output)
+    matchz = re_match("^(\\S+) ", output)
     if matchz:
         return matchz.group(1)
     return ""
@@ -30,11 +31,13 @@ def get_sha256(path: str | Path) -> str:
     from hashlib import sha256
 
     path = Path(path)
+    if not path.exists() or not (size := path.stat().st_size):
+        return ""
     h = sha256()
     try:
         with path.open("rb") as f:
-            for chunk in iter(lambda: f.read(CHUNK_SIZE), b""):
+            while chunk := f.read(CHUNK_SIZE):
                 h.update(chunk)
         return h.hexdigest()
-    except:
+    except (OSError, IOError):
         return ""

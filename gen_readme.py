@@ -1,4 +1,3 @@
-# README.md is generated from docs/index.md using sphinx_markdown_builder
 import subprocess
 import tempfile
 from pathlib import Path
@@ -6,7 +5,6 @@ from pathlib import Path
 readme_markdown = ""
 with tempfile.TemporaryDirectory() as tmpdir:
     tmp_path = Path(tmpdir)
-    # Run: sphinx-build -M markdown ./docs ./tmpdir
     subprocess.run(
         [
             "sphinx-build",

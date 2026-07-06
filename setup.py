@@ -1,3 +1,1 @@
-from setuptools import setup
-
-setup()
+/data/data/com.termux/files/home/repos/pyenchant/setup.py
