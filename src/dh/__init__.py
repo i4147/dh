@@ -129,7 +129,7 @@ from .textutils import (
     sentiment_score,
     tokenize,
 )
-from .urlutils import is_valid_url
+from .urlutils import is_valid_url,URL_RE
 from .visitor import JsonEncoder, Visitor
 
 # fileutils
@@ -290,7 +290,7 @@ __all__ += [
 ]
 
 # urlutils
-__all__ += ["is_valid_url"]
+__all__ += ["is_valid_url","URL_RE"]
 
 # jsonutils
 __all__ += ["JsonEncoder", "Visitor"]

@@ -4116,14 +4116,14 @@ ANSI_RESET: str = "\x1b[0m"
 ANSI_BOLD: str = "\x1b[1m"
 
 
-CHUNK_SIZE: Final = 16_384
+CHUNK_SIZE: Final = 32_768 #16_384
 ZERO_DOT_THREE: Final = 0.3
 SKIP_DIRS = frozenset({"lazy", ".git", "__pycache__", ".mypy_cache", ".ruff_cache", ".pytest_cache"})
 THRESHOLD: Final = 2_097_152
 SDCARD: str = "/sdcard"
 EMULATED: str = "/storage/emulated/0"
 CONTEXT_METHOD: str = "spawn"
-MAX_WORKERS: Final = 6
+MAX_WORKERS: Final = 4
 DOCTH: tuple[str] = ('"""', "'''")
 DOC_TH1: str = '"""'
 DOC_TH2: str = "'''"
