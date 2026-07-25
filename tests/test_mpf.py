@@ -1,8 +1,17 @@
-#!/data/data/com.termux/files/usr/bin/env python
 from pathlib import Path
 from time import perf_counter as pff
 
-from dh import get_files, get_sha256, mpf_map, mpf_async, mpf_imap, mpf_imap2, mpf_starmap, mpf_starmap2, mpf_joblib
+from dh import (
+    get_files,
+    get_sha256,
+    mpf_map,
+    mpf_async,
+    mpf_imap,
+    mpf_imap2,
+    mpf_starmap,
+    mpf_starmap2,
+    mpf_joblib,
+)
 from loguru import logger
 
 MAX_WORKERS = 4
@@ -24,7 +33,15 @@ def process_file(fp) -> None:
 def main() -> None:
     cwd = Path.home() / "tmp" / "0"
     files = get_files(cwd)
-    funcs = [mpf_map, mpf_async, mpf_imap, mpf_imap2, mpf_joblib, mpf_starmap, mpf_starmap2]
+    funcs = [
+        mpf_map,
+        mpf_async,
+        mpf_imap,
+        mpf_imap2,
+        mpf_joblib,
+        mpf_starmap,
+        mpf_starmap2,
+    ]
     results = {}
     for i in range(1, 4):
         for func in funcs:

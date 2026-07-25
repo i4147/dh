@@ -96,9 +96,7 @@ from .jobutils import (
     mpf_imap,
     mpf_imap2,
     mpf_imap3,
-    mpf_joblib,
     mpf_map,
-    mpf_starmap,
     mpf_starmap2,
     mpf_starmap3,
 )
@@ -129,7 +127,7 @@ from .textutils import (
     sentiment_score,
     tokenize,
 )
-from .urlutils import is_valid_url,URL_RE
+from .urlutils import is_valid_url, URL_RE
 from .visitor import JsonEncoder, Visitor
 
 # fileutils
@@ -247,9 +245,7 @@ __all__ += [
     "mpf_imap",
     "mpf_imap2",
     "mpf_imap3",
-    "mpf_joblib",
     "mpf_map",
-    "mpf_starmap",
     "mpf_starmap2",
     "mpf_starmap3",
 ]
@@ -290,7 +286,7 @@ __all__ += [
 ]
 
 # urlutils
-__all__ += ["is_valid_url","URL_RE"]
+__all__ += ["is_valid_url", "URL_RE"]
 
 # jsonutils
 __all__ += ["JsonEncoder", "Visitor"]

@@ -1,4 +1,3 @@
-#!/data/data/com.termux/files/usr/bin/python
 import sys
 from pathlib import Path
 from time import perf_counter as pff

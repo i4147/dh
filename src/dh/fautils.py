@@ -2,7 +2,20 @@ def get_persian_date(dformat=None) -> str | None:
     from datetime import datetime as datetime_datetime
 
     weeks = ["یکشنبه", "دوشنبه", "سه شنبه", "چهارشنبه", "پنج شنبه", "جمعه", "شنبه"]
-    months = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
+    months = [
+        "فروردین",
+        "اردیبهشت",
+        "خرداد",
+        "تیر",
+        "مرداد",
+        "شهریور",
+        "مهر",
+        "آبان",
+        "آذر",
+        "دی",
+        "بهمن",
+        "اسفند",
+    ]
     today = datetime_datetime.now()
     d = today.weekday()
     day = today.day
@@ -93,7 +106,15 @@ def get_persian_date(dformat=None) -> str | None:
 def georgian_to_hijri(year: int, month: int, day: int) -> str:
     from datetime import date as datetime_date
 
-    weekdays: list[str] = ["دو شنبه", "سه شنبه", "چهار شنبه", "پنج شنبه", "جمعه", "شنبه", "یکشنبه"]
+    weekdays: list[str] = [
+        "دو شنبه",
+        "سه شنبه",
+        "چهار شنبه",
+        "پنج شنبه",
+        "جمعه",
+        "شنبه",
+        "یکشنبه",
+    ]
     months: list[str] = [
         "فروردین",
         "اردیبهشت",

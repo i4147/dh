@@ -128,18 +128,30 @@ class Expander:
                     print(f"Warning: Broken symlink: {path}", file=sys.stderr)
         return sorted(expanded_paths)
 
-    def get_files_only(self, inputs: list[str], extensions: list[str] | None = None) -> list[Path]:
+    def get_files_only(
+        self, inputs: list[str], extensions: list[str] | None = None
+    ) -> list[Path]:
         all_paths = self.process_inputs(inputs)
         if extensions:
-            extensions = [(ext.lower() if not ext.startswith(".") else ext.lower()) for ext in extensions]
-            return [p for p in all_paths if p.suffix.lower() in extensions or (p.suffix == "" and "" in extensions)]
+            extensions = [
+                (ext.lower() if not ext.startswith(".") else ext.lower())
+                for ext in extensions
+            ]
+            return [
+                p
+                for p in all_paths
+                if p.suffix.lower() in extensions
+                or (p.suffix == "" and "" in extensions)
+            ]
         return all_paths
 
     def get_directories_only(self, inputs: list[str]) -> list[Path]:
         all_paths = self.process_inputs(inputs)
         return [p for p in all_paths if p.is_dir()]
 
-    def get_files_by_pattern(self, inputs: list[str], name_pattern: str | None = None) -> list[Path]:
+    def get_files_by_pattern(
+        self, inputs: list[str], name_pattern: str | None = None
+    ) -> list[Path]:
         all_paths = self.process_inputs(inputs)
         if name_pattern:
             return [p for p in all_paths if p.match(name_pattern)]

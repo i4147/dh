@@ -1,7 +1,16 @@
 from os import scandir as os_scandir
 from pathlib import Path
+from typing import Optional
 
-from .const import CHUNK_SIZE, EMULATED, IMG_EXT, SDCARD, SKIP_DIRS, THRESHOLD, ZERO_DOT_THREE
+from .const import (
+    CHUNK_SIZE,
+    EMULATED,
+    IMG_EXT,
+    SDCARD,
+    SKIP_DIRS,
+    THRESHOLD,
+    ZERO_DOT_THREE,
+)
 
 
 def read_lines(path: (str | Path), ke: bool = True) -> list[str]:
@@ -20,10 +29,17 @@ def read_lines_mmap(path: Path, keep_ends: bool = True) -> list[str]:
     import mmap
 
     size = Path(path).stat().st_size
-    with Path(path).open("rb") as f, mmap.mmap(f.fileno(), size, access=mmap.ACCESS_READ) as mm:
+    with (
+        Path(path).open("rb") as f,
+        mmap.mmap(f.fileno(), size, access=mmap.ACCESS_READ) as mm,
+    ):
         text = mm[:].decode("utf-8", errors="replace")
     lines = text.splitlines(keepends=keep_ends)
-    if not lines[-1].endswith(("\n", "\r\n", "\r")) and size > 0 and text.endswith("\n"):
+    if (
+        not lines[-1].endswith(("\n", "\r\n", "\r"))
+        and size > 0
+        and text.endswith("\n")
+    ):
         lines.append("")
     return lines
 
@@ -33,7 +49,16 @@ def gext(path: (str | Path)) -> str:
     suffs = path.suffixes
     if not suffs:
         return ""
-    multipart_prefixes = {".tar", ".min", ".bundle", ".log", ".spec", ".test", ".d", ".module"}
+    multipart_prefixes = {
+        ".tar",
+        ".min",
+        ".bundle",
+        ".log",
+        ".spec",
+        ".test",
+        ".d",
+        ".module",
+    }
     if len(suffs) > 1:
         if suffs[0] in multipart_prefixes:
             return "".join(suffs)
@@ -392,7 +417,10 @@ def format_time(t: float) -> str:
 
 
 def runcmd(
-    cmd: list[str], run_silently: bool = False, show_output: bool = True, timeout: (float | None) = None
+    cmd: list[str],
+    run_silently: bool = False,
+    show_output: bool = True,
+    timeout: (float | None) = None,
 ) -> tuple[int, str, str]:
     from subprocess import DEVNULL as _DEVNULL
     from subprocess import TimeoutExpired as subprocess_TimeoutExpired
@@ -405,7 +433,9 @@ def runcmd(
         raise ValueError(msg)
     try:
         if run_silently:
-            result = subprocess_run(cmd, stdout=_DEVNULL, stderr=_DEVNULL, timeout=timeout)
+            result = subprocess_run(
+                cmd, stdout=_DEVNULL, stderr=_DEVNULL, timeout=timeout
+            )
             return result.returncode, "", ""
         result = subprocess_run(cmd, capture_output=True, text=True, timeout=timeout)
         stdout, stderr = result.stdout, result.stderr
@@ -473,7 +503,9 @@ def append_text(path: (str | Path), content: str, encoding: str = "utf-8") -> bo
 
 
 def get_removed_lines(txt1, txt2):
-    return list({l for l in txt1.splitlines() if l} - {l for l in txt2.splitlines() if l})
+    return list(
+        {l for l in txt1.splitlines() if l} - {l for l in txt2.splitlines() if l}
+    )
 
 
 def restore_bak(path: (str | Path)) -> bool:
@@ -530,7 +562,9 @@ def gsz(path: str | Path) -> int:
 get_size = gsz
 
 
-def get_files(path: str | Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
+def get_files(
+    path: str | Path, include_hidden: bool = True, ext: list[str] | None = None
+) -> list[Path]:
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Path does not exist: {path}")
@@ -591,9 +625,46 @@ def get_pyfiles(path: str | Path) -> list[Path]:
                         p = Path(entry.path)
                         if p.suffix == ".py":
                             pyfiles.append(p)
-                        elif not p.suffix and not p.name.startswith(".") and is_python_file(p):
+                        elif (
+                            not p.suffix
+                            and not p.name.startswith(".")
+                            and is_python_file(p)
+                        ):
                             pyfiles.append(p)
         except (PermissionError, OSError):
             continue
 
     return sorted(pyfiles)
+
+
+def get_files2(path: str | Path, ext: Optional[list[str]] = None) -> list[Path]:
+    path = Path(path)
+    if not path.is_dir():
+        raise ValueError(f"Path must be a directory: {path}")
+
+    if ext is not None:
+        ext = {e.lower() if e.startswith(".") else f".{e.lower()}" for e in ext}
+
+    skip_dirs = {".git", "__pycache__"}
+
+    all_files = []
+    stack = [path]
+
+    while stack:
+        current = stack.pop()
+
+        try:
+            for entry in current.iterdir():
+                if entry.is_symlink():
+                    continue
+
+                if entry.is_dir():
+                    if entry.name not in skip_dirs:
+                        stack.append(entry)
+                elif entry.is_file():
+                    if ext is None or entry.suffix.lower() in ext:
+                        all_files.append(entry)
+        except PermissionError:
+            continue
+
+    return all_files

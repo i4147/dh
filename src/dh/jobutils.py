@@ -10,11 +10,13 @@ T = TypeVar("T")
 R = TypeVar("R")
 
 
-def mpf_joblib(process_function: Callable, files: list[Path], **kwargs):
+def mpf3(process_function: Callable, files: list[Path], **kwargs):
     from joblib import Parallel, delayed
 
     file_strings = [str(f) for f in files]
-    return Parallel(n_jobs=-1)(delayed(process_function)(file_str, **kwargs) for file_str in file_strings)
+    return Parallel(n_jobs=-1)(
+        delayed(process_function)(file_str, **kwargs) for file_str in file_strings
+    )
 
 
 def mpf_map(func: Callable, items: Iterable[Any]) -> list:
@@ -35,7 +37,7 @@ def mpf_async(func: Callable[[Any], Any], items: Iterable[Any]):
         return results
 
 
-def mpf_starmap[T, R](func: Callable[[T], R], items: Iterable[T]) -> list[R]:
+def mpf[T, R](func: Callable[[T], R], items: Iterable[T]) -> list[R]:
     items_list = list(items)
     args = [(item,) for item in items_list]
     with get_context("spawn").Pool(16) as pool:
@@ -70,7 +72,3 @@ def mpf_imap2(func: Callable[[Any], Any], items: Iterable[Any]):
 def mpf_imap3(func: Callable[[Any], Any], items: Iterable[Any]):
     with get_context("spawn").Pool(MAX_WORKERS) as p:
         yield from p.imap_unordered(func, items)
-
-
-mpf = mpf_joblib
-mpf3 = mpf_joblib

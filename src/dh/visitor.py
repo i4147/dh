@@ -51,7 +51,8 @@ class JsonEncoder(Visitor):
         self.indent_level += 1
         indent_after_brace = self._get_indent()
         items_str = f",\n{indent_after_brace}".join(
-            f"{self._escape_str(key)}: {self.visit(value)}" for key, value in sorted(node.items())
+            f"{self._escape_str(key)}: {self.visit(value)}"
+            for key, value in sorted(node.items())
         )
         self.indent_level -= 1
         indent_before_brace = self._get_indent()

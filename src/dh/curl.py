@@ -73,7 +73,11 @@ class GetURLpyCurl(GetURL):
         return self._fetch(url, method="GET", headers=headers, data=None, **kwargs)
 
     def post(
-        self, url: str, data: (bytes | str | None) = None, headers: (dict[str, str] | None) = None, **kwargs
+        self,
+        url: str,
+        data: (bytes | str | None) = None,
+        headers: (dict[str, str] | None) = None,
+        **kwargs,
     ) -> bytes:
         return self._fetch(url, method="POST", headers=headers, data=data, **kwargs)
 
@@ -90,7 +94,12 @@ class GetURLpyCurl(GetURL):
         return self._fetch_subprocess(url, method, headers, data)
 
     def _fetch_pycurl(
-        self, url: str, method: str, headers: (dict[str, str] | None), data: (bytes | str | None), **kwargs
+        self,
+        url: str,
+        method: str,
+        headers: (dict[str, str] | None),
+        data: (bytes | str | None),
+        **kwargs,
     ) -> bytes:
         body_buffer = BytesIO()
         self.header_buffer = CurlHeader()
@@ -123,7 +132,11 @@ class GetURLpyCurl(GetURL):
         return body_buffer.getvalue()
 
     def _fetch_subprocess(
-        self, url: str, method: str, headers: (dict[str, str] | None), data: (bytes | str | None)
+        self,
+        url: str,
+        method: str,
+        headers: (dict[str, str] | None),
+        data: (bytes | str | None),
     ) -> bytes:
         cmd = ["curl", "-sS", "-L", "--fail", "-i"]
         if self.insecure:
@@ -133,7 +146,9 @@ class GetURLpyCurl(GetURL):
         if method == "POST":
             cmd.extend(["-X", "POST"])
             if data is not None:
-                cmd.extend(["--data", data if isinstance(data, str) else data.decode("utf-8")])
+                cmd.extend(
+                    ["--data", data if isinstance(data, str) else data.decode("utf-8")]
+                )
         if headers:
             for k, v in headers.items():
                 cmd.extend(["-H", f"{k}: {v}"])
@@ -150,7 +165,10 @@ class GetURLpyCurl(GetURL):
             msg = "Could not separate headers from body"
             raise ValueError(msg)
         header_part = raw[:header_end]
-        body = raw[header_end + len(b"\r\n\r\n" if b"\r\n\r\n" in raw[: header_end + 4] else b"\n\n") :]
+        body = raw[
+            header_end
+            + len(b"\r\n\r\n" if b"\r\n\r\n" in raw[: header_end + 4] else b"\n\n") :
+        ]
         self.header_buffer = CurlHeader()
         for line in header_part.splitlines():
             self.header_buffer.write(line + b"\r\n")

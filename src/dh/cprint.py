@@ -61,7 +61,9 @@ RESET = "\x1b[0m"
 
 
 @cache
-def can_colorize(*, no_color: (bool | None) = None, force_color: (bool | None) = None) -> bool:
+def can_colorize(
+    *, no_color: (bool | None) = None, force_color: (bool | None) = None
+) -> bool:
     if no_color is not None and no_color:
         return False
     if force_color is not None and force_color:
@@ -124,7 +126,20 @@ def cprint(
     force_color: (bool | None) = None,
     **kwargs: Any,
 ) -> None:
-    print(colored(text, color, on_color, attrs, no_color=no_color, force_color=force_color), **kwargs)
+    print(
+        colored(
+            text, color, on_color, attrs, no_color=no_color, force_color=force_color
+        ),
+        **kwargs,
+    )
 
 
-__all__ = ["ATTRIBUTES", "COLORS", "HIGHLIGHTS", "RESET", "can_colorize", "colored", "cprint"]
+__all__ = [
+    "ATTRIBUTES",
+    "COLORS",
+    "HIGHLIGHTS",
+    "RESET",
+    "can_colorize",
+    "colored",
+    "cprint",
+]

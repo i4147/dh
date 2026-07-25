@@ -320,7 +320,10 @@ def compress(data: bytes) -> bytes:
             offset = pos - candidate
             match_len = 4
             max_match = min(data_len - pos, 64)
-            while match_len < max_match and data[candidate + match_len] == data[pos + match_len]:
+            while (
+                match_len < max_match
+                and data[candidate + match_len] == data[pos + match_len]
+            ):
                 match_len += 1
             _emit_copy(output, offset, match_len)
             pos += match_len
@@ -429,7 +432,12 @@ def decompress(data: bytes) -> bytes:
             if pos + 4 > len(data):
                 msg = "error length"
                 raise CompressionError(msg, algorithm="snappy")
-            offset = data[pos] | data[pos + 1] << 8 | data[pos + 2] << 16 | data[pos + 3] << 24
+            offset = (
+                data[pos]
+                | data[pos + 1] << 8
+                | data[pos + 2] << 16
+                | data[pos + 3] << 24
+            )
             pos += 4
             if offset == 0:
                 msg = "error length"
@@ -449,7 +457,9 @@ def decompress(data: bytes) -> bytes:
     return bytes(output)
 
 
-def xtar(path: str, xpath: str | None = None, preserve_permissions: bool = True) -> bool:
+def xtar(
+    path: str, xpath: str | None = None, preserve_permissions: bool = True
+) -> bool:
     path = Path(path)
     try:
         if xpath is None:
@@ -462,7 +472,9 @@ def xtar(path: str, xpath: str | None = None, preserve_permissions: bool = True)
                 dctx = zstd.ZstdDecompressor()
                 with dctx.stream_reader(compressed_file) as reader:
                     with tarfile.open(fileobj=reader, mode="r|") as tar:
-                        tar.extractall(path=xpath, set_attrs=preserve_permissions, filter="data")
+                        tar.extractall(
+                            path=xpath, set_attrs=preserve_permissions, filter="data"
+                        )
         else:
             mode = None
             if path.endswith((".tar.gz", ".tgz")):
@@ -492,12 +504,16 @@ def xtar(path: str, xpath: str | None = None, preserve_permissions: bool = True)
         return False
 
 
-def _zstd_stream_reader(fileobj: BufferedReader, threads: int = 0) -> ZstdDecompressionReader:
+def _zstd_stream_reader(
+    fileobj: BufferedReader, threads: int = 0
+) -> ZstdDecompressionReader:
     """Return a streaming decompressor for zstd, with optional threads."""
     import zstandard as zstd
 
     dctx = zstd.ZstdDecompressor()
-    return dctx.stream_reader(fileobj, read_size=1024 * 1024, read_across_frames=True, threads=threads)
+    return dctx.stream_reader(
+        fileobj, read_size=1024 * 1024, read_across_frames=True, threads=threads
+    )
 
 
 def _lz4_stream_reader(fileobj: BufferedReader) -> LZ4FrameDecompressor:
@@ -522,7 +538,11 @@ _TAR_SUFFIXES = [
 
 def _is_tar_archive(suffixes: tuple[str, ...]) -> bool:
     """True if suffixes match any of the known tarball extension patterns."""
-    return any(suffixes[-len(pat) :] == pat for pat in _TAR_SUFFIXES if len(pat) <= len(suffixes))
+    return any(
+        suffixes[-len(pat) :] == pat
+        for pat in _TAR_SUFFIXES
+        if len(pat) <= len(suffixes)
+    )
 
 
 def _strip_tar_suffix(name: str, suffixes: tuple[str, ...]) -> str:
@@ -571,7 +591,13 @@ def extract_archive(archive_path: str, extract_dir: str | None = None) -> dict:
     """
     archive = Path(archive_path).resolve()
     if not archive.is_file():
-        return {"status": "failed", "path": str(archive), "decomp_path": None, "orig_size": 0, "decomp_size": 0}
+        return {
+            "status": "failed",
+            "path": str(archive),
+            "decomp_path": None,
+            "orig_size": 0,
+            "decomp_size": 0,
+        }
 
     dest_dir = Path(extract_dir).resolve() if extract_dir else Path.cwd()
     orig_size = archive.stat().st_size
@@ -589,7 +615,13 @@ def extract_archive(archive_path: str, extract_dir: str | None = None) -> dict:
         target_type = "dir"
     else:
         logger.warning("Unsupported extension: %s", suffixes)
-        return {"status": "failed", "path": str(archive), "decomp_path": None, "orig_size": orig_size, "decomp_size": 0}
+        return {
+            "status": "failed",
+            "path": str(archive),
+            "decomp_path": None,
+            "orig_size": orig_size,
+            "decomp_size": 0,
+        }
 
     final_target = dest_dir / base_name
     if not is_tar and final_target.exists():
@@ -660,7 +692,13 @@ def extract_archive(archive_path: str, extract_dir: str | None = None) -> dict:
     except Exception:
         logger.exception("Extraction failed for %s", archive)
         shutil.rmtree(tmp_dir, ignore_errors=True)
-        return {"status": "failed", "path": str(archive), "decomp_path": None, "orig_size": orig_size, "decomp_size": 0}
+        return {
+            "status": "failed",
+            "path": str(archive),
+            "decomp_path": None,
+            "orig_size": orig_size,
+            "decomp_size": 0,
+        }
 
 
 def _extract_tar(archive_path: Path, suffixes: tuple[str, ...], dest_dir: Path) -> int:
@@ -687,7 +725,9 @@ def _extract_tar(archive_path: Path, suffixes: tuple[str, ...], dest_dir: Path) 
         archive_path = tmp_tar
 
     if suffixes[-1] in (".gz", ".bz2", ".xz", ""):
-        mode = {"": "r", ".gz": "r:gz", ".bz2": "r:bz2", ".xz": "r:xz"}.get(suffixes[-1], "r")
+        mode = {"": "r", ".gz": "r:gz", ".bz2": "r:bz2", ".xz": "r:xz"}.get(
+            suffixes[-1], "r"
+        )
         with tarfile.open(archive_path, mode) as tf:
             tf.extractall(path=dest_dir)
             total_size = sum(m.size for m in tf.getmembers() if m.isreg())
@@ -799,7 +839,10 @@ def _extract_deb(deb_path: Path, dest_dir: Path) -> int:
         else:
             msg = f"Unknown data archive: {name}"
             raise RuntimeError(msg)
-        with opener(data) as tarstream, tarfile.open(fileobj=tarstream, mode="r|") as tf:
+        with (
+            opener(data) as tarstream,
+            tarfile.open(fileobj=tarstream, mode="r|") as tf,
+        ):
             tf.extractall(path=dest_dir)
             total = sum(m.size for m in tf.getmembers() if m.isreg())
     return total
@@ -815,7 +858,9 @@ def _extract_deb_subprocess(deb_path: Path, dest_dir: Path) -> int:
         if not tar_files:
             msg = "data.tar.* not found in .deb"
             raise RuntimeError(msg)
-        subprocess.run(["tar", "-xf", str(tar_files[0]), "-C", str(dest_dir)], check=True)
+        subprocess.run(
+            ["tar", "-xf", str(tar_files[0]), "-C", str(dest_dir)], check=True
+        )
         total = 0
         for root, dirs, files in os.walk(dest_dir):
             for f in files:

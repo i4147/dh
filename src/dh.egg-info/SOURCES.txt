@@ -3,7 +3,6 @@ README.md
 gen_readme.py
 pyproject.toml
 setup.cfg
-setup.py
 src/dh/__init__.py
 src/dh/archiveutils.py
 src/dh/const.py
