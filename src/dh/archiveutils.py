@@ -11,7 +11,7 @@ import zipfile
 from io import BufferedReader
 from pathlib import Path
 
-import brotlicffi as brotli
+import brotli
 import py7zr
 from lz4.frame import LZ4FrameDecompressor
 from zstandard import ZstdDecompressionReader
@@ -23,8 +23,275 @@ _MAX_OFFSET_1 = 2047
 _MAX_OFFSET_2 = 65535
 
 
+def is_valid_archive(path: (str | Path)) -> bool:
+    path = Path(path)
+    try:
+        if not path.is_file():
+            return False
+        if not path.stat().st_size:
+            return False
+
+        lower = path.name.lower()
+
+        # Standard archives
+        if lower.endswith((".zip", ".whl")):
+            return _check_zip(path)
+        if lower.endswith(".tar"):
+            return _check_tar(path, mode="r:")
+        if lower.endswith((".tar.gz", ".tgz")):
+            return _check_tar(path, mode="r:gz")
+        if lower.endswith((".tar.xz", ".txz")):
+            return _check_tar(path, mode="r:xz")
+        if lower.endswith((".tar.bz2", ".tbz2", ".tbz")):
+            return _check_tar(path, mode="r:bz2")
+
+        # Compressed tar files (streaming validation)
+        if lower.endswith(".tar.br"):
+            return _check_tar_with_brotli(path)
+        if lower.endswith(".tar.zst"):
+            return _check_tar_with_zstd(path)
+        if lower.endswith(".tar.lz4"):
+            return _check_tar_with_lz4(path)
+        if lower.endswith(".tar.lzma"):
+            return _check_tar_with_lzma(path)
+
+        # Single compressed files
+        if lower.endswith(".br"):
+            return _check_brotli_file(path)
+        if lower.endswith(".zst"):
+            return _check_zstd_file(path)
+        if lower.endswith(".lz4"):
+            return _check_lz4_file(path)
+        if lower.endswith(".lzma"):
+            return _check_lzma_file(path)
+        if lower.endswith(".gz"):
+            return _check_gzip_file(path)
+        if lower.endswith(".bz2"):
+            return _check_bz2_file(path)
+        if lower.endswith(".xz"):
+            return _check_xz_file(path)
+
+        # 7z archives
+        if lower.endswith(".7z"):
+            return _check_7z_file(path)
+
+        return False
+    except Exception as e:
+        logger.debug("Archive validation failed for %s: %s", path, e)
+        return False
+
+
+def is_wheel_ok(path: Path) -> bool:
+    """Check if a wheel/zip file is valid."""
+    try:
+        with zipfile.ZipFile(path, "r") as wheel:
+            corrupt_file = wheel.testzip()
+            return not corrupt_file
+    except (zipfile.BadZipFile, FileNotFoundError):
+        return False
+    except Exception as e:
+        logger.debug("Wheel validation failed for %s: %s", path, e)
+        return False
+
+
+def _check_zip(path: Path) -> bool:
+    """Validate a zip file (including wheels)."""
+    return is_wheel_ok(path)
+
+
+def _check_tar(path: Path, mode: str) -> bool:
+    """Validate a tar file with given compression mode."""
+    try:
+        with tarfile.open(path, mode) as tf:
+            # Check for corruption
+            if tf.badfile() is not None:
+                return False
+            # Try to read members (validates the tar structure)
+            tf.getmembers()
+            return True
+    except (tarfile.TarError, EOFError, IOError) as e:
+        logger.debug("Tar validation failed for %s: %s", path, e)
+        return False
+
+
+def _check_gzip_file(path: Path) -> bool:
+    """Validate a gzip file by decompressing it."""
+    try:
+        with gzip.open(path, "rb") as f:
+            # Read in chunks to avoid memory issues with large files
+            while f.read(65536):
+                pass
+        return True
+    except (gzip.BadGzipFile, EOFError, IOError) as e:
+        logger.debug("Gzip validation failed for %s: %s", path, e)
+        return False
+
+
+def _check_bz2_file(path: Path) -> bool:
+    """Validate a bzip2 file by decompressing it."""
+    try:
+        with bz2.open(path, "rb") as f:
+            while f.read(65536):
+                pass
+        return True
+    except (EOFError, IOError) as e:
+        logger.debug("Bzip2 validation failed for %s: %s", path, e)
+        return False
+
+
+def _check_xz_file(path: Path) -> bool:
+    """Validate an xz file by decompressing it."""
+    try:
+        with lzma.open(path, "rb") as f:
+            while f.read(65536):
+                pass
+        return True
+    except (lzma.LZMAError, EOFError, IOError) as e:
+        logger.debug("XZ validation failed for %s: %s", path, e)
+        return False
+
+
+def _check_brotli_file(path: Path) -> bool:
+    """Validate a brotli file using streaming decompression."""
+    try:
+        with open(path, "rb") as f:
+            decompressor = brotli.Decompressor()
+            while True:
+                chunk = f.read(65536)
+                if not chunk:
+                    # Finalize decompression
+                    decompressor.flush()
+                    break
+                decompressor.process(chunk)
+        return True
+    except Exception as e:
+        logger.debug("Brotli validation failed for %s: %s", path, e)
+        return False
+
+
+def _check_zstd_file(path: Path) -> bool:
+    """Validate a zstd file using streaming decompression."""
+    try:
+        import zstandard as zstd
+
+        dctx = zstd.ZstdDecompressor()
+        with open(path, "rb") as f:
+            reader = dctx.stream_reader(f)
+            while reader.read(65536):
+                pass
+        return True
+    except Exception as e:
+        logger.debug("Zstd validation failed for %s: %s", path, e)
+        return False
+
+
+def _check_lz4_file(path: Path) -> bool:
+    """Validate an LZ4 file using streaming decompression."""
+    try:
+        with open(path, "rb") as f:
+            decompressor = LZ4FrameDecompressor(f)
+            while decompressor.read(65536):
+                pass
+        return True
+    except Exception as e:
+        logger.debug("LZ4 validation failed for %s: %s", path, e)
+        return False
+
+
+def _check_lzma_file(path: Path) -> bool:
+    """Validate an LZMA file using streaming decompression."""
+    try:
+        with lzma.open(path, "rb") as f:
+            while f.read(65536):
+                pass
+        return True
+    except (lzma.LZMAError, EOFError, IOError) as e:
+        logger.debug("LZMA validation failed for %s: %s", path, e)
+        return False
+
+
+def _check_7z_file(path: Path) -> bool:
+    """Validate a 7z file."""
+    try:
+        with py7zr.SevenZipFile(path, "r") as szf:
+            # Test integrity by reading the archive
+            szf.test()
+            return True
+    except Exception as e:
+        logger.debug("7z validation failed for %s: %s", path, e)
+        return False
+
+
+def _check_tar_with_brotli(path: Path) -> bool:
+    """Validate a brotli-compressed tar file using streaming."""
+    try:
+        with open(path, "rb") as f:
+            decompressor = brotli.Decompressor()
+            # Use a temporary file to avoid loading everything into memory
+            with tempfile.TemporaryFile() as tmp:
+                while True:
+                    chunk = f.read(65536)
+                    if not chunk:
+                        tmp.write(decompressor.flush())
+                        break
+                    tmp.write(decompressor.process(chunk))
+                tmp.seek(0)
+                with tarfile.open(fileobj=tmp, mode="r|") as tf:
+                    # Just iterate through members to validate
+                    for _ in tf:
+                        pass
+        return True
+    except Exception as e:
+        logger.debug("Tar.brotli validation failed for %s: %s", path, e)
+        return False
+
+
+def _check_tar_with_zstd(path: Path) -> bool:
+    """Validate a zstd-compressed tar file using streaming (no extraction to disk)."""
+    try:
+        import zstandard as zstd
+
+        dctx = zstd.ZstdDecompressor()
+        with open(path, "rb") as f:
+            reader = dctx.stream_reader(f)
+            with tarfile.open(fileobj=reader, mode="r|") as tf:
+                # Just iterate through members to validate
+                for _ in tf:
+                    pass
+        return True
+    except Exception as e:
+        logger.debug("Tar.zstd validation failed for %s: %s", path, e)
+        return False
+
+
+def _check_tar_with_lz4(path: Path) -> bool:
+    """Validate an LZ4-compressed tar file using streaming."""
+    try:
+        with open(path, "rb") as f:
+            decompressor = LZ4FrameDecompressor(f)
+            with tarfile.open(fileobj=decompressor, mode="r|") as tf:
+                for _ in tf:
+                    pass
+        return True
+    except Exception as e:
+        logger.debug("Tar.lz4 validation failed for %s: %s", path, e)
+        return False
+
+
+def _check_tar_with_lzma(path: Path) -> bool:
+    """Validate an LZMA-compressed tar file using streaming."""
+    try:
+        with lzma.open(path, "rb") as f:
+            with tarfile.open(fileobj=f, mode="r|") as tf:
+                for _ in tf:
+                    pass
+        return True
+    except Exception as e:
+        logger.debug("Tar.lzma validation failed for %s: %s", path, e)
+        return False
+
+
 def _brotli_stream_reader(fileobj: BufferedReader):
-    """Brotli streaming decompressor using the official bindings."""
 
     class BrotliReader:
         def __init__(self, fh) -> None:
@@ -48,175 +315,6 @@ def _brotli_stream_reader(fileobj: BufferedReader):
             return data
 
     return BrotliReader(fileobj)
-
-
-def is_wheel_ok(path: Path) -> bool:
-    try:
-        with zipfile.ZipFile(path, "r") as wheel:
-            corrupt_file = wheel.testzip()
-            return not corrupt_file
-    except zipfile.BadZipFile:
-        return False
-    except FileNotFoundError:
-        return False
-    except Exception as e:
-        return False
-
-
-def is_valid_archive(path: (str | Path)) -> bool:
-    path = Path(path)
-    try:
-        if not path.is_file():
-            return False
-        if not path.stat().st_size:
-            return False
-        lower = path.name.lower()
-        if lower.endswith((".zip", ".whl")):
-            return is_wheel_ok(path)
-        if lower.endswith(".tar"):
-            return _check_tar(path, mode="r:")
-        if lower.endswith((".tar.gz", ".tgz")):
-            return _check_tar(path, mode="r:gz")
-        if lower.endswith((".tar.xz", ".txz")):
-            return _check_tar(path, mode="r:xz")
-        if lower.endswith((".tar.bz2", ".tbz2", ".tbz")):
-            return _check_tar(path, mode="r:bz2")
-        if lower.endswith(".tar.br"):
-            return _check_tar_with_brotli(path)
-        if lower.endswith(".tar.zst"):
-            return _check_tar_with_zstd(path)
-        if lower.endswith(".tar.lz4"):
-            return _check_tar_with_lz4(path)
-        if lower.endswith(".tar.lzma"):
-            return _check_tar_with_lzma(path)
-        if lower.endswith(".br"):
-            return _check_brotli_file(path)
-        if lower.endswith(".zst"):
-            return _check_zstd_file(path)
-        if lower.endswith(".lz4"):
-            return _check_lz4_file(path)
-        if lower.endswith(".lzma"):
-            return _check_lzma_file(path)
-        return False
-    except Exception:
-        return False
-
-
-def _check_tar(path: (str | Path), mode: str) -> bool:
-    path = Path(path)
-    with tarfile.open(path, mode) as tf:
-        bad = tf.badfile()
-        if bad is not None:
-            return False
-        tf.getmembers()
-        return True
-
-
-def _check_brotli_file(path: (str | Path)) -> bool:
-    from brotlicffi import decompress as brotli_decompress
-
-    path = Path(path)
-    try:
-        data = Path(path).read_bytes()
-        _ = brotli_decompress(data)
-        return True
-    except:
-        return False
-
-
-def _check_zstd_file(path: (str | Path)) -> bool:
-    from zstandard import ZstdDecompressor as zstd_ZstdDecompressor
-
-    path = Path(path)
-    try:
-        dctx = zstd_ZstdDecompressor()
-        with open(path, "rb") as f:
-            _ = dctx.decompress(f.read())
-        return True
-    except:
-        return False
-
-
-def _check_lz4_file(path: (str | Path)) -> bool:
-    from lz4.frame import decompress as lz4_decompress
-
-    path = Path(path)
-    try:
-        with open(path, "rb") as f:
-            _ = lz4_decompress(f.read())
-        return True
-    except:
-        return False
-
-
-def _check_lzma_file(path: (str | Path)) -> bool:
-    from lzma import decompress as lzma_decompress
-
-    path = Path(path)
-    try:
-        with open(path, "rb") as f:
-            _ = lzma_decompress(f.read())
-        return True
-    except:
-        return False
-
-
-def _check_tar_with_brotli(path: (str | Path)) -> bool:
-    from brotlicffi import decompress as brotli_decompress
-
-    path = Path(path)
-    try:
-        with open(path, "rb") as f:
-            raw = brotli_decompress(f.read())
-        return _check_tar_bytes(raw)
-    except:
-        return False
-
-
-def _check_tar_with_zstd(path: (str | Path)) -> bool:
-    path = Path(path).resolve()
-    xpath = path.with_name(path.name.replace(".tar.zst", ""))
-    try:
-        with tarfile.open(path, "r:zst") as f:
-            f.extractall(path=xpath, filter="data")
-        return True
-    except:
-        return False
-
-
-def _check_tar_with_lz4(path: (str | Path)) -> bool:
-    from lz4.frame import decompress as lz4_decompress
-
-    path = Path(path)
-    try:
-        with open(path, "rb") as f:
-            raw = lz4_decompress(f.read())
-        return _check_tar_bytes(raw)
-    except:
-        return False
-
-
-def _check_tar_with_lzma(path: (str | Path)) -> bool:
-    from lzma import decompress as lzma_decompress
-
-    path = Path(path)
-    try:
-        with open(path, "rb") as f:
-            raw = lzma_decompress(f.read())
-        return _check_tar_bytes(raw)
-    except:
-        return False
-
-
-def _check_tar_bytes(raw: bytes) -> bool:
-    from io import BytesIO as io_BytesIO
-
-    try:
-        with tarfile.open(fileobj=io_BytesIO(raw), mode="r:") as tf:
-            tf.getmembers()
-        return True
-    except:
-        return False
 
 
 class SnappyError(Exception):
@@ -320,10 +418,7 @@ def compress(data: bytes) -> bytes:
             offset = pos - candidate
             match_len = 4
             max_match = min(data_len - pos, 64)
-            while (
-                match_len < max_match
-                and data[candidate + match_len] == data[pos + match_len]
-            ):
+            while match_len < max_match and data[candidate + match_len] == data[pos + match_len]:
                 match_len += 1
             _emit_copy(output, offset, match_len)
             pos += match_len
@@ -432,12 +527,7 @@ def decompress(data: bytes) -> bytes:
             if pos + 4 > len(data):
                 msg = "error length"
                 raise CompressionError(msg, algorithm="snappy")
-            offset = (
-                data[pos]
-                | data[pos + 1] << 8
-                | data[pos + 2] << 16
-                | data[pos + 3] << 24
-            )
+            offset = data[pos] | data[pos + 1] << 8 | data[pos + 2] << 16 | data[pos + 3] << 24
             pos += 4
             if offset == 0:
                 msg = "error length"
@@ -457,9 +547,7 @@ def decompress(data: bytes) -> bytes:
     return bytes(output)
 
 
-def xtar(
-    path: str, xpath: str | None = None, preserve_permissions: bool = True
-) -> bool:
+def xtar(path: str, xpath: str | None = None, preserve_permissions: bool = True) -> bool:
     path = Path(path)
     try:
         if xpath is None:
@@ -472,9 +560,7 @@ def xtar(
                 dctx = zstd.ZstdDecompressor()
                 with dctx.stream_reader(compressed_file) as reader:
                     with tarfile.open(fileobj=reader, mode="r|") as tar:
-                        tar.extractall(
-                            path=xpath, set_attrs=preserve_permissions, filter="data"
-                        )
+                        tar.extractall(path=xpath, set_attrs=preserve_permissions, filter="data")
         else:
             mode = None
             if path.endswith((".tar.gz", ".tgz")):
@@ -504,16 +590,11 @@ def xtar(
         return False
 
 
-def _zstd_stream_reader(
-    fileobj: BufferedReader, threads: int = 0
-) -> ZstdDecompressionReader:
-    """Return a streaming decompressor for zstd, with optional threads."""
+def _zstd_stream_reader(fileobj: BufferedReader, threads: int = 0) -> ZstdDecompressionReader:
     import zstandard as zstd
 
     dctx = zstd.ZstdDecompressor()
-    return dctx.stream_reader(
-        fileobj, read_size=1024 * 1024, read_across_frames=True, threads=threads
-    )
+    return dctx.stream_reader(fileobj, read_size=1024 * 1024, read_across_frames=True, threads=threads)
 
 
 def _lz4_stream_reader(fileobj: BufferedReader) -> LZ4FrameDecompressor:
@@ -538,11 +619,7 @@ _TAR_SUFFIXES = [
 
 def _is_tar_archive(suffixes: tuple[str, ...]) -> bool:
     """True if suffixes match any of the known tarball extension patterns."""
-    return any(
-        suffixes[-len(pat) :] == pat
-        for pat in _TAR_SUFFIXES
-        if len(pat) <= len(suffixes)
-    )
+    return any(suffixes[-len(pat) :] == pat for pat in _TAR_SUFFIXES if len(pat) <= len(suffixes))
 
 
 def _strip_tar_suffix(name: str, suffixes: tuple[str, ...]) -> str:
@@ -725,9 +802,7 @@ def _extract_tar(archive_path: Path, suffixes: tuple[str, ...], dest_dir: Path) 
         archive_path = tmp_tar
 
     if suffixes[-1] in (".gz", ".bz2", ".xz", ""):
-        mode = {"": "r", ".gz": "r:gz", ".bz2": "r:bz2", ".xz": "r:xz"}.get(
-            suffixes[-1], "r"
-        )
+        mode = {"": "r", ".gz": "r:gz", ".bz2": "r:bz2", ".xz": "r:xz"}.get(suffixes[-1], "r")
         with tarfile.open(archive_path, mode) as tf:
             tf.extractall(path=dest_dir)
             total_size = sum(m.size for m in tf.getmembers() if m.isreg())
@@ -858,9 +933,7 @@ def _extract_deb_subprocess(deb_path: Path, dest_dir: Path) -> int:
         if not tar_files:
             msg = "data.tar.* not found in .deb"
             raise RuntimeError(msg)
-        subprocess.run(
-            ["tar", "-xf", str(tar_files[0]), "-C", str(dest_dir)], check=True
-        )
+        subprocess.run(["tar", "-xf", str(tar_files[0]), "-C", str(dest_dir)], check=True)
         total = 0
         for root, dirs, files in os.walk(dest_dir):
             for f in files:

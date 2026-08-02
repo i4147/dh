@@ -8,15 +8,10 @@ from sys import stdout as sys_stdout
 
 
 def check_if_numbers_are_consecutive(list_) -> bool:
-    return all(
-        second - first == 1
-        for first, second in zip(list_[:-1], list_[1:], strict=False)
-    )
+    return all(second - first == 1 for first, second in zip(list_[:-1], list_[1:], strict=False))
 
 
-def _construct_key(
-    previous_key, separator: str, new_key: int, replace_separators=None
-) -> int | str:
+def _construct_key(previous_key, separator: str, new_key: int, replace_separators=None) -> int | str:
     if replace_separators is not None:
         new_key = str(new_key).replace(separator, replace_separators)
     if previous_key:
@@ -24,9 +19,7 @@ def _construct_key(
     return new_key
 
 
-def flatten(
-    nested_dict, separator="_", root_keys_to_ignore=None, replace_separators=None
-):
+def flatten(nested_dict, separator="_", root_keys_to_ignore=None, replace_separators=None):
     if not isinstance(nested_dict, dict):
         msg = "type error"
         raise Exception(msg)
@@ -58,9 +51,7 @@ def flatten(
             for index, item in enumerate(object_):
                 _flatten(
                     item,
-                    _construct_key(
-                        key, separator, index, replace_separators=replace_separators
-                    ),
+                    _construct_key(key, separator, index, replace_separators=replace_separators),
                 )
         else:
             flattened_dict[key] = object_
@@ -108,16 +99,12 @@ def flatten_preserve_lists(
                         )
         elif isinstance(object_, (list, set, tuple)):
             for index, item in enumerate(object_):
-                key = _construct_key(
-                    key, separator, index, replace_separators=replace_separators
-                )
+                key = _construct_key(key, separator, index, replace_separators=replace_separators)
                 _flatten(item, key)
         else:
             flattened_dict[key] = object_
 
-    def _flatten_low_entropy(
-        object_, key: int | str | None, cur_depth, max_depth_inner
-    ) -> None:
+    def _flatten_low_entropy(object_, key: int | str | None, cur_depth, max_depth_inner) -> None:
         cur_depth += 1
         debug = 0
         if cur_depth > max_depth_inner or not object_:
@@ -126,10 +113,7 @@ def flatten_preserve_lists(
                 d[key] = object_
         elif isinstance(object_, dict):
             first_key = next(iter(object_.keys()))
-            if len(object_) == 1 and not (
-                isinstance(object_[first_key], dict)
-                or isinstance(object_[first_key], list)
-            ):
+            if len(object_) == 1 and not (isinstance(object_[first_key], dict) or isinstance(object_[first_key], list)):
                 global_max_record = int(max(list(list_prebuilt_flattened_dict.keys())))
                 for d in list_prebuilt_flattened_dict[str(global_max_record)]:
                     d[key] = object_[first_key]
@@ -154,12 +138,8 @@ def flatten_preserve_lists(
         elif isinstance(object_, (list, set)):
             if debug:
                 print("\nparent key of list:", key, "| length: ", str(len(object_)))
-            global_max_record_start = int(
-                max(list(list_prebuilt_flattened_dict.keys()))
-            )
-            entry = copy_deepcopy(
-                list_prebuilt_flattened_dict[str(global_max_record_start)]
-            )
+            global_max_record_start = int(max(list(list_prebuilt_flattened_dict.keys())))
+            entry = copy_deepcopy(list_prebuilt_flattened_dict[str(global_max_record_start)])
             for index, item in enumerate(object_):
                 if debug:
                     print("  list key:", key, " index: " + str(index), "vals: ", item)
@@ -170,17 +150,11 @@ def flatten_preserve_lists(
                         sub = first_value
                 if not isnan(sub) and index < max_list_index:
                     if index > 0:
-                        global_max_record = int(
-                            max(list(list_prebuilt_flattened_dict.keys()))
-                        )
-                        list_prebuilt_flattened_dict[str(global_max_record + 1)] = (
-                            copy_deepcopy(entry)
-                        )
+                        global_max_record = int(max(list(list_prebuilt_flattened_dict.keys())))
+                        list_prebuilt_flattened_dict[str(global_max_record + 1)] = copy_deepcopy(entry)
                     _flatten_low_entropy(item, key, cur_depth, max_depth_inner)
             list_prebuilt_flattened_dict["0"] = [
-                subel
-                for k, v in sorted(list_prebuilt_flattened_dict.items())
-                for idx, subel in enumerate(v)
+                subel for k, v in sorted(list_prebuilt_flattened_dict.items()) for idx, subel in enumerate(v)
             ]
             for key in sorted(list_prebuilt_flattened_dict.keys()):
                 if key != "0":
@@ -195,9 +169,7 @@ def flatten_preserve_lists(
 
     _flatten(nested_dict, None)
     reskeys = list(flattened_dict.keys())
-    unique_integers = list(
-        {(separator + char) for key in reskeys for char in key if char.isdigit()}
-    )
+    unique_integers = list({(separator + char) for key in reskeys for char in key if char.isdigit()})
     regex = "|".join(unique_integers)
     regex += "|" + regex.replace(".", "")
     unique_columns = list({re.sub("(" + regex + ")", "", key) for key in reskeys})
@@ -211,8 +183,7 @@ def _unflatten_asserts(flat_dict, separator) -> None:
     assert isinstance(flat_dict, dict), "un_flatten requires dictionary input"
     assert isinstance(separator, str), "separator must be string"
     assert all(
-        not value or not isinstance(value, Iterable) or isinstance(value, str)
-        for value in flat_dict.values()
+        not value or not isinstance(value, Iterable) or isinstance(value, str) for value in flat_dict.values()
     ), "provided dict is not flat"
 
 
@@ -241,9 +212,7 @@ def unflatten_list(flat_dict, separator: str = "_"):
     _unflatten_asserts(flat_dict, separator)
     unflattened_dict = unflatten(flat_dict, separator)
 
-    def _convert_dict_to_list(
-        object_, parent_object, parent_object_key: int | None
-    ) -> None:
+    def _convert_dict_to_list(object_, parent_object, parent_object_key: int | None) -> None:
         if isinstance(object_, dict):
             for key in object_:
                 if isinstance(object_[key], dict):

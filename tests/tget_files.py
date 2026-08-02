@@ -110,9 +110,7 @@ def test_get_files_symlinks_only_ignored(setup_test_directory) -> None:
     assert symlink_in_root_log.is_symlink()
     assert not symlink_in_root_log.is_file()
     result_logs = get_files(base_dir, extensions=[".log"])
-    assert symlink_in_root_log not in result_logs, (
-        "Symlink to .log file should not be returned when searching for .log"
-    )
+    assert symlink_in_root_log not in result_logs, "Symlink to .log file should not be returned when searching for .log"
     assert base_dir / "file2.log" in result_logs, "Regular .log file was not returned"
     symlink_in_root_no_ext = base_dir / "symlinked_no_ext"
     assert symlink_in_root_no_ext.is_symlink()
@@ -121,14 +119,10 @@ def test_get_files_symlinks_only_ignored(setup_test_directory) -> None:
     assert symlink_in_root_no_ext not in result_no_ext, (
         "Symlink to no-ext file should not be returned when searching for no-ext"
     )
-    assert base_dir / "document" in result_no_ext, (
-        "Regular no-ext file was not returned"
-    )
+    assert base_dir / "document" in result_no_ext, "Regular no-ext file was not returned"
     result_default = get_files(base_dir)
     for symlink_path in data["created_symlinks"]:
-        assert symlink_path not in result_default, (
-            f"Symlink '{symlink_path.name}' was found in default results."
-        )
+        assert symlink_path not in result_default, f"Symlink '{symlink_path.name}' was found in default results."
     expected_regular_files = data["expected_files_default"]
     assert sorted(result_default) == sorted(expected_regular_files), (
         "Default call did not return the correct set of regular files."
@@ -149,6 +143,4 @@ def test_get_files_specific_extensions(setup_test_directory) -> None:
     assert all(f.is_file() and not f.is_symlink() for f in result)
     assert sorted(result) == sorted(expected)
     for symlink_path in data["created_symlinks"]:
-        assert symlink_path not in result, (
-            f"Symlink '{symlink_path.name}' found when searching for .txt/.py"
-        )
+        assert symlink_path not in result, f"Symlink '{symlink_path.name}' found when searching for .txt/.py"

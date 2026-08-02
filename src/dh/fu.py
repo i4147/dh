@@ -51,9 +51,7 @@ def file_to_base64(path: (str | Path)) -> str:
     return encoded_contents.decode("utf-8")
 
 
-def find_large_files(
-    path: (str | Path), min_size_mb: float = 1.0
-) -> list[tuple[Path, float]]:
+def find_large_files(path: (str | Path), min_size_mb: float = 1.0) -> list[tuple[Path, float]]:
     from operator import itemgetter
 
     path = Path(path)
@@ -201,9 +199,7 @@ def format_size(sz: float) -> str:
     return fsz(sz)
 
 
-def get_files_recursive(
-    root: (str | Path), include_hidden: bool = True, ext: (list[str] | None) = None
-) -> list[Path]:
+def get_files_recursive(root: (str | Path), include_hidden: bool = True, ext: (list[str] | None) = None) -> list[Path]:
     root_path = Path(root).resolve()
     if not root_path.exists() or not root_path.is_dir():
         msg = "Invalid path"
@@ -233,20 +229,14 @@ def get_files_recursive(
     return sorted(files)
 
 
-def get_files_iter2(
-    root: (str | Path), include_hidden: bool = True, ext: (list[str] | None) = None
-) -> Generator[Path]:
+def get_files_iter2(root: (str | Path), include_hidden: bool = True, ext: (list[str] | None) = None) -> Generator[Path]:
     from os import walk
     from os.path import join as path_join
 
     root = str(Path(root).resolve())
     extensions = tuple(ext) if ext else None
     for dirpath, dirnames, filenames in walk(root, followlinks=False):
-        dirnames[:] = [
-            d
-            for d in dirnames
-            if d not in SKIP_DIRS and (include_hidden or not d.startswith("."))
-        ]
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and (include_hidden or not d.startswith("."))]
         for filename in filenames:
             if not include_hidden and filename.startswith("."):
                 continue
@@ -409,7 +399,6 @@ def get_files_rec(path):
     return files
 
 
-# --- get_size ---
 def get_size(path: str | Path) -> int:
     path = Path(path)
     if not path.exists():
@@ -432,10 +421,7 @@ def get_size(path: str | Path) -> int:
     return total
 
 
-# --- get_files ---
-def get_files(
-    path: str | Path, include_hidden: bool = True, ext: list[str] | None = None
-) -> list[Path]:
+def get_files(path: str | Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Path does not exist: {path}")
@@ -467,7 +453,6 @@ def get_files(
     return sorted(files)
 
 
-# --- get_pyfiles ---
 def get_pyfiles(path: str | Path) -> list[Path]:
     path = Path(path)
     if path.is_file():
@@ -497,11 +482,7 @@ def get_pyfiles(path: str | Path) -> list[Path]:
                         p = Path(entry)
                         if p.suffix == ".py":
                             pyfiles.append(p)
-                        elif (
-                            not p.suffix
-                            and not p.name.startswith(".")
-                            and is_python_file(p)
-                        ):
+                        elif not p.suffix and not p.name.startswith(".") and is_python_file(p):
                             pyfiles.append(p)
         except (PermissionError, OSError):
             continue

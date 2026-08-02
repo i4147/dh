@@ -49,10 +49,7 @@ def is_text_file(
             if is_likely_binary_chunk(chunk, threshold=0.30):
                 return False
             detected_encoding = detect(chunk)
-            if (
-                detected_encoding
-                and detected_encoding["confidence"] >= encoding_confidence_threshold
-            ):
+            if detected_encoding and detected_encoding["confidence"] >= encoding_confidence_threshold:
                 if detected_encoding["encoding"] != "ascii":
                     return True
                 else:
@@ -65,9 +62,7 @@ def is_text_file(
 
 
 if __name__ == "__main__":
-    Path("sample.txt").write_text(
-        "This is a plain text file.\nIt contains UTF-8 characters like: é, ü, ñ.\n"
-    )
+    Path("sample.txt").write_text("This is a plain text file.\nIt contains UTF-8 characters like: é, ü, ñ.\n")
     Path("sample.bin").write_bytes(b"\x01\x02\x03\x00" + b"binary data" * 50)
     Path("sample.empty").write_bytes(b"")
     Path("sample.ascii").write_text("This is pure ASCII text.")

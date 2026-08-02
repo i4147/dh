@@ -35,11 +35,7 @@ def read_lines_mmap(path: Path, keep_ends: bool = True) -> list[str]:
     ):
         text = mm[:].decode("utf-8", errors="replace")
     lines = text.splitlines(keepends=keep_ends)
-    if (
-        not lines[-1].endswith(("\n", "\r\n", "\r"))
-        and size > 0
-        and text.endswith("\n")
-    ):
+    if not lines[-1].endswith(("\n", "\r\n", "\r")) and size > 0 and text.endswith("\n"):
         lines.append("")
     return lines
 
@@ -433,9 +429,7 @@ def runcmd(
         raise ValueError(msg)
     try:
         if run_silently:
-            result = subprocess_run(
-                cmd, stdout=_DEVNULL, stderr=_DEVNULL, timeout=timeout
-            )
+            result = subprocess_run(cmd, stdout=_DEVNULL, stderr=_DEVNULL, timeout=timeout)
             return result.returncode, "", ""
         result = subprocess_run(cmd, capture_output=True, text=True, timeout=timeout)
         stdout, stderr = result.stdout, result.stderr
@@ -503,9 +497,7 @@ def append_text(path: (str | Path), content: str, encoding: str = "utf-8") -> bo
 
 
 def get_removed_lines(txt1, txt2):
-    return list(
-        {l for l in txt1.splitlines() if l} - {l for l in txt2.splitlines() if l}
-    )
+    return list({l for l in txt1.splitlines() if l} - {l for l in txt2.splitlines() if l})
 
 
 def restore_bak(path: (str | Path)) -> bool:
@@ -562,9 +554,7 @@ def gsz(path: str | Path) -> int:
 get_size = gsz
 
 
-def get_files(
-    path: str | Path, include_hidden: bool = True, ext: list[str] | None = None
-) -> list[Path]:
+def get_files(path: str | Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Path does not exist: {path}")
@@ -625,11 +615,7 @@ def get_pyfiles(path: str | Path) -> list[Path]:
                         p = Path(entry.path)
                         if p.suffix == ".py":
                             pyfiles.append(p)
-                        elif (
-                            not p.suffix
-                            and not p.name.startswith(".")
-                            and is_python_file(p)
-                        ):
+                        elif not p.suffix and not p.name.startswith(".") and is_python_file(p):
                             pyfiles.append(p)
         except (PermissionError, OSError):
             continue
@@ -668,3 +654,15 @@ def get_files2(path: str | Path, ext: Optional[list[str]] = None) -> list[Path]:
             continue
 
     return all_files
+
+
+def get_fast(path):
+    from fastwalk import walk_files
+
+    for entry in walk_files(path):
+        entry = Path(entry)
+        if entry.is_symlink():
+            continue
+
+        if not ".git" in entry.parts and not "__pycache__" in entry.parts:
+            yield entry

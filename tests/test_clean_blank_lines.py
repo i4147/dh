@@ -44,9 +44,7 @@ class TestCleanBlankLines(unittest.TestCase):
         self.assertEqual(clean_blank_lines(input_str), expected_output)
 
     def test_file_input_multiple_blank_lines(self) -> None:
-        with tempfile.NamedTemporaryFile(
-            mode="w+", delete=False, suffix=".txt", encoding="utf-8"
-        ) as tmp_file:
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".txt", encoding="utf-8") as tmp_file:
             file_path = Path(tmp_file.name)
             input_content = "File Line 1\n\n\nFile Line 2\n\nFile Line 3"
             tmp_file.write(input_content)
@@ -63,9 +61,7 @@ class TestCleanBlankLines(unittest.TestCase):
             os.remove(file_path)
 
     def test_file_input_no_blank_lines(self) -> None:
-        with tempfile.NamedTemporaryFile(
-            mode="w+", delete=False, suffix=".txt", encoding="utf-8"
-        ) as tmp_file:
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".txt", encoding="utf-8") as tmp_file:
             file_path = Path(tmp_file.name)
             input_content = "File Line 1\nFile Line 2\nFile Line 3"
             tmp_file.write(input_content)

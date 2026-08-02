@@ -2269,20 +2269,14 @@ MIME2EXT: dict = {
     "application/vnd.oma.dd2+xml": [".dd2"],
     "application/vnd.oma.drm.content": [".dm", ".dcf"],
     "application/vnd.openofficeorg.extension": [".oxt"],
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation": [
-        ".pptx"
-    ],
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
     "application/vnd.openxmlformats-officedocument.presentationml.slide": [".sldx"],
     "application/vnd.openxmlformats-officedocument.presentationml.slideshow": [".ppsx"],
     "application/vnd.openxmlformats-officedocument.presentationml.template": [".potx"],
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
     "application/vnd.openxmlformats-officedocument.spreadsheetml.template": [".xltx"],
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [
-        ".docx"
-    ],
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.template": [
-        ".dotx"
-    ],
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.template": [".dotx"],
     "application/vnd.osgeo.mapguide.package": [".mgp"],
     "application/vnd.osgi.dp": [".dp"],
     "application/vnd.osgi.subsystem": [".esa"],
@@ -3321,9 +3315,7 @@ PY_KEYWORDS: frozenset = frozenset(
         "zip",
     }
 )
-ARCHIVE_EXT: frozenset = frozenset(
-    {".bz2", ".bzip2", ".gz", ".gzip", ".lz", ".rar", ".tar", ".xz", ".zip"}
-)
+ARCHIVE_EXT: frozenset = frozenset({".bz2", ".bzip2", ".gz", ".gzip", ".lz", ".rar", ".tar", ".xz", ".zip"})
 AUDIO_EXT: frozenset = frozenset(
     {
         ".aiff",
@@ -3339,9 +3331,7 @@ AUDIO_EXT: frozenset = frozenset(
         ".wma",
     }
 )
-BOOK_EXT: frozenset = frozenset(
-    {".azw3", ".chm", ".djv", ".djvu", ".epub", ".fb2", ".mobi", ".pdf"}
-)
+BOOK_EXT: frozenset = frozenset({".azw3", ".chm", ".djv", ".djvu", ".epub", ".fb2", ".mobi", ".pdf"})
 DOCUMENT_EXT: frozenset = frozenset(
     {
         ".accdb",
@@ -4151,9 +4141,7 @@ ANSI_BOLD: str = "\x1b[1m"
 
 CHUNK_SIZE: Final = 32_768  # 16_384
 ZERO_DOT_THREE: Final = 0.3
-SKIP_DIRS = frozenset(
-    {"lazy", ".git", "__pycache__", ".mypy_cache", ".ruff_cache", ".pytest_cache"}
-)
+SKIP_DIRS = frozenset({"lazy", ".git", "__pycache__", ".mypy_cache", ".ruff_cache", ".pytest_cache"})
 THRESHOLD: Final = 2_097_152
 SDCARD: str = "/sdcard"
 EMULATED: str = "/storage/emulated/0"

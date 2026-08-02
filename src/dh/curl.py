@@ -146,9 +146,7 @@ class GetURLpyCurl(GetURL):
         if method == "POST":
             cmd.extend(["-X", "POST"])
             if data is not None:
-                cmd.extend(
-                    ["--data", data if isinstance(data, str) else data.decode("utf-8")]
-                )
+                cmd.extend(["--data", data if isinstance(data, str) else data.decode("utf-8")])
         if headers:
             for k, v in headers.items():
                 cmd.extend(["-H", f"{k}: {v}"])
@@ -165,10 +163,7 @@ class GetURLpyCurl(GetURL):
             msg = "Could not separate headers from body"
             raise ValueError(msg)
         header_part = raw[:header_end]
-        body = raw[
-            header_end
-            + len(b"\r\n\r\n" if b"\r\n\r\n" in raw[: header_end + 4] else b"\n\n") :
-        ]
+        body = raw[header_end + len(b"\r\n\r\n" if b"\r\n\r\n" in raw[: header_end + 4] else b"\n\n") :]
         self.header_buffer = CurlHeader()
         for line in header_part.splitlines():
             self.header_buffer.write(line + b"\r\n")

@@ -167,9 +167,7 @@ def clean_text(text: str, keep_emoji: bool = True) -> str:
     return _MULTISPACE_RE.sub(SPACE, text).strip()
 
 
-def remove_stop_words(
-    tokens: Sequence[str], stop_words: set[str] = STOP_WORDS
-) -> list[str]:
+def remove_stop_words(tokens: Sequence[str], stop_words: set[str] = STOP_WORDS) -> list[str]:
     return [t for t in tokens if t not in stop_words]
 
 
@@ -204,9 +202,7 @@ def sentiment_score(text: str) -> float:
     return max(-1.0, min(1.0, score / max(1.0, math_sqrt(len(tokens)))))
 
 
-def sentiment_label(
-    text: str, positive_threshold: float = 0.15, negative_threshold: float = -0.15
-) -> str:
+def sentiment_label(text: str, positive_threshold: float = 0.15, negative_threshold: float = -0.15) -> str:
     s = sentiment_score(text)
     if s >= positive_threshold:
         return "positive"
@@ -215,9 +211,7 @@ def sentiment_label(
     return "neutral"
 
 
-def jaccard_similarity(
-    a: Union[str, Sequence[str]], b: Union[str, Sequence[str]]
-) -> float:
+def jaccard_similarity(a: Union[str, Sequence[str]], b: Union[str, Sequence[str]]) -> float:
     ta = set(get_words(a) if isinstance(a, str) else a)
     tb = set(get_words(b) if isinstance(b, str) else b)
     if not ta and not tb:
@@ -227,9 +221,7 @@ def jaccard_similarity(
     return len(ta & tb) / len(ta | tb)
 
 
-def cosine_similarity(
-    a: Union[str, Sequence[str]], b: Union[str, Sequence[str]]
-) -> float:
+def cosine_similarity(a: Union[str, Sequence[str]], b: Union[str, Sequence[str]]) -> float:
     ta = get_words(a) if isinstance(a, str) else list(a)
     tb = get_words(b) if isinstance(b, str) else list(b)
     ca = Counter(ta)
@@ -358,11 +350,7 @@ def is_digit(txt, ps: bool = False) -> bool:
 
 
 def is_alphanum(txt, ps: bool = False) -> bool:
-    dps = (
-        set(list(ALPHA) + list(DIGIT) + list(SPACE))
-        if ps
-        else set(list(ALPHA) + list(DIGIT))
-    )
+    dps = set(list(ALPHA) + list(DIGIT) + list(SPACE)) if ps else set(list(ALPHA) + list(DIGIT))
     for k in range(len(txt) - 1):
         if txt[k] not in dps:
             return False
@@ -443,9 +431,7 @@ def get_words(text: str) -> list[str]:
         return words
     tokens = []
     i = 0
-    for m in re_finditer(
-        r"\b[\w']+\b|[\U000024C2-\U0001FAFF\u2702-\u27B0]+", text, re_UNICODE
-    ):
+    for m in re_finditer(r"\b[\w']+\b|[\U000024C2-\U0001FAFF\u2702-\u27B0]+", text, re_UNICODE):
         tokens.append(m.group(0))
         i += 1
     return tokens or words
@@ -470,9 +456,7 @@ def has_doc(code: str) -> bool:
     try:
         tree = ast.parse(code)
         for node in ast.walk(tree):
-            if isinstance(
-                node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
-            ):
+            if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 if ast.get_docstring(node) is not None:
                     return True
     except SyntaxError:

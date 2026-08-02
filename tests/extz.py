@@ -1,14 +1,11 @@
 #!/data/data/com.termux/files/usr/bin/python
 from pathlib import Path
 import sys
-from dh import BIN_EXT,TXT_EXT
-
-
-
+from dh import BIN_EXT, TXT_EXT
 
 
 def main():
-    extz=[]
+    extz = []
 
     for k in BIN_EXT:
         extz.append(k)
@@ -16,14 +13,11 @@ def main():
     for x in TXT_EXT:
         extz.append(x)
 
-    with open('extz','w') as f:
-
+    with open("extz", "w") as f:
         for j in extz:
-
             f.write(j)
 
-            f.write('\n')
-
+            f.write("\n")
 
 
 if __name__ == "__main__":

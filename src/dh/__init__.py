@@ -87,6 +87,7 @@ from .fileutils import (
     should_skip,
     unique_path,
     write_txt_file,
+    get_fast,
 )
 from .hashutils import content_hash, get_sha256
 from .jobutils import (
@@ -170,6 +171,7 @@ __all__ = [
     "should_skip",
     "unique_path",
     "write_txt_file",
+    "get_fast",
 ]
 
 # archiveutils
