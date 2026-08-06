@@ -23,7 +23,7 @@ def mpf3(process_function: Callable, files: list[Path], **kwargs: Any) -> list[A
     return Parallel(n_jobs=-1)(delayed(process_function)(file_str, **kwargs) for file_str in file_strings)
 
 
-def mpf_map(func: Callable[[T], R], items: Iterable[T]) -> list[R]:
+def mpf_map(func: Callable, items: Iterable) -> list:
     items_list = list(items)
     if not items_list:
         return []
@@ -31,14 +31,14 @@ def mpf_map(func: Callable[[T], R], items: Iterable[T]) -> list[R]:
         return p.map(func, items_list)
 
 
-def mpf_async(func: Callable[[T], R], items: Iterable[T], timeout: int = 30) -> list[R | None]:
+def mpf_async(func: Callable, items: Iterable, timeout: int = 30) -> list:
     items_list = list(items)
     if not items_list:
         return []
 
     with _get_pool() as p:
         async_results = [p.apply_async(func, (item,)) for item in items_list]
-        results: list[R | None] = []
+        results = []
         for i, async_result in enumerate(async_results):
             try:
                 results.append(async_result.get(timeout=timeout))
@@ -48,16 +48,16 @@ def mpf_async(func: Callable[[T], R], items: Iterable[T], timeout: int = 30) -> 
         return results
 
 
-def mpf(func: Callable[..., R], items: Iterable[Any]) -> list[R]:
+def mpf(func: Callable, items: Iterable) -> list:
     items_list = list(items)
     if not items_list:
         return []
     args = [(item,) for item in items_list]
-    with _get_pool(16) as pool:
+    with _get_pool(8) as pool:
         return pool.starmap(func, args)
 
 
-def mpf_starmap2(func: Callable[..., R], items: Iterable[Any]) -> list[R]:
+def mpf_starmap2(func: Callable, items: Iterable) -> list:
     items_list = list(items)
     if not items_list:
         return []
@@ -66,7 +66,7 @@ def mpf_starmap2(func: Callable[..., R], items: Iterable[Any]) -> list[R]:
         return p.starmap(func, args)
 
 
-def mpf_starmap3(func: Callable[..., R], item_tuples: Iterable[tuple]) -> list[R]:
+def mpf_starmap3(func: Callable, item_tuples: Iterable[tuple]) -> list:
     items_list = list(item_tuples)
     if not items_list:
         return []
@@ -74,7 +74,7 @@ def mpf_starmap3(func: Callable[..., R], item_tuples: Iterable[tuple]) -> list[R
         return p.starmap(func, items_list)
 
 
-def mpf_imap(func: Callable[[T], R], items: Iterable[T]) -> list[R]:
+def mpf_imap(func: Callable, items: Iterable) -> list:
     items_list = list(items)
     if not items_list:
         return []
@@ -84,7 +84,7 @@ def mpf_imap(func: Callable[[T], R], items: Iterable[T]) -> list[R]:
         return list(p.imap_unordered(func, items_list, chunksize=chunksize))
 
 
-def mpf_imap2(func: Callable[[T], R], items: Iterable[T]) -> list[R]:
+def mpf_imap2(func: Callable, items: Iterable) -> list:
     items_list = list(items)
     if not items_list:
         return []
@@ -93,7 +93,7 @@ def mpf_imap2(func: Callable[[T], R], items: Iterable[T]) -> list[R]:
         return list(p.imap_unordered(func, items_list))
 
 
-def mpf_imap3(func: Callable[[T], R], items: Iterable[T]) -> Iterator[R]:
+def mpf_imap3(func: Callable, items: Iterable) -> Iterator:
     items_list = list(items)
     if not items_list:
         return

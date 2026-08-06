@@ -85,6 +85,7 @@ from .fileutils import (
     unique_path,
     write_txt_file,
     get_fast,
+    getfiles,
     get_files_iter,
 )
 from .jobutils import (
@@ -143,6 +144,7 @@ __all__ = [
     "unique_path",
     "write_txt_file",
     "get_fast",
+    "getfiles",
 ]
 
 

@@ -128,7 +128,7 @@ def get_file_age(path: str | Path, str_mode: bool = False) -> float | str:
     return ", ".join(parts) if parts else "0 sec"
 
 
-@functools.lru_cache(maxsize=1)
+@functools.lru_cache(maxsize=1024*1024)
 def _get_pip_freeze_data() -> tuple[float, list[str]]:
     """Cache pip freeze data with age check."""
     pip_freeze_path = Path("/sdcard/data/pip.freeze")
@@ -298,7 +298,7 @@ format_size = fsz
 
 
 def get_nobinary(path: str | Path) -> list[Path]:
-    """Get non-binary files."""
+    path=Path(path)
     return [f for f in get_files(path) if not is_binary(f)]
 
 
@@ -573,7 +573,6 @@ get_size = gsz
 def get_files_scandir(path: str | Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
     """Get files recursively with filters."""
     path = Path(path)
-    skip_dirs = frozenset({".git", "__pycache__"})
 
     if not path.exists():
         raise FileNotFoundError(f"Path does not exist: {path}")
@@ -593,7 +592,7 @@ def get_files_scandir(path: str | Path, include_hidden: bool = True, ext: list[s
                         continue
 
                     if entry.is_dir(follow_symlinks=False):
-                        if entry.name not in skip_dirs:
+                        if entry.name not in SKIP_DIRS:
                             stack.append(Path(entry.path))
 
                     elif entry.is_file(follow_symlinks=False):
@@ -608,7 +607,6 @@ def get_files_scandir(path: str | Path, include_hidden: bool = True, ext: list[s
 
 
 def get_fast(path, ext: list[str] | None = None) -> Iterator[Path]:
-    """Fast file iterator."""
     from fastwalk import walk_files
 
     ext_set = set(ext) if ext else None
@@ -623,9 +621,7 @@ def get_fast(path, ext: list[str] | None = None) -> Iterator[Path]:
 
 
 def get_pyfiles(path: str | Path, include_hidden: bool = True) -> list[Path]:
-    """Get Python files recursively."""
     path = Path(path)
-    skip_dirs = frozenset({".git", "__pycache__"})
 
     if not path.exists():
         raise FileNotFoundError(f"Path does not exist: {path}")
@@ -644,7 +640,7 @@ def get_pyfiles(path: str | Path, include_hidden: bool = True) -> list[Path]:
                         continue
 
                     if entry.is_dir(follow_symlinks=False):
-                        if entry.name not in skip_dirs:
+                        if entry.name not in SKIP_DIRS:
                             stack.append(Path(entry.path))
 
                     elif entry.is_file(follow_symlinks=False):
@@ -713,11 +709,10 @@ def get_files_iter(directory: str | Path, ext: list[str] | None = None) -> Itera
                 yield from get_files_iter(path, ext)
 
 
-def get_files(path: str | Path, ext: list[str] | None = None) -> list[Path]:
+def get_files4(path: str | Path, ext: list[str] | None = None) -> list[Path]:
     from collections import deque
 
     path = Path(path)
-    skip_dirs = {".git", "__pycache__"}
     queue = deque([path])
     files = []
     while queue:
@@ -729,8 +724,83 @@ def get_files(path: str | Path, ext: list[str] | None = None) -> list[Path]:
         for item in entries:
             if item.is_symlink():
                 continue
-            if item.is_dir() and item.name not in skip_dirs:
+            if item.is_dir() and item.name not in SKIP_DIRS:
                 queue.append(item)
             elif item.is_file() and (ext is None or item.suffix in ext):
                 files.append(item)
-    return files
+    return sorted(files)
+
+
+def getfiles(root_dir: str | Path, ext: list[str] | None = None) -> list[Path]:
+    from fastwalk import walk_files
+
+    files = []
+    for path in walk_files(root_dir):
+        if path.is_symlink() or (".git" in path.parts) or ("__pycache__" in path.parts):
+            continue
+        if path.is_file():
+            if ext is not None:
+                if path.suffix and (path.suffix in ext):
+                    files.append(path)
+            else:
+                files.append(path)
+    return sorted(files)
+
+
+def get_files_pathlib(path: Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
+    if not path.exists():
+        raise FileNotFoundError(f"Path does not exist: {path}")
+    if not path.is_dir():
+        raise NotADirectoryError(f"Path is not a directory: {path}")
+    files: list[Path] = []
+
+    stack = [path]
+    while stack:
+        current = stack.pop()
+        try:
+            for entry in current.iterdir():
+                if entry.is_symlink():
+                    continue
+                if entry.is_dir():
+                    if entry.name not in SKIP_DIRS:
+                        stack.append(entry)
+                elif entry.is_file():
+                    if not include_hidden and entry.name.startswith("."):
+                        continue
+                    if ext is None or entry.suffix.lower() in ext:
+                        files.append(entry)
+        except PermissionError:
+            continue
+    return sorted(files)
+
+
+
+def get_files(path: str | Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
+    from os import scandir as os_scandir
+
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Path does not exist: {path}")
+    if not path.is_dir():
+        raise NotADirectoryError(f"Path is not a directory: {path}")
+    ext_tuple = tuple(ext) if ext is not None else None
+    files = []
+    stack = [path]
+    while stack:
+        current = stack.pop()
+        try:
+            with os_scandir(current) as entries:
+                for entry in entries:
+                    if entry.is_symlink():
+                        continue
+                    if entry.is_dir(follow_symlinks=False):
+                        if entry.name not in SKIP_DIRS:
+                            stack.append(Path(entry.path))
+                    elif entry.is_file(follow_symlinks=False):
+                        if not include_hidden and entry.name.startswith("."):
+                            continue
+                        if ext_tuple is None or entry.name.endswith(ext_tuple):
+                            files.append(Path(entry.path))
+        except (PermissionError, OSError):
+            continue
+    return sorted(files)
