@@ -18,7 +18,7 @@ def mpf3(process_function: Callable, files: list[Path], **kwargs):
 
 
 def mpf_map(func: Callable, items: Iterable[Any]) -> list:
-    with get_context(CONTEXT_METHOD).Pool(MAX_WORKERS) as p:
+    with get_context("spawn").Pool(MAX_WORKERS) as p:
         return p.map(func, items)
 
 

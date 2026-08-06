@@ -1,19 +1,18 @@
 from os import scandir as os_scandir
 from pathlib import Path
-from typing import Optional
-
-from .const import (
-    CHUNK_SIZE,
-    EMULATED,
-    IMG_EXT,
-    SDCARD,
-    SKIP_DIRS,
-    THRESHOLD,
-    ZERO_DOT_THREE,
-)
+from typing import Optional, overload
+from .const import CHUNK_SIZE, EMULATED, IMG_EXT, SDCARD, SKIP_DIRS, THRESHOLD, ZERO_DOT_THREE
 
 
-def read_lines(path: (str | Path), ke: bool = True) -> list[str]:
+@overload
+def get_file_age(path: str | Path, str_mode: bool = False) -> float: ...
+
+
+@overload
+def get_file_age(path: str | Path, str_mode: bool = True) -> str: ...
+
+
+def read_lines(path: str | Path, ke: bool = True) -> list[str]:
     path = Path(path)
     if path.stat().st_size > THRESHOLD:
         return read_lines_mmap(path, ke)
@@ -29,10 +28,7 @@ def read_lines_mmap(path: Path, keep_ends: bool = True) -> list[str]:
     import mmap
 
     size = Path(path).stat().st_size
-    with (
-        Path(path).open("rb") as f,
-        mmap.mmap(f.fileno(), size, access=mmap.ACCESS_READ) as mm,
-    ):
+    with Path(path).open("rb") as f, mmap.mmap(f.fileno(), size, access=mmap.ACCESS_READ) as mm:
         text = mm[:].decode("utf-8", errors="replace")
     lines = text.splitlines(keepends=keep_ends)
     if not lines[-1].endswith(("\n", "\r\n", "\r")) and size > 0 and text.endswith("\n"):
@@ -40,21 +36,12 @@ def read_lines_mmap(path: Path, keep_ends: bool = True) -> list[str]:
     return lines
 
 
-def gext(path: (str | Path)) -> str:
+def gext(path: str | Path) -> str:
     path = Path(path)
     suffs = path.suffixes
     if not suffs:
         return ""
-    multipart_prefixes = {
-        ".tar",
-        ".min",
-        ".bundle",
-        ".log",
-        ".spec",
-        ".test",
-        ".d",
-        ".module",
-    }
+    multipart_prefixes = {".tar", ".min", ".bundle", ".log", ".spec", ".test", ".d", ".module"}
     if len(suffs) > 1:
         if suffs[0] in multipart_prefixes:
             return "".join(suffs)
@@ -64,7 +51,7 @@ def gext(path: (str | Path)) -> str:
     return suffs[0]
 
 
-def get_dirs(path: (str | Path)) -> list[Path]:
+def get_dirs(path: str | Path) -> list[Path]:
     path = Path(path)
     if not path.is_dir():
         return []
@@ -84,7 +71,7 @@ def get_dirs(path: (str | Path)) -> list[Path]:
     return dirs
 
 
-def get_file_age(path: (str | Path), str_mode: bool = False) -> float | str:
+def get_file_age(path: str | Path, str_mode: bool = False) -> float | str:
     from os import stat as os_stat
     from time import time as time_time
 
@@ -171,7 +158,7 @@ get_ipackages = get_installed_packages
 get_ipkgs = get_installed_pkgs
 
 
-def get_mime_type(path: (str | Path)) -> str | None:
+def get_mime_type(path: str | Path) -> str | None:
     from mimetypes import guess_type
 
     path = str(path)
@@ -184,10 +171,10 @@ def get_random_filename(length: int = 10) -> str:
     from string import ascii_lowercase
 
     letters: str = ascii_lowercase
-    return "".join(choice(letters) for _ in range(length))
+    return "".join((choice(letters) for _ in range(length)))
 
 
-def is_image(path: (str | Path)) -> bool:
+def is_image(path: str | Path) -> bool:
     path = Path(path)
     try:
         if not path.is_file():
@@ -197,31 +184,7 @@ def is_image(path: (str | Path)) -> bool:
         return False
 
 
-def is_python_file(path: (str | Path)) -> bool:
-    from ast import parse as ast_parse
-
-    path = Path(path)
-    if is_binary(path):
-        return False
-    if not path.stat().st_size:
-        return False
-    if path.is_file() and path.suffix == ".py":
-        return True
-    if not path.suffix:
-        content = path.read_text(encoding="utf-8")
-        if not content:
-            return False
-        if content.startswith("#!") and "python" in content[:100]:
-            return True
-        try:
-            _ = ast_parse(content)
-            return True
-        except:
-            return False
-    return False
-
-
-def is_within(child_path: (str | Path), parent_path: (str | Path)) -> bool:
+def is_within(child_path: str | Path, parent_path: str | Path) -> bool:
     child = Path(child_path).resolve()
     parent = Path(parent_path).resolve()
     try:
@@ -231,18 +194,18 @@ def is_within(child_path: (str | Path), parent_path: (str | Path)) -> bool:
         return False
 
 
-def normalize_filename(path: (str | Path)) -> str:
+def normalize_filename(path: str | Path) -> str:
     from re import compile as re_compile
     from re import escape as re_escape
 
     path = str(path)
-    special_characters = r'<>:"/\|?*' + "".join(map(chr, range(32)))
+    special_characters = '<>:"/\\|?*' + "".join(map(chr, range(32)))
     pattern = "|".join(map(re_escape, special_characters))
     pattern = re_compile(pattern)
     return pattern.sub("_", path)
 
 
-def normalize_path(path: (str | Path)) -> Path:
+def normalize_path(path: str | Path) -> Path:
     pathstr = str(path)
     if EMULATED in pathstr:
         return Path(pathstr.replace(EMULATED, SDCARD))
@@ -260,29 +223,29 @@ def reverse_dict(input_dict: dict) -> dict:
     return dict(rev)
 
 
-def is_binary(path: (Path | str)) -> bool:
+def is_binary(path: str | Path, sample_size: int = 4096) -> bool:
     path = Path(path)
     try:
-        with path.open("rb") as f:
-            chunk = f.read(CHUNK_SIZE)
-        if not chunk:
-            return False
-        if b"\x00" in chunk:
-            return True
-        text_chars = bytearray(range(32, 127)) + b"\n\r\t\x08"
-        nontext = sum(1 for b in chunk if b not in text_chars)
-        return nontext / len(chunk) > ZERO_DOT_THREE
+        with open(path, "rb") as f:
+            chunk = f.read(sample_size)
+            if not chunk:
+                return False
+            if b"\x00" in chunk:
+                return True
+            text_chars = bytes(range(32, 127)) + b"\n\r\t\x0c\x08"
+            non_text = sum((1 for byte in chunk if byte not in text_chars))
+            return non_text / len(chunk) > 0.3
     except Exception:
         return True
 
 
-def is_text_file(path: (str | Path)) -> bool:
+def is_text_file(path: str | Path) -> bool:
     return not is_binary(path)
 
 
 def fsz(sz: float) -> str:
     sz = abs(int(sz))
-    units = "B", "KB", "MB", "GB", "TB"
+    units = ("B", "KB", "MB", "GB", "TB")
     if sz == 0:
         return "0 B"
     i = min((int(sz).bit_length() - 1) // 10, len(units) - 1)
@@ -295,7 +258,7 @@ def fsz(sz: float) -> str:
 format_size = fsz
 
 
-def get_nobinary(path: (str | Path)) -> list[Path]:
+def get_nobinary(path: str | Path) -> list[Path]:
     return [f for f in get_files(path) if not is_binary(f)]
 
 
@@ -319,26 +282,20 @@ def safe_delete(path: Path, max_retries: int = 3) -> bool:
     return False
 
 
-def get_filez(root_dir: (str | Path)):
-    from os import walk as os_walk
+def get_filez(root_dir: str | Path, ext: list[str] | None = None):
+    from fastwalk import walk_files
 
-    visited_dirs: set[Path] = set()
-    root_dir = Path(root_dir)
-    if root_dir.is_dir():
-        for dirpath, dirnames, filenames in os_walk(root_dir, topdown=True):
-            base_path = Path(dirpath)
-            for dirname in list(dirnames):
-                full_path = base_path / dirname
-                resolved_path = full_path.resolve()
-                if should_skip(full_path) or resolved_path in visited_dirs:
-                    dirnames.remove(dirname)
-                visited_dirs.add(resolved_path)
-            for filename in filenames:
-                filepath = Path(dirpath) / filename
-                if not should_skip(filepath):
-                    yield filepath
-    else:
-        yield root_dir
+    for pth in walk_files(root_dir):
+        path = Path(pth)
+        if should_skip(path):
+            continue
+        if path.is_file():
+            if ext is not None:
+                extensions = set(ext)
+                if path.suffix in extensions:
+                    yield path
+            else:
+                yield path
 
 
 def unique_path(path: Path | str) -> Path:
@@ -366,7 +323,7 @@ def unique_path(path: Path | str) -> Path:
 def _clean_fname(path: Path) -> Path:
     from re import sub as re_sub
 
-    clean_name = re_sub(r"(_\d+)+", "", path.name)
+    clean_name = re_sub("(_\\d+)+", "", path.name)
     return path.with_name(clean_name)
 
 
@@ -413,10 +370,7 @@ def format_time(t: float) -> str:
 
 
 def runcmd(
-    cmd: list[str],
-    run_silently: bool = False,
-    show_output: bool = True,
-    timeout: (float | None) = None,
+    cmd: list[str], run_silently: bool = False, show_output: bool = True, timeout: float | None = None
 ) -> tuple[int, str, str]:
     from subprocess import DEVNULL as _DEVNULL
     from subprocess import TimeoutExpired as subprocess_TimeoutExpired
@@ -430,9 +384,9 @@ def runcmd(
     try:
         if run_silently:
             result = subprocess_run(cmd, stdout=_DEVNULL, stderr=_DEVNULL, timeout=timeout)
-            return result.returncode, "", ""
+            return (result.returncode, "", "")
         result = subprocess_run(cmd, capture_output=True, text=True, timeout=timeout)
-        stdout, stderr = result.stdout, result.stderr
+        stdout, stderr = (result.stdout, result.stderr)
         if show_output:
             if stdout:
                 sys_stdout.write(stdout)
@@ -440,37 +394,37 @@ def runcmd(
             if stderr:
                 sys_stderr.write(stderr)
                 sys_stderr.flush()
-        return result.returncode, stdout, stderr
+        return (result.returncode, stdout, stderr)
     except FileNotFoundError:
         msg = f"Command not found: '{cmd[0]}'"
-        if show_output and not run_silently:
+        if show_output and (not run_silently):
             print(msg, file=sys_stderr)
-        return 127, "", msg
+        return (127, "", msg)
     except PermissionError:
         msg = f"Permission denied: '{cmd[0]}'"
-        if show_output and not run_silently:
+        if show_output and (not run_silently):
             print(msg, file=sys_stderr)
-        return 126, "", msg
+        return (126, "", msg)
     except subprocess_TimeoutExpired:
         msg = f"Command timed out after {timeout}s: {' '.join(cmd)}"
-        if show_output and not run_silently:
+        if show_output and (not run_silently):
             print(msg, file=sys_stderr)
-        return 124, "", msg
+        return (124, "", msg)
     except Exception as e:
         msg = f"Unexpected error running '{cmd[0]}': {e}"
-        if show_output and not run_silently:
+        if show_output and (not run_silently):
             print(msg, file=sys_stderr)
-        return 1, "", msg
+        return (1, "", msg)
 
 
-def write_txt_file(path: (str | Path), data: str, overwrite: bool = False) -> bool:
+def write_txt_file(path: str | Path, data: str, overwrite: bool = False) -> bool:
     if not isinstance(data, str):
         return False
     path = Path(path)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         exists = path.exists()
-        if exists and not overwrite:
+        if exists and (not overwrite):
             return False
         path.write_text(data, encoding="utf-8")
         return True
@@ -478,12 +432,12 @@ def write_txt_file(path: (str | Path), data: str, overwrite: bool = False) -> bo
         return False
 
 
-def should_skip(path: (str | Path)) -> bool:
+def should_skip(path: str | Path) -> bool:
     path = Path(path)
     return bool(path.is_symlink() or not SKIP_DIRS.isdisjoint(path.parts))
 
 
-def append_text(path: (str | Path), content: str, encoding: str = "utf-8") -> bool:
+def append_text(path: str | Path, content: str, encoding: str = "utf-8") -> bool:
     path = Path(path)
     if path.is_symlink() or path.is_dir():
         return False
@@ -500,7 +454,7 @@ def get_removed_lines(txt1, txt2):
     return list({l for l in txt1.splitlines() if l} - {l for l in txt2.splitlines() if l})
 
 
-def restore_bak(path: (str | Path)) -> bool:
+def restore_bak(path: str | Path) -> bool:
     path = Path(path)
     bak_path = path.with_name(path.name + ".bak")
     if bak_path.exists():
@@ -512,19 +466,16 @@ def restore_bak(path: (str | Path)) -> bool:
 def rrs(path, before, after) -> None:
     delta = before - after
     msg = (
-        "\033[5;92mNO CHANGE\033[0m"
+        "\x1b[5;92mNO CHANGE\x1b[0m"
         if delta == 0
-        else (
-            f"\033[5;92m{'-' if delta > 0 else '+'} \033[5;94m{fsz(abs(delta))}\033[0m | "
-            f"\033[5;96m{after / before * 100:.1f}\033[5;95m%\033[0m"
-        )
+        else f"\x1b[5;92m{('-' if delta > 0 else '+')} \x1b[5;94m{fsz(abs(delta))}\x1b[0m | \x1b[5;96m{after / before * 100:.1f}\x1b[5;95m%\x1b[0m"
     )
     print(f"\n{path.name} | {msg}")
 
 
 def is_empty(path: str | Path) -> bool:
     path = Path(path)
-    return path.is_dir() and not any(path.iterdir())
+    return path.is_dir() and (not any(path.iterdir()))
 
 
 def gsz(path: str | Path) -> int:
@@ -543,7 +494,7 @@ def gsz(path: str | Path) -> int:
     total = 0
     for root, _, files in os_walk(path):
         for f in files:
-            if not (fp := Path(root) / f).is_symlink():
+            if not (fp := (Path(root) / f)).is_symlink():
                 try:
                     total += fp.stat().st_size
                 except OSError:
@@ -556,15 +507,14 @@ get_size = gsz
 
 def get_files(path: str | Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
     path = Path(path)
+    SKIP_DIRS = {".git", "__pycache__"}
     if not path.exists():
         raise FileNotFoundError(f"Path does not exist: {path}")
     if not path.is_dir():
         raise NotADirectoryError(f"Path is not a directory: {path}")
-
-    ext = tuple(ext) if ext else None
+    ext_tuple = tuple(ext) if ext is not None else None
     files = []
     stack = [path]
-
     while stack:
         current = stack.pop()
         try:
@@ -574,95 +524,123 @@ def get_files(path: str | Path, include_hidden: bool = True, ext: list[str] | No
                         continue
                     if entry.is_dir(follow_symlinks=False):
                         if entry.name not in SKIP_DIRS:
-                            stack.append(entry)
+                            stack.append(Path(entry.path))
                     elif entry.is_file(follow_symlinks=False):
                         if not include_hidden and entry.name.startswith("."):
                             continue
-                        if ext is None or entry.name.endswith(ext):
+                        if ext_tuple is None or entry.name.endswith(ext_tuple):
                             files.append(Path(entry.path))
         except (PermissionError, OSError):
             continue
-
     return sorted(files)
 
 
-def get_pyfiles(path: str | Path) -> list[Path]:
-    path = Path(path)
-    if path.is_file():
-        if path.suffix == ".py":
-            return [path]
-        if not path.suffix and not path.name.startswith(".") and is_python_file(path):
-            return [path]
-        return []
-
-    if not path.is_dir():
-        return []
-
-    pyfiles = []
-    stack = [path]
-
-    while stack:
-        current = stack.pop()
-        try:
-            with os_scandir(current) as entries:
-                for entry in entries:
-                    if entry.is_symlink():
-                        continue
-                    if entry.is_dir(follow_symlinks=False):
-                        if entry.name not in SKIP_DIRS:
-                            stack.append(entry)
-                    elif entry.is_file(follow_symlinks=False):
-                        p = Path(entry.path)
-                        if p.suffix == ".py":
-                            pyfiles.append(p)
-                        elif not p.suffix and not p.name.startswith(".") and is_python_file(p):
-                            pyfiles.append(p)
-        except (PermissionError, OSError):
-            continue
-
-    return sorted(pyfiles)
-
-
-def get_files2(path: str | Path, ext: Optional[list[str]] = None) -> list[Path]:
-    path = Path(path)
-    if not path.is_dir():
-        raise ValueError(f"Path must be a directory: {path}")
-
-    if ext is not None:
-        ext = {e.lower() if e.startswith(".") else f".{e.lower()}" for e in ext}
-
-    skip_dirs = {".git", "__pycache__"}
-
-    all_files = []
-    stack = [path]
-
-    while stack:
-        current = stack.pop()
-
-        try:
-            for entry in current.iterdir():
-                if entry.is_symlink():
-                    continue
-
-                if entry.is_dir():
-                    if entry.name not in skip_dirs:
-                        stack.append(entry)
-                elif entry.is_file():
-                    if ext is None or entry.suffix.lower() in ext:
-                        all_files.append(entry)
-        except PermissionError:
-            continue
-
-    return all_files
-
-
-def get_fast(path):
+def get_fast(path, ext: list[str] | None = None):
     from fastwalk import walk_files
 
     for entry in walk_files(path):
         entry = Path(entry)
         if entry.is_symlink():
             continue
+        if not ".git" in entry.parts and (not "__pycache__" in entry.parts):
+            if ext is not None:
+                extensions = set(ext)
+                if entry.suffix in extensions:
+                    yield entry
+            else:
+                yield entry
 
-        if not ".git" in entry.parts and not "__pycache__" in entry.parts:
-            yield entry
+
+def get_pyfiles(path: str | Path, include_hidden: bool = True) -> list[Path]:
+    path = Path(path)
+    SKIP_DIRS = {".git", "__pycache__"}
+    if not path.exists():
+        raise FileNotFoundError(f"Path does not exist: {path}")
+    if not path.is_dir():
+        raise NotADirectoryError(f"Path is not a directory: {path}")
+    files = []
+    stack = [path]
+    while stack:
+        current = stack.pop()
+        try:
+            with os_scandir(current) as entries:
+                for entry in entries:
+                    if entry.is_symlink():
+                        continue
+                    if entry.is_dir(follow_symlinks=False):
+                        if entry.name not in SKIP_DIRS:
+                            stack.append(Path(entry.path))
+                    elif entry.is_file(follow_symlinks=False):
+                        if not include_hidden and entry.name.startswith("."):
+                            continue
+                        if is_python_file(Path(entry.path)):
+                            files.append(Path(entry.path))
+        except (PermissionError, OSError):
+            continue
+    return sorted(files)
+
+
+def is_python_file(path: str | Path) -> bool:
+    path = Path(path)
+    if path.suffix == ".py":
+        return True
+    if not path.stat().st_size:
+        return False
+    if path.suffix == "":
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                first_line = f.readline().strip()
+                if first_line.startswith("#!") and "python" in first_line.lower():
+                    return True
+                if _looks_like_python(path):
+                    return True
+        except (PermissionError, OSError, UnicodeDecodeError):
+            pass
+    return False
+
+
+def _looks_like_python(path: Path) -> bool:
+    python_indicators = [
+        "import ",
+        "from ",
+        "def ",
+        "class ",
+        "if __name__",
+        "#!/usr/bin/env python",
+        "#!/usr/bin/python",
+    ]
+    try:
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            content = ""
+            for _ in range(10):
+                line = f.readline()
+                if not line:
+                    break
+                content += line
+            content_lower = content.lower()
+            for indicator in python_indicators:
+                if indicator.lower() in content_lower:
+                    return True
+    except (PermissionError, OSError, UnicodeDecodeError):
+        pass
+    return False
+
+
+def get_files_iter(directory: str | Path, ext: list[str] | None = None):
+    directory = Path(directory)
+    if not directory.is_dir():
+        raise NotADirectoryError(f"Path is not a directory: {directory}")
+    with os.scandir(directory) as entries:
+        for entry in entries:
+            path = Path(entry.path)
+            if path.is_symlink():
+                continue
+            if path.is_file():
+                if ext is not None:
+                    exensions = set(ext)
+                    if path.suffix in extensions:
+                        yield path.resolve()
+                else:
+                    yield path.resolve()
+            elif path.is_dir():
+                yield from get_files_iter(path)
