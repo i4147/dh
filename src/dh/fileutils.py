@@ -1,9 +1,11 @@
+import functools
+from collections.abc import Iterator
 from os import scandir as os_scandir
 from pathlib import Path
-from typing import Optional, overload
-from .const import CHUNK_SIZE, EMULATED, IMG_EXT, SDCARD, SKIP_DIRS, THRESHOLD, ZERO_DOT_THREE, PY_KEYWORDS
-from collections.abc import Iterator
-import functools
+from typing import Generator, Optional, overload
+
+from .const import (BIN_EXT, CHUNK_SIZE, EMULATED, IMG_EXT, PY_KEYWORDS,
+                    SDCARD, SKIP_DIRS, THRESHOLD, TXT_EXT, ZERO_DOT_THREE)
 
 
 @overload
@@ -128,62 +130,53 @@ def get_file_age(path: str | Path, str_mode: bool = False) -> float | str:
     return ", ".join(parts) if parts else "0 sec"
 
 
-@functools.lru_cache(maxsize=1024*1024)
-def _get_pip_freeze_data() -> tuple[float, list[str]]:
-    """Cache pip freeze data with age check."""
-    pip_freeze_path = Path("/sdcard/data/pip.freeze")
-    if not pip_freeze_path.exists():
-        return (-1, [])
-
-    file_age = get_file_age(pip_freeze_path)
-    if file_age >= 60 * 60 * 24:
-        return (-1, [])
-
-    lines = pip_freeze_path.read_text(encoding="utf8").splitlines(keepends=False)
-    return (file_age, lines)
-
-
+@functools.lru_cache(maxsize=1024 * 1024)
 def get_installed_packages() -> dict[str, str]:
-    """Get installed packages with caching."""
     from operator import itemgetter
 
-    age, lines = _get_pip_freeze_data()
-    if age >= 0:
-        # Use dict comprehension for speed
-        return {
-            name: version
-            for line in lines
-            if not line.startswith("#") and "==" in line
-            for name, version in [line.split("==", 1)]
-        }
-
+    packages = {}
+    pip_freeze_path = Path("/sdcard/data/pip.freeze")
+    file_age = get_file_age(pip_freeze_path)
+    if file_age < 60 * 60 * 24:
+        lines = pip_freeze_path.read_text(encoding="utf8").splitlines(keepends=False)
+        for line in lines:
+            if not line.startswith("#") and "==" in line:
+                name, version = line.split("==", 1)
+                packages[name] = version
+        return packages
     from importlib.metadata import distributions as _distributions
 
-    packages = {}
     for dist in _distributions():
         meta = dist.metadata
-        name = (meta.get("Name") or meta.get("name") or "").strip()
-        version = (meta.get("Version") or meta.get("version") or "").strip()
-        if name and version:
-            packages[name] = version
-
+        name = meta.get("Name") or meta.get("name")
+        version = meta.get("Version") or meta.get("version")
+        if not name or not version:
+            continue
+        name = name.strip()
+        packages[name] = version
     return dict(sorted(packages.items(), key=itemgetter(0)))
 
 
-def get_installed_pkgs() -> list[str]:
-    """Get installed package names with caching."""
-    age, lines = _get_pip_freeze_data()
-    if age >= 0:
-        return [line.split("==", 1)[0] for line in lines if not line.startswith("#") and "==" in line]
-
+def get_installed_pkgs():
+    packages = []
+    pip_freeze_path = Path("/sdcard/data/pip.freeze")
+    file_age = get_file_age(pip_freeze_path)
+    if file_age < 60 * 60 * 24:
+        lines = pip_freeze_path.read_text(encoding="utf8").splitlines(keepends=False)
+        for line in lines:
+            if not line.startswith("#") and "==" in line:
+                name, _ = line.split("==", 1)
+                packages.append(name)
+        return packages
     from importlib.metadata import distributions
 
-    packages = []
     for dist in distributions():
         meta = dist.metadata
-        name = (meta.get("Name") or meta.get("name") or "").strip()
-        if name:
-            packages.append(name)
+        name = meta.get("Name") or meta.get("name")
+        if not name:
+            continue
+        name = name.strip()
+        packages.append(name)
     return packages
 
 
@@ -259,15 +252,18 @@ def reverse_dict(input_dict: dict) -> dict:
 def is_binary(path: str | Path, sample_size: int = 4096) -> bool:
     """Check if file is binary using sampling."""
     path = Path(path)
+    if not path.stat().st_size:
+        return False
+    if path.suffix in BIN_EXT:
+        return True
+    if path.suffix in TXT_EXT:
+        return False
     try:
         with open(path, "rb") as f:
             chunk = f.read(sample_size)
-            if not chunk:
-                return False
             if b"\x00" in chunk:
                 return True
 
-            # Use bytes.translate for faster character checking
             text_chars = bytes(range(32, 127)) + b"\n\r\t\x0c\x08"
             non_text = sum(1 for byte in chunk if byte not in text_chars)
             return non_text / len(chunk) > 0.3
@@ -276,12 +272,10 @@ def is_binary(path: str | Path, sample_size: int = 4096) -> bool:
 
 
 def is_text_file(path: str | Path) -> bool:
-    """Check if file is text."""
     return not is_binary(path)
 
 
 def fsz(sz: float) -> str:
-    """Format file size."""
     sz = abs(int(sz))
     if sz == 0:
         return "0 B"
@@ -295,11 +289,6 @@ def fsz(sz: float) -> str:
 
 
 format_size = fsz
-
-
-def get_nobinary(path: str | Path) -> list[Path]:
-    path=Path(path)
-    return [f for f in get_files(path) if not is_binary(f)]
 
 
 def safe_delete(path: Path, max_retries: int = 3) -> bool:
@@ -609,15 +598,11 @@ def get_files_scandir(path: str | Path, include_hidden: bool = True, ext: list[s
 def get_fast(path, ext: list[str] | None = None) -> Iterator[Path]:
     from fastwalk import walk_files
 
-    ext_set = set(ext) if ext else None
-
     for entry in walk_files(path):
-        entry = Path(entry)
-        if entry.is_symlink():
+        if should_skip(entry):
             continue
-        if ".git" not in entry.parts and "__pycache__" not in entry.parts:
-            if ext_set is None or entry.suffix in ext_set:
-                yield entry
+        if ext is None or entry.suffix in ext:
+            yield entry
 
 
 def get_pyfiles(path: str | Path, include_hidden: bool = True) -> list[Path]:
@@ -736,12 +721,11 @@ def getfiles(root_dir: str | Path, ext: list[str] | None = None) -> list[Path]:
 
     files = []
     for path in walk_files(root_dir):
-        if path.is_symlink() or (".git" in path.parts) or ("__pycache__" in path.parts):
+        if should_skip(path):
             continue
         if path.is_file():
-            if ext is not None:
-                if path.suffix and (path.suffix in ext):
-                    files.append(path)
+            if (ext is None) or (path.suffix and (path.suffix in ext)):
+                files.append(path)
             else:
                 files.append(path)
     return sorted(files)
@@ -774,7 +758,6 @@ def get_files_pathlib(path: Path, include_hidden: bool = True, ext: list[str] | 
     return sorted(files)
 
 
-
 def get_files(path: str | Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
     from os import scandir as os_scandir
 
@@ -804,3 +787,24 @@ def get_files(path: str | Path, include_hidden: bool = True, ext: list[str] | No
         except (PermissionError, OSError):
             continue
     return sorted(files)
+
+
+def get_nobinary(path: str | Path) -> list[Path]:
+    return [f for f in get_files(path) if not is_binary(f)]
+
+
+def get_pyfiles_iter(root: Path) -> Generator[Path, None, None]:
+    root = Path(root)
+    try:
+        for entry in root.iterdir():
+            if entry.is_symlink():
+                continue
+
+            if entry.is_dir():
+                if entry.name in {".git", "__pycache__"}:
+                    continue
+                yield from get_pyfiles_iter(entry)
+            elif entry.is_file() and is_python_file(entry):
+                yield entry
+    except PermissionError:
+        pass

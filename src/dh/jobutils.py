@@ -1,5 +1,5 @@
 from collections.abc import Callable, Iterable, Iterator
-from multiprocessing import get_context, Pool
+from multiprocessing import Pool, get_context
 from pathlib import Path
 from typing import Any, ParamSpec, TypeVar
 

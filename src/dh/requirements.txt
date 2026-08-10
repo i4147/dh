@@ -1,0 +1,14 @@
+click-default-group
+condense-json
+debugpy
+feedparser
+flask-cors
+pyaudio
+pytelegrambotapi
+python-bale-bot
+python-ulid
+reportlab
+rfc3161-client
+rubpy
+speechrecognition
+sqlite-utils
