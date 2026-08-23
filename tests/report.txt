@@ -1,0 +1,15 @@
+File Analysis Report
+============================================================
+[WARNING] data/cache.tmp - File is temporary
+[ERROR] data/config.json - Permission denied
+[SUCCESS] src/main.py - Processed successfully
+[BINARY] src/old.py - Skipped binary file
+
+Summary:
+  success: 1
+  binary: 1
+  error: 1
+  warning: 1
+  total_files: 100
+  files_modified: 75
+  lines_removed: 5000

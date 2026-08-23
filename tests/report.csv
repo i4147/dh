@@ -1,0 +1,5 @@
+Path,Category,Message,Timestamp
+data/cache.tmp,warning,File is temporary,2026-08-23T19:17:18.272670
+data/config.json,error,Permission denied,2026-08-23T19:17:18.272651
+src/main.py,success,Processed successfully,2026-08-23T19:17:18.272555
+src/old.py,binary,Skipped binary file,2026-08-23T19:17:18.272620

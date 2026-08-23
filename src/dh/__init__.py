@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .const import (ARCHIVE_EXT, AUDIO_EXT, BIN_EXT, BOOK_EXT, CSS_COLORS,
                     DOC_TH, DOC_TH1, DOC_TH2, DOCUMENT_EXT, EXT2MIME, FONT_EXT,
                     IMG_EXT, MAX_WORKERS, MIME2EXT, MOVIE_EXT, PKG_MAPPING,
@@ -7,28 +9,30 @@ from .const import (ARCHIVE_EXT, AUDIO_EXT, BIN_EXT, BOOK_EXT, CSS_COLORS,
                     lyellow, magenta, red, reset, reverse, underline, white,
                     yellow)
 from .cprint import colored, cprint
-from .fileutils import (append_text, format_size, format_time, fsz, get_dirs,
-                        get_fast, get_file_age, get_files, get_files_iter,
-                        get_filez, get_installed_packages, get_installed_pkgs,
-                        get_ipackages, get_ipkgs, get_mime_type, get_nobinary,
-                        get_pyfiles, get_pyfiles_iter, get_random_filename,
+from .fileutils import (append_text, copy_dir, format_size, format_time, fsz,
+                        get_dirs, get_fast, get_file_age, get_files,
+                        get_files_iter, get_filez, get_installed_packages,
+                        get_installed_pkgs, get_ipackages, get_ipkgs,
+                        get_mime_type, get_nobinary, get_pyfiles,
+                        get_pyfiles_iter, get_random_filename,
                         get_removed_lines, get_size, getfiles, gext, gsz,
                         is_binary, is_empty, is_image, is_python_file,
-                        is_text_file, is_within, normalize_filename,
+                        is_text_file, is_within, move_dir, normalize_filename,
                         normalize_path, read_lines, read_lines_mmap,
                         restore_bak, reverse_dict, rrs, runcmd, safe_delete,
                         should_skip, unique_path, write_txt_file)
-from .jobutils import (mpf, mpf3, mpf_async, mpf_imap, mpf_imap2, mpf_imap3,
-                       mpf_map, mpf_starmap2, mpf_starmap3)
-from .utils import get_sha256, is_valid_url
+from .jobutils import (mpf3, mpf_async, mpf_imap, mpf_imapu, mpf_map, mpf_ppe,
+                       mpf_ppe_ac, mpf_starmap, mpf_tpe)
+from .utils import get_sha256, has_doc, is_valid_url
 
-# fileutils
 __all__ = [
     "append_text",
+    "copy_dir",
     "format_size",
     "format_time",
     "fsz",
     "get_dirs",
+    "get_fast",
     "get_file_age",
     "get_files",
     "get_files_iter",
@@ -40,9 +44,11 @@ __all__ = [
     "get_mime_type",
     "get_nobinary",
     "get_pyfiles",
+    "get_pyfiles_iter",
     "get_random_filename",
     "get_removed_lines",
     "get_size",
+    "getfiles",
     "gext",
     "gsz",
     "is_binary",
@@ -51,6 +57,7 @@ __all__ = [
     "is_python_file",
     "is_text_file",
     "is_within",
+    "move_dir",
     "normalize_filename",
     "normalize_path",
     "read_lines",
@@ -63,24 +70,18 @@ __all__ = [
     "should_skip",
     "unique_path",
     "write_txt_file",
-    "get_fast",
-    "getfiles",
-    "get_pyfiles_iter",
 ]
 
-
-# const
 __all__ += [
-    "SHEBANG_MAP",
     "ARCHIVE_EXT",
     "AUDIO_EXT",
     "BIN_EXT",
     "BOOK_EXT",
     "CSS_COLORS",
-    "DOC_TH1",
-    "DOC_TH2",
     "DOCTH",
     "DOCUMENT_EXT",
+    "DOC_TH1",
+    "DOC_TH2",
     "EXT2MIME",
     "FONT_EXT",
     "IMG_EXT",
@@ -89,6 +90,7 @@ __all__ += [
     "MOVIE_EXT",
     "PKG_MAPPING",
     "PY_KEYWORDS",
+    "SHEBANG_MAP",
     "SOURCE_CODE_EXT",
     "STDLIB",
     "TXT_EXT",
@@ -117,21 +119,8 @@ __all__ += [
     "yellow",
 ]
 
-# cprint
-__all__ += ["cprint", "colored"]
+__all__ += ["colored", "cprint"]
 
-# jobutils
-__all__ += [
-    "mpf",
-    "mpf3",
-    "mpf_async",
-    "mpf_imap",
-    "mpf_imap2",
-    "mpf_imap3",
-    "mpf_map",
-    "mpf_starmap2",
-    "mpf_starmap3",
-]
+__all__ += ["mpf_tpe", "mpf3", "mpf_async", "mpf_imap", "mpf_imapu", "mpf_ppe", "mpf_map", "mpf_starmap2", "mpf_ppe_ac"]
 
-# utils
-__all__ += ["is_valid_url", "get_sha256"]
+__all__ += ["get_sha256", "has_doc", "is_valid_url"]

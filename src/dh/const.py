@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Final
 
 SHEBANG_MAP: dict[str, str] = {
@@ -212,107 +214,7 @@ SHEBANG_MAP: dict[str, str] = {
     "raco": ".rkt",
     "planet": ".plt",
     "snow": ".snow",
-    "snow2": ".snow",
-    "snow3": ".snow",
-    "snow4": ".snow",
-    "snow5": ".snow",
-    "snow6": ".snow",
-    "snow7": ".snow",
-    "snow8": ".snow",
-    "snow9": ".snow",
-    "snow10": ".snow",
-    "snow11": ".snow",
-    "snow12": ".snow",
-    "snow13": ".snow",
-    "snow14": ".snow",
-    "snow15": ".snow",
-    "snow16": ".snow",
-    "snow17": ".snow",
-    "snow18": ".snow",
-    "snow19": ".snow",
-    "snow20": ".snow",
-    "snow21": ".snow",
-    "snow22": ".snow",
-    "snow23": ".snow",
-    "snow24": ".snow",
-    "snow25": ".snow",
-    "snow26": ".snow",
-    "snow27": ".snow",
-    "snow28": ".snow",
-    "snow29": ".snow",
-    "snow30": ".snow",
-    "snow31": ".snow",
-    "snow32": ".snow",
-    "snow33": ".snow",
-    "snow34": ".snow",
-    "snow35": ".snow",
-    "snow36": ".snow",
-    "snow37": ".snow",
-    "snow38": ".snow",
-    "snow39": ".snow",
-    "snow40": ".snow",
-    "snow41": ".snow",
-    "snow42": ".snow",
-    "snow43": ".snow",
-    "snow44": ".snow",
-    "snow45": ".snow",
-    "snow46": ".snow",
-    "snow47": ".snow",
-    "snow48": ".snow",
-    "snow49": ".snow",
-    "snow50": ".snow",
-    "snow51": ".snow",
-    "snow52": ".snow",
-    "snow53": ".snow",
-    "snow54": ".snow",
-    "snow55": ".snow",
-    "snow56": ".snow",
-    "snow57": ".snow",
-    "snow58": ".snow",
-    "snow59": ".snow",
-    "snow60": ".snow",
-    "snow61": ".snow",
-    "snow62": ".snow",
-    "snow63": ".snow",
-    "snow64": ".snow",
-    "snow65": ".snow",
-    "snow66": ".snow",
-    "snow67": ".snow",
-    "snow68": ".snow",
-    "snow69": ".snow",
-    "snow70": ".snow",
-    "snow71": ".snow",
-    "snow72": ".snow",
-    "snow73": ".snow",
-    "snow74": ".snow",
-    "snow75": ".snow",
-    "snow76": ".snow",
-    "snow77": ".snow",
-    "snow78": ".snow",
-    "snow79": ".snow",
-    "snow80": ".snow",
-    "snow81": ".snow",
-    "snow82": ".snow",
-    "snow83": ".snow",
-    "snow84": ".snow",
-    "snow85": ".snow",
-    "snow86": ".snow",
-    "snow87": ".snow",
-    "snow88": ".snow",
-    "snow89": ".snow",
-    "snow90": ".snow",
-    "snow91": ".snow",
-    "snow92": ".snow",
-    "snow93": ".snow",
-    "snow94": ".snow",
-    "snow95": ".snow",
-    "snow96": ".snow",
-    "snow97": ".snow",
-    "snow98": ".snow",
-    "snow99": ".snow",
-    "snow100": ".snow",
 }
-
 BIN_EXT: frozenset = frozenset(
     {
         ".3ds",
@@ -1100,7 +1002,6 @@ TXT_EXT: frozenset = frozenset(
         ".py",
         ".pygments",
         ".pyi",
-        ".pyw",
         ".pyx",
         ".qdoc",
         ".qdocconf",
@@ -3276,7 +3177,7 @@ MIME2EXT: dict = {
     "text/css": [".css"],
     "text/csv": [".csv"],
     "text/csv-schema": [".csvs"],
-    "text/html": [".htm", ".html"],
+    "text/html": [".html", ".htm"],
     "text/javascript": [".jsm", ".mjs"],
     "text/jscript.encode": [".jse"],
     "text/julia": [".jl"],
@@ -3489,7 +3390,6 @@ MIME2EXT: dict = {
     "x-conference/x-cooltalk": [".ice"],
     "x-epoc/x-sisx-app": [".sisx"],
 }
-
 PY_KEYWORDS: frozenset = frozenset(
     {
         "Ellipsis",
@@ -3626,19 +3526,7 @@ PY_KEYWORDS: frozenset = frozenset(
 )
 ARCHIVE_EXT: frozenset = frozenset({".bz2", ".bzip2", ".gz", ".gzip", ".lz", ".rar", ".tar", ".xz", ".zip"})
 AUDIO_EXT: frozenset = frozenset(
-    {
-        ".aiff",
-        ".amr",
-        ".flac",
-        ".gsm",
-        ".m4a",
-        ".m4b",
-        ".m4p",
-        ".mp3",
-        ".ogg",
-        ".wav",
-        ".wma",
-    }
+    {".aiff", ".amr", ".flac", ".gsm", ".m4a", ".m4b", ".m4p", ".mp3", ".ogg", ".wav", ".wma"}
 )
 BOOK_EXT: frozenset = frozenset({".azw3", ".chm", ".djv", ".djvu", ".epub", ".fb2", ".mobi", ".pdf"})
 DOCUMENT_EXT: frozenset = frozenset(
@@ -3698,20 +3586,7 @@ FONT_EXT: frozenset = frozenset(
     }
 )
 MOVIE_EXT: frozenset = frozenset(
-    {
-        ".3gp",
-        ".avi",
-        ".flv",
-        ".m4p",
-        ".m4v",
-        ".mkv",
-        ".mov",
-        ".mp4",
-        ".mpeg",
-        ".mpg",
-        ".webm",
-        ".wmv",
-    }
+    {".3gp", ".avi", ".flv", ".m4p", ".m4v", ".mkv", ".mov", ".mp4", ".mpeg", ".mpg", ".webm", ".wmv"}
 )
 SOURCE_CODE_EXT: frozenset = frozenset(
     {
@@ -4446,12 +4321,10 @@ GREYBLACK: str = "\x1b[1;90m"
 greyblack = GREYBLACK
 ANSI_RESET: str = "\x1b[0m"
 ANSI_BOLD: str = "\x1b[1m"
-
-
-CHUNK_SIZE: Final = 32_768  # 16_384
+CHUNK_SIZE: Final = 32768
 ZERO_DOT_THREE: Final = 0.3
 SKIP_DIRS = frozenset({"lazy", ".git", "__pycache__", ".mypy_cache", ".ruff_cache", ".pytest_cache"})
-THRESHOLD: Final = 2_097_152
+THRESHOLD: Final = 2097152
 SDCARD: str = "/sdcard"
 EMULATED: str = "/storage/emulated/0"
 CONTEXT_METHOD: str = "spawn"

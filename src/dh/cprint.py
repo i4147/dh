@@ -8,7 +8,6 @@ TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from typing import Any
-
 ATTRIBUTES: dict[str, int] = {
     "bold": 1,
     "dark": 2,
@@ -61,7 +60,7 @@ RESET = "\x1b[0m"
 
 
 @cache
-def can_colorize(*, no_color: (bool | None) = None, force_color: (bool | None) = None) -> bool:
+def can_colorize(*, no_color: bool | None = None, force_color: bool | None = None) -> bool:
     if no_color is not None and no_color:
         return False
     if force_color is not None and force_color:
@@ -84,12 +83,12 @@ def can_colorize(*, no_color: (bool | None) = None, force_color: (bool | None) =
 
 def colored(
     text: object,
-    color: (str | tuple[int, int, int] | None) = None,
-    on_color: (str | tuple[int, int, int] | None) = None,
-    attrs: (Iterable[str] | None) = None,
+    color: str | tuple[int, int, int] | None = None,
+    on_color: str | tuple[int, int, int] | None = None,
+    attrs: Iterable[str] | None = None,
     *,
-    no_color: (bool | None) = None,
-    force_color: (bool | None) = None,
+    no_color: bool | None = None,
+    force_color: bool | None = None,
 ) -> str:
     result = str(text)
     if not can_colorize(no_color=no_color, force_color=force_color):
@@ -116,26 +115,15 @@ def colored(
 
 def cprint(
     text: object,
-    color: (str | tuple[int, int, int] | None) = None,
-    on_color: (str | tuple[int, int, int] | None) = None,
-    attrs: (Iterable[str] | None) = None,
+    color: str | tuple[int, int, int] | None = None,
+    on_color: str | tuple[int, int, int] | None = None,
+    attrs: Iterable[str] | None = None,
     *,
-    no_color: (bool | None) = None,
-    force_color: (bool | None) = None,
+    no_color: bool | None = None,
+    force_color: bool | None = None,
     **kwargs: Any,
 ) -> None:
-    print(
-        colored(text, color, on_color, attrs, no_color=no_color, force_color=force_color),
-        **kwargs,
-    )
+    print(colored(text, color, on_color, attrs, no_color=no_color, force_color=force_color), **kwargs)
 
 
-__all__ = [
-    "ATTRIBUTES",
-    "COLORS",
-    "HIGHLIGHTS",
-    "RESET",
-    "can_colorize",
-    "colored",
-    "cprint",
-]
+__all__ = ["ATTRIBUTES", "COLORS", "HIGHLIGHTS", "RESET", "can_colorize", "colored", "cprint"]
