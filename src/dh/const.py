@@ -3524,12 +3524,12 @@ PY_KEYWORDS: frozenset = frozenset(
         "zip",
     }
 )
-ARCHIVE_EXT: frozenset = frozenset({".bz2", ".bzip2", ".gz", ".gzip", ".lz", ".rar", ".tar", ".xz", ".zip"})
-AUDIO_EXT: frozenset = frozenset(
+AREXT: frozenset = frozenset({".bz2", ".bzip2", ".gz", ".gzip", ".lz", ".rar", ".tar", ".xz", ".zip"})
+AUDEXT: frozenset = frozenset(
     {".aiff", ".amr", ".flac", ".gsm", ".m4a", ".m4b", ".m4p", ".mp3", ".ogg", ".wav", ".wma"}
 )
-BOOK_EXT: frozenset = frozenset({".azw3", ".chm", ".djv", ".djvu", ".epub", ".fb2", ".mobi", ".pdf"})
-DOCUMENT_EXT: frozenset = frozenset(
+BOOKEXT: frozenset = frozenset({".azw3", ".chm", ".djv", ".djvu", ".epub", ".fb2", ".mobi", ".pdf"})
+DOCEXT: frozenset = frozenset(
     {
         ".accdb",
         ".doc",
@@ -3561,7 +3561,7 @@ DOCUMENT_EXT: frozenset = frozenset(
         ".xps",
     }
 )
-FONT_EXT: frozenset = frozenset(
+FONTEXT: frozenset = frozenset(
     {
         ".bdf",
         ".bin",
@@ -3585,10 +3585,10 @@ FONT_EXT: frozenset = frozenset(
         ".woff2",
     }
 )
-MOVIE_EXT: frozenset = frozenset(
+VIDEXT: frozenset = frozenset(
     {".3gp", ".avi", ".flv", ".m4p", ".m4v", ".mkv", ".mov", ".mp4", ".mpeg", ".mpg", ".webm", ".wmv"}
 )
-SOURCE_CODE_EXT: frozenset = frozenset(
+CODEXT: frozenset = frozenset(
     {
         ".asm",
         ".awk",

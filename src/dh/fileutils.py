@@ -12,11 +12,20 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from os import scandir as os_scandir
 from pathlib import Path
-from typing import (Callable, Generator, Iterator, List, Optional, Tuple,
-                    overload)
+from typing import Callable, Generator, Iterator, List, Optional, Tuple, overload
 
-from .const import (BIN_EXT, CHUNK_SIZE, EMULATED, IMG_EXT, PY_KEYWORDS,
-                    SDCARD, SKIP_DIRS, THRESHOLD, TXT_EXT, ZERO_DOT_THREE)
+from .const import (
+    BIN_EXT,
+    CHUNK_SIZE,
+    EMULATED,
+    IMG_EXT,
+    PY_KEYWORDS,
+    SDCARD,
+    SKIP_DIRS,
+    THRESHOLD,
+    TXT_EXT,
+    ZERO_DOT_THREE,
+)
 
 
 @overload

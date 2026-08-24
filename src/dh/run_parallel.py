@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable, Iterable, Iterator
-from concurrent.futures import (FIRST_COMPLETED, Executor, Future,
-                                ProcessPoolExecutor, wait)
+from concurrent.futures import FIRST_COMPLETED, Executor, Future, ProcessPoolExecutor, wait
 from dataclasses import dataclass
 from typing import TypeVar
 

@@ -4,8 +4,7 @@ import multiprocessing
 import os
 import time
 from collections.abc import Callable, Iterable, Iterator
-from concurrent.futures import (FIRST_COMPLETED, Executor, Future,
-                                ProcessPoolExecutor, ThreadPoolExecutor, wait)
+from concurrent.futures import FIRST_COMPLETED, Executor, Future, ProcessPoolExecutor, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from multiprocessing import Pool, get_context
 from pathlib import Path
