@@ -1,24 +1,23 @@
 from __future__ import annotations
 
+import contextlib
 import functools
-import multiprocessing as mp
-import os
-import shutil
-import time
+import tempfile
 from collections import defaultdict
 from collections.abc import Iterator
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import partial
+from multiprocessing import get_context
 from os import scandir as os_scandir
 from pathlib import Path
-from typing import Callable, Generator, Iterator, List, Optional, Tuple, overload
+from typing import Any, Callable, Generator, Iterator, Optional, overload
 
 from .const import (
     BIN_EXT,
     CHUNK_SIZE,
     EMULATED,
-    IMG_EXT,
+    IMGEXT,
     PY_KEYWORDS,
     SDCARD,
     SKIP_DIRS,
@@ -26,12 +25,11 @@ from .const import (
     TXT_EXT,
     ZERO_DOT_THREE,
 )
+from .isbinary import is_binary
 
 
 @overload
 def get_file_age(path: str | Path, str_mode: bool = False) -> float: ...
-
-
 @overload
 def get_file_age(path: str | Path, str_mode: bool = True) -> str: ...
 
@@ -126,58 +124,37 @@ def get_file_age(path: str | Path, str_mode: bool = False) -> float | str:
     return ", ".join(parts) if parts else "0 sec"
 
 
+def _normalize_name(name: str) -> str:
+    from re import sub as re_sub
+
+    return re_sub(r"[-_.]+", "-", name).lower()
+
+
 @functools.lru_cache(maxsize=1024 * 1024)
 def get_installed_packages() -> dict[str, str]:
+    from importlib import metadata
     from operator import itemgetter
 
     packages = {}
-    pip_freeze_path = Path("/sdcard/data/pip.freeze")
-    file_age = get_file_age(pip_freeze_path)
-    if file_age < 60 * 60 * 24:
-        lines = pip_freeze_path.read_text(encoding="utf8").splitlines(keepends=False)
-        for line in lines:
-            if not line.startswith("#") and "==" in line:
-                name, version = line.split("==", 1)
-                packages[name] = version
-        return packages
-    from importlib.metadata import distributions as _distributions
+    for distribution in metadata.distributions():
+        name = distribution.metadata.get("Name")
+        version = distribution.metadata.get("Version")
 
-    for dist in _distributions():
-        meta = dist.metadata
-        name = meta.get("Name") or meta.get("name")
-        version = meta.get("Version") or meta.get("version")
-        if not name or not version:
-            continue
-        name = name.strip()
-        packages[name] = version
+        if name and version:
+            packages[_normalize_name(name)] = version
     return dict(sorted(packages.items(), key=itemgetter(0)))
 
 
-def get_installed_pkgs():
+@functools.lru_cache(maxsize=1024 * 1024)
+def get_installed_pkgs() -> list[str]:
+    from importlib import metadata
+
     packages = []
-    pip_freeze_path = Path("/sdcard/data/pip.freeze")
-    file_age = get_file_age(pip_freeze_path)
-    if file_age < 60 * 60 * 24:
-        lines = pip_freeze_path.read_text(encoding="utf8").splitlines(keepends=False)
-        for line in lines:
-            if not line.startswith("#") and "==" in line:
-                name, _ = line.split("==", 1)
-                packages.append(name)
-        return packages
-    from importlib.metadata import distributions
-
-    for dist in distributions():
-        meta = dist.metadata
-        name = meta.get("Name") or meta.get("name")
-        if not name:
-            continue
-        name = name.strip()
-        packages.append(name)
-    return packages
-
-
-get_ipackages = get_installed_packages
-get_ipkgs = get_installed_pkgs
+    for distribution in metadata.distributions():
+        name = distribution.metadata.get("Name")
+        if name:
+            packages.append(_normalize_name(name))
+    return sorted(packages)
 
 
 def get_mime_type(path: str | Path) -> str | None:
@@ -196,7 +173,7 @@ def get_random_filename(length: int = 10) -> str:
 def is_image(path: str | Path) -> bool:
     path = Path(path)
     try:
-        return path.is_file() and path.suffix in IMG_EXT
+        return path.is_file() and path.suffix in IMGEXT
     except Exception:
         return False
 
@@ -212,8 +189,7 @@ def is_within(child_path: str | Path, parent_path: str | Path) -> bool:
 
 
 def normalize_filename(path: str | Path) -> str:
-    from re import compile as re_compile
-    from re import escape as re_escape
+    from re import compile as re_compile, escape as re_escape
 
     path = str(path)
     special_characters = '<>:"/\\|?*' + "".join(map(chr, range(32)))
@@ -231,34 +207,24 @@ def normalize_path(path: str | Path) -> Path:
 def reverse_dict(input_dict: dict) -> dict:
     from collections import defaultdict
 
+    seenkeys = set()
+    seenvals = set()
+    has_rep: bool = False
     rev = defaultdict(list)
     for k, v in input_dict.items():
-        rev[v].append(k)
+        if k not in seenkeys:
+            seenkeys.add(k)
+        else:
+            has_rep = True
+        if v not in seenvals:
+            seenvals.add(v)
+        else:
+            has_rep = True
+        if not has_rep:
+            rev[v] = k
+        else:
+            rev[v].append(k)
     return dict(rev)
-
-
-def is_binary(path: str | Path, sample_size: int = 4096) -> bool:
-    path = Path(path)
-    if not path.stat().st_size:
-        return False
-    if path.suffix in BIN_EXT:
-        return True
-    if path.suffix in TXT_EXT:
-        return False
-    try:
-        with open(path, "rb") as f:
-            chunk = f.read(sample_size)
-            if b"\x00" in chunk:
-                return True
-            text_chars = bytes(range(32, 127)) + b"\n\r\t\x0c\x08"
-            non_text = sum((1 for byte in chunk if byte not in text_chars))
-            return non_text / len(chunk) > 0.3
-    except Exception:
-        return True
-
-
-def is_text_file(path: str | Path) -> bool:
-    return not is_binary(path)
 
 
 def fsz(sz: float) -> str:
@@ -271,9 +237,6 @@ def fsz(sz: float) -> str:
     if i == 0:
         return f"{int(value)} {units[i]}"
     return f"{value:.1f} {units[i]}"
-
-
-format_size = fsz
 
 
 def safe_delete(path: Path, max_retries: int = 3) -> bool:
@@ -289,7 +252,7 @@ def safe_delete(path: Path, max_retries: int = 3) -> bool:
         return False
 
 
-def get_filez2(root_dir: str | Path, ext: list[str] | None = None) -> Iterator[Path]:
+def get_filez(root_dir: str | Path, ext: list[str] | None = None) -> Iterator[Path]:
     from fastwalk import walk_files
 
     ext_set = set(ext) if ext else None
@@ -374,11 +337,8 @@ def format_time(t: float) -> str:
 def runcmd(
     cmd: list[str], run_silently: bool = False, show_output: bool = True, timeout: float | None = None
 ) -> tuple[int, str, str]:
-    from subprocess import DEVNULL as _DEVNULL
-    from subprocess import TimeoutExpired as subprocess_TimeoutExpired
-    from subprocess import run as subprocess_run
-    from sys import stderr as sys_stderr
-    from sys import stdout as sys_stdout
+    from subprocess import DEVNULL as _DEVNULL, TimeoutExpired as subprocess_TimeoutExpired, run as subprocess_run
+    from sys import stderr as sys_stderr, stdout as sys_stdout
 
     if not cmd:
         raise ValueError("cmd must be a non-empty list (e.g., ['ls', '-l'])")
@@ -520,56 +480,6 @@ def get_fast(path, ext: list[str] | None = None) -> Iterator[Path]:
             yield entry
 
 
-def get_pyfiles(path: str | Path, include_hidden: bool = True) -> list[Path]:
-    path = Path(path)
-    if not path.exists():
-        raise FileNotFoundError(f"Path does not exist: {path}")
-    if not path.is_dir():
-        raise NotADirectoryError(f"Path is not a directory: {path}")
-    files = []
-    stack = [path]
-    while stack:
-        current = stack.pop()
-        try:
-            with os_scandir(current) as entries:
-                for entry in entries:
-                    if entry.is_symlink():
-                        continue
-                    if entry.is_dir(follow_symlinks=False):
-                        if entry.name not in SKIP_DIRS:
-                            stack.append(Path(entry.path))
-                    elif entry.is_file(follow_symlinks=False):
-                        if not include_hidden and entry.name.startswith("."):
-                            continue
-                        if is_python_file(Path(entry.path)):
-                            files.append(Path(entry.path))
-        except (PermissionError, OSError):
-            continue
-    return sorted(files)
-
-
-def is_python_file(path: str | Path) -> bool:
-    path = Path(path)
-    if path.suffix == ".py":
-        return True
-    if not path.stat().st_size:
-        return False
-    if not path.suffix:
-        with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            first_line = f.readline().strip()
-            if first_line.startswith("#!") and "python" in first_line.lower():
-                return True
-            try:
-                from ast import parse
-
-                code = path.read_text(encoding="utf-8")
-                _ = parse(code)
-                return True
-            except:
-                return False
-    return False
-
-
 def get_files_iter(directory: str | Path, ext: list[str] | None = None) -> Iterator[Path]:
     directory = Path(directory)
     if not directory.is_dir():
@@ -587,7 +497,7 @@ def get_files_iter(directory: str | Path, ext: list[str] | None = None) -> Itera
                 yield from get_files_iter(path, ext)
 
 
-def get_files4(path: str | Path, ext: list[str] | None = None) -> list[Path]:
+def get_files(path: str | Path, ext: list[str] | None = None) -> list[Path]:
     from collections import deque
 
     path = Path(path)
@@ -650,7 +560,7 @@ def get_files_pathlib(path: Path, include_hidden: bool = True, ext: list[str] | 
     return sorted(files)
 
 
-def get_files(path: str | Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
+def get_files4(path: str | Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
     from os import scandir as os_scandir
 
     path = Path(path)
@@ -701,12 +611,9 @@ def get_pyfiles_iter(root: Path) -> Generator[Path, None, None]:
         pass
 
 
-import contextlib
-from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
-
-
 def gsz(path: str | Path) -> int | float:
+    if not isinstance(path, (Path, str)):
+        return 0
     p = Path(path)
     if p.is_symlink():
         return 0
@@ -718,6 +625,8 @@ def gsz(path: str | Path) -> int | float:
 
 
 def _dir_size(path: Path) -> int:
+    from concurrent.futures import ThreadPoolExecutor
+
     total = 0
     with ThreadPoolExecutor() as executor:
         futures = []
@@ -733,14 +642,13 @@ def _dir_size(path: Path) -> int:
     return total
 
 
-get_size = gsz
-
-
 def _copy_file(args: tuple[Path, Path]) -> tuple[bool, Path, Optional[Exception]]:
+    from shutil import copy2
+
     src_file, dest_file = args
     try:
         dest_file.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src_file, dest_file)
+        copy2(src_file, dest_file)
         return (True, dest_file, None)
     except Exception as e:
         return (False, dest_file, e)
@@ -751,6 +659,8 @@ def _collect_files(src_dir: Path) -> list[Path]:
 
 
 def copy_dir(src: str, dest: str) -> bool:
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+
     try:
         src_path = Path(src).resolve()
         dest_path = Path(dest).resolve()
@@ -771,7 +681,7 @@ def copy_dir(src: str, dest: str) -> bool:
                 tasks.append((filepath, dest_file))
         if not tasks:
             return True
-        num_workers = max(1, int(mp.cpu_count() * 0.8))
+        num_workers = 8
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
             futures = [executor.submit(_copy_file, task) for task in tasks]
             for future in as_completed(futures):
@@ -786,16 +696,21 @@ def copy_dir(src: str, dest: str) -> bool:
 
 
 def _move_file(args: tuple[Path, Path]) -> tuple[bool, Path, Optional[Exception]]:
+    from shutil import move
+
     src_file, dest_file = args
     try:
         dest_file.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(src_file), str(dest_file))
+        move(str(src_file), str(dest_file))
         return (True, dest_file, None)
     except Exception as e:
         return (False, dest_file, e)
 
 
 def move_dir(src: str, dest: str) -> bool:
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+    from shutil import move
+
     try:
         src_path = Path(src).resolve()
         dest_path = Path(dest).resolve()
@@ -810,7 +725,7 @@ def move_dir(src: str, dest: str) -> bool:
         files = _collect_files(src_path)
         if not files:
             if src_path.exists():
-                shutil.move(str(src_path), str(dest_folder))
+                move(str(src_path), str(dest_folder))
             return True
         tasks = []
         for filepath in files:
@@ -831,7 +746,7 @@ def move_dir(src: str, dest: str) -> bool:
                 with contextlib.suppress(OSError):
                     src_path.rmdir()
             return True
-        num_workers = max(1, int(mp.cpu_count() * 0.8))
+        num_workers = 8
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
             futures = [executor.submit(_move_file, task) for task in tasks]
             for future in as_completed(futures):
@@ -839,7 +754,7 @@ def move_dir(src: str, dest: str) -> bool:
                 if not success:
                     print(f"Failed to move {dest_file}: {error}")
                     return False
-        for root, dirs, _files in os.walk(str(src_path), topdown=False):
+        for root, dirs, _files in src_path.walk(topdown=False):
             for dir_name in dirs:
                 dir_path = Path(root) / dir_name
                 try:
@@ -883,8 +798,8 @@ class FileWalkerConfig:
     follow_symlinks: bool = False
 
 
-def get_filez(
-    paths: list[Path | str],
+def get_files_iter_config(
+    path: Path | str,
     config: Optional[FileWalkerConfig] = None,
     file_filter: Optional[Callable[[Path], bool]] = None,
 ) -> Iterator[tuple[Path, Path]]:
@@ -898,7 +813,6 @@ def get_filez(
                     return True
             except ValueError:
                 pass
-
         return any(skip in dir_path.parts for skip in config.skip_dirs)
 
     def matches_pattern(file_path: Path) -> bool:
@@ -906,52 +820,43 @@ def get_filez(
             return False
         return not (config.exclude_pattern and file_path.match(config.exclude_pattern))
 
-    for path_str in paths:
-        path = Path(path_str).resolve()
-
-        if not path.exists():
-            print(f"{YELLOW}⚠ Warning:{RESET} '{path}' does not exist, skipping.")
-            continue
-
-        if path.is_file():
-            if config.skip_symlinks and path.is_symlink():
+    path = Path(path).resolve()
+    if not path.exists():
+        print(f"{YELLOW}⚠ Warning:{RESET} '{path}' does not exist, skipping.")
+        return []
+    if path.is_file():
+        if config.skip_symlinks and path.is_symlink():
+            return []
+        if config.skip_hidden and path.name.startswith("."):
+            return []
+        if not matches_pattern(path):
+            return []
+        if file_filter and not file_filter(path):
+            return []
+        yield path
+    elif path.is_dir():
+        for file_path in path.rglob("*"):
+            if not file_path.is_file():
                 continue
-            if config.skip_hidden and path.name.startswith("."):
+            if config.skip_symlinks and file_path.is_symlink():
                 continue
-            if not matches_pattern(path):
+            if should_skip_dir(file_path.parent):
                 continue
-            if file_filter and not file_filter(path):
+            if config.skip_hidden and any(part.startswith(".") for part in file_path.parts):
                 continue
-
-            yield (path.parent, path)
-
-        elif path.is_dir():
-            for file_path in path.rglob("*"):
-                if not file_path.is_file():
-                    continue
-                if config.skip_symlinks and file_path.is_symlink():
-                    continue
-
-                if should_skip_dir(file_path.parent):
-                    continue
-
-                if config.skip_hidden and any(part.startswith(".") for part in file_path.parts):
-                    continue
-
-                if not matches_pattern(file_path):
-                    continue
-
-                if file_filter and not file_filter(file_path):
-                    continue
-
-                yield (path, file_path)
-
-        else:
-            print(f"{YELLOW}⚠ Warning:{RESET} '{path}' is not a file or directory, skipping.")
+            if not matches_pattern(file_path):
+                continue
+            if file_filter and not file_filter(file_path):
+                continue
+            yield file_path
+    else:
+        print(f"{YELLOW}⚠ Warning:{RESET} '{path}' is not a file or directory, skipping.")
 
 
 @dataclass
 class ReportItem:
+    import time
+
     path: str
     category: str
     message: str = ""
@@ -983,28 +888,23 @@ class ReportGenerator:
     ):
         if not items:
             return
-
         print(f"\n{BOLD}{color}{symbol} {category.capitalize()}: {len(items)}{RESET}")
-
         display_count = len(items) if show_all else min(5, len(items))
         for item in items[:display_count]:
             print(f"  {color}{symbol}{RESET} {item.path}")
             if item.message:
                 print(f"    {DIM}{item.message}{RESET}")
-
         if len(items) > display_count:
             print(f"  {DIM}... and {len(items) - display_count} more{RESET}")
 
     def print_report(self, show_all: bool = False, sort_by: str = "path"):
         self._print_header()
-
         if sort_by == "path":
             self.items.sort(key=lambda x: x.path)
         elif sort_by == "category":
             self.items.sort(key=lambda x: x.category)
         elif sort_by == "time":
             self.items.sort(key=lambda x: x.timestamp)
-
         categories = {
             "success": ([], GREEN, "✓"),
             "binary": ([], YELLOW, "⊘"),
@@ -1012,28 +912,25 @@ class ReportGenerator:
             "error": ([], RED, "✗"),
             "info": ([], CYAN, "ℹ"),
         }
-
         for item in self.items:
             if item.category in categories:
                 categories[item.category][0].append(item)
-
         for category, (items, color, symbol) in categories.items():
             if items:
                 self._print_category_summary(category, items, color, symbol, show_all)
-
         self._print_summary()
 
     def _print_summary(self):
         print(f"\n{BOLD}{CYAN}{'─' * self.width}{RESET}")
         print(f"{BOLD}Summary:{RESET}")
-
         for key, value in sorted(self.stats.items()):
             if isinstance(value, int):
                 print(f"  {key.replace('_', ' ').title():.<30} {BOLD}{value:,}{RESET}")
-
         print(f"{BOLD}{CYAN}{'─' * self.width}{RESET}\n")
 
     def export_to_file(self, filepath: Path, format: str = "text"):
+        import datetime
+
         if format == "text":
             with open(filepath, "w") as f:
                 f.write(f"{self.title}\n{'=' * self.width}\n")
@@ -1042,7 +939,6 @@ class ReportGenerator:
                     if item.message:
                         f.write(f" - {item.message}")
                     f.write("\n")
-
                 f.write(f"\nSummary:\n")
                 for key, value in self.stats.items():
                     f.write(f"  {key}: {value}\n")
@@ -1056,3 +952,225 @@ class ReportGenerator:
                     writer.writerow(
                         [item.path, item.category, item.message, datetime.fromtimestamp(item.timestamp).isoformat()]
                     )
+
+
+def remove_blank_lines(text: str) -> str:
+    lines = text.splitlines(keepends=True)
+    result_lines = []
+    prev_blank = False
+    for line in lines:
+        is_blank = line.strip() == ""
+        if is_blank and prev_blank:
+            continue
+        result_lines.append(line)
+        prev_blank = is_blank
+    return "".join(result_lines)
+
+
+def is_python_file(path: str | Path) -> bool:
+    from ast import parse as ast_parse
+
+    path = Path(path)
+    if is_binary(path):
+        return False
+    if not path.stat().st_size:
+        return False
+    if path.is_file() and path.suffix == ".py":
+        return True
+    if not path.suffix:
+        with path.open("rb") as f:
+            first_two = f.read(2)
+            if first_two == b"#!":
+                f.seek(0)
+                first100 = f.read(100)
+                if b"python" in first100:
+                    return True
+            try:
+                f.seek(0)
+                code = f.read().decode("utf-8")
+                ast_parse(code)
+                return True
+            except:
+                return False
+    return False
+
+
+def get_pyfiles(path: str | Path) -> list[Path]:
+    path = Path(path)
+    if path.is_file():
+        if path.suffix == ".py":
+            return [path]
+        if not path.suffix and (not path.name.startswith(".")) and is_python_file(path):
+            return [path]
+        return []
+    if not path.is_dir():
+        return []
+    pyfiles = []
+    stack = [path]
+    while stack:
+        current = stack.pop()
+        try:
+            with os_scandir(current) as entries:
+                for entry in entries:
+                    if entry.is_symlink():
+                        continue
+                    if entry.is_dir(follow_symlinks=False):
+                        if entry.name not in SKIP_DIRS:
+                            stack.append(entry)
+                    elif entry.is_file(follow_symlinks=False):
+                        p = Path(entry.path)
+                        if p.suffix == ".py" or (not p.suffix and (not p.name.startswith(".")) and is_python_file(p)):
+                            pyfiles.append(p)
+        except (PermissionError, OSError):
+            continue
+    return sorted(pyfiles)
+
+
+def walk_paths(inputs: str | Path | list[str | Path], ext: list[str] | None = None) -> Iterator[Path]:
+    if isinstance(inputs, (str, Path)):
+        inputs = [inputs]
+    for inp in inputs:
+        inp = Path(inp)
+        if inp.is_file():
+            if ext is None or inp.suffix in ext:
+                yield inp
+        elif inp.is_dir():
+            yield from get_fast(inp, ext)
+        else:
+            parent = inp.parent if "*" in inp.name else inp
+            pattern = inp.name if "*" in inp.name else str(inp)
+            for match in parent.glob(pattern):
+                if match.is_file():
+                    if ext is None or match.suffix in ext:
+                        yield match
+                elif match.is_dir():
+                    yield from get_fast(match, ext)
+
+
+def worker(file_path: Path, process_fn: Callable[[Path], Any]) -> tuple[Path, Any]:
+    try:
+        result = process_fn(file_path)
+        return (file_path, result)
+    except Exception as e:
+        return (file_path, f"ERROR: {e}")
+
+
+def process_files(
+    file_iter: Iterator[Path], process_fn: Callable[[Path], Any], max_workers: int = 4, prefetch: int = 128
+) -> Iterator[tuple[Path, Any]]:
+    ctx = get_context("spawn")
+    with ctx.Pool(processes=max_workers) as pool:
+        worker_fn = partial(worker, process_fn=process_fn)
+        batch = []
+        for file_path in file_iter:
+            batch.append(file_path)
+            if len(batch) >= prefetch:
+                for result in pool.imap_unordered(worker_fn, batch):
+                    yield result
+                batch = []
+        for result in pool.imap_unordered(worker_fn, batch):
+            yield result
+
+
+def main_func(
+    inputs: str | Path | list[str | Path],
+    process_fn: Callable[[Path], Any],
+    ext: list[str] | None = None,
+    max_workers: int = 8,
+    prefetch: int = 128,
+    verbose: bool = True,
+):
+    file_iter = walk_paths(inputs, ext)
+    count = 0
+    errors = 0
+    for file_path, result in process_files(file_iter, process_fn, max_workers, prefetch):
+        count += 1
+        if verbose:
+            status = "✓" if not str(result).startswith("ERROR") else "✗"
+            print(f"{status} {file_path}: {result}")
+        if str(result).startswith("ERROR"):
+            errors += 1
+    if verbose:
+        print(f"\n{count} files processed, {errors} errors")
+
+
+def is_text_file(path: str | Path) -> bool:
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {path}")
+    if not path.is_file():
+        raise ValueError(f"Path is not a file: {path}")
+    if path.suffix in BIN_EXT:
+        return False
+    if path.suffix in TXT_EXT:
+        return True
+    try:
+        with open(path, "rb") as f:
+            chunk = f.read()
+        size = path.stat().st_size
+        return not _check_binary_chunk(chunk)
+    except Exception as e:
+        raise RuntimeError(f"Error checking file {path}: {e!s}")
+
+
+def _check_binary_chunk(chunk: bytes) -> bool:
+    if not chunk:
+        return False
+    null_count = chunk.count(b"\x00")
+    if len(chunk) < 100:
+        null_ratio = null_count / len(chunk)
+        if null_ratio > 0.1:
+            return True
+    else:
+        null_ratio = null_count / len(chunk)
+        if null_ratio > 0.05:
+            return True
+    printable_chars = sum(1 for byte in chunk if 32 <= byte <= 126)
+    total_chars = len(chunk)
+    if total_chars > 0 and (printable_chars / total_chars) < 0.7:
+        return True
+    return bool(len(chunk) > 100 and null_count > 0 and printable_chars / total_chars < 0.5)
+
+
+def atomic_write(path: Path, content: str) -> None:
+    from os import replace as os_replace
+
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        delete=False,
+    ) as temporary:
+        temporary.write(content)
+        temporary_path = Path(temporary.name)
+    try:
+        os_replace(temporary_path, path)
+    except Exception:
+        temporary_path.unlink(missing_ok=True)
+        raise
+
+
+def walk_files(path: str | Path, ext: list[str] | None = None) -> list[Path]:
+    files = []
+    for root, dirs, filenames in Path(path).walk(top_down=True, on_error=None):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        for name in filenames:
+            item = root / name
+            if item.is_symlink():
+                continue
+            if ext is None or item.suffix in ext:
+                files.append(item)
+    return files
+
+
+def walkfiles(path: str | Path, ext: list[str] | None = None):
+    for root, dirs, filenames in Path(path).walk(top_down=True, on_error=None):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        for name in filenames:
+            item = root / name
+            if item.is_symlink():
+                continue
+            if ext is None or item.suffix in ext:
+                yield item

@@ -4,6 +4,18 @@ import ipaddress
 import re
 from pathlib import Path
 from urllib.parse import urlparse
+import re
+import unicodedata
+
+
+def slugify(string):
+    return re.sub(
+        r"[-\s]+",
+        "-",
+        unicode(
+            re.sub(r"[^\w\s-]", "", unicodedata.normalize("NFKD", string).encode("ascii", "ignore")).strip().lower()
+        ),
+    )
 
 
 def get_sha256(path: str | Path, chunk_size: int = 524288) -> str:
@@ -44,67 +56,48 @@ def has_doc(code: str) -> bool:
 
 
 def is_valid_url(url: str) -> bool:
-
     if not isinstance(url, str) or not url.strip():
         return False
-
     url = url.strip()
-
     if "${" in url or "`" in url:
         return False
-
     if "://" not in url:
         return False
-
     try:
         parsed = urlparse(url)
     except ValueError:
         return False
-
     if parsed.scheme not in ("http", "https", "ftp", "ftps"):
         return False
-
     if parsed.port is not None and not (0 < parsed.port < 65536):
         return False
-
     if not parsed.hostname:
         return False
-
     hostname = parsed.hostname
-
     return is_valid_hostname(hostname)
 
 
 def is_valid_hostname(hostname: str) -> bool:
-
     if hostname == "localhost":
         return True
-
     try:
         ipaddress.IPv4Address(hostname)
         return True
     except ValueError:
         pass
-
     try:
         ipaddress.IPv6Address(hostname)
         return True
     except ValueError:
         pass
-
     if len(hostname) > 253:
         return False
-
     labels = hostname.split(".")
-
     if not labels:
         return False
-
     for _i, label in enumerate(labels):
         if not label or len(label) > 63:
             return False
-
         if not re.match(r"^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$", label):
             return False
-
     return True

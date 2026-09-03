@@ -99,7 +99,7 @@ def mpf_imap3(func: Callable, items: Iterable) -> Iterator:
         yield from p.imap_unordered(func, items_list)
 
 
-def run_parallel(func: Callable, files: Iterable[Path], workers: int = MAX_WORKERS, timeout: int = 30) -> List[Any]:
+def run_parallel(func: Callable, files: Iterable[Path], workers: int = MAX_WORKERS, timeout: int = 30) -> list[Any]:
     files_list = list(files)
     if not files_list:
         return []

@@ -2,7 +2,10 @@ import sys
 from pathlib import Path
 from time import perf_counter as pff
 
-from dh import get_files, get_sha256, mpf, mpf2, mpf3, mpf4, mpf5
+from dh import get_files, get_sha256
+from dh import mpf,mpf2,mpf3, mpf_async, mpf_imap, mpf_imapu, mpf_map, mpf_ppe, mpf_ppe_ac, mpf_tpe,mpf_starmap
+
+
 from loguru import logger
 
 
@@ -15,19 +18,18 @@ def measure_time(func_to_process, filez: list[Path]) -> None:
 
 
 def process_file(fp) -> None:
-    #    logger.info(f"{fp.name}")
     return get_sha256(fp)
 
 
 def main() -> None:
-    cwd = Path.home() / "tmp" / "0"
-    args = sys.argv[1:]
+    cwd = Path.home() / "projects"
     files = get_files(cwd)
-    funcs = [mpf5, mpf4, mpf3, mpf2, mpf]
+    funcs=[mpf,mpf2,mpf3, mpf_async, mpf_imap,  mpf_map, mpf_ppe, mpf_ppe_ac, mpf_tpe,mpf_starmap]
+
     for i in range(1, 7):
         for func in funcs:
             measure_time(func, files)
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

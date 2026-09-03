@@ -1,3 +1,4 @@
+.coverage
 .gitignore
 README.md
 gen_readme.py
@@ -8,8 +9,8 @@ src/dh/__init__.py
 src/dh/const.py
 src/dh/cprint.py
 src/dh/fileutils.py
+src/dh/isbinary.py
 src/dh/jobutils.py
-src/dh/run_parallel.py
 src/dh/utils.py
 src/dh.egg-info/PKG-INFO
 src/dh.egg-info/SOURCES.txt
@@ -19,7 +20,11 @@ src/dh.egg-info/top_level.txt
 tests/err_list.py
 tests/extz
 tests/extz.py
+tests/fswalker_report_gen.py
+tests/jobutils.py
 tests/pk_list.txt
+tests/report.csv
+tests/report.txt
 tests/tedt_gf.py
 tests/test_cbl.py
 tests/test_clean_blank_lines.py
