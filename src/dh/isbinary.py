@@ -229,7 +229,7 @@ def _load_binary_extensions() -> frozenset[str]:
 _BINARY_SIGNATURES = _load_binary_signatures()
 BINARY_EXTENSIONS = _load_binary_extensions()
 CHUNK_SIZE = 512
-_CONTROL_BYTES = frozenset(range(0, 32)) - {9, 10, 13}
+_CONTROL_BYTES = frozenset(range(32)) - {9, 10, 13}
 
 
 def _has_known_binary_signature(chunk: bytes) -> bool:
@@ -314,8 +314,7 @@ def _compute_features(chunk: bytes) -> list[float]:
     for b in chunk:
         if 32 <= b <= 126 or b in (9, 10, 13):
             current_run += 1
-            if current_run > max_run:
-                max_run = current_run
+            max_run = max(max_run, current_run)
         else:
             current_run = 0
     longest_printable_run = max_run / n

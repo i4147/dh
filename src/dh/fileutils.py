@@ -4,14 +4,14 @@ import contextlib
 import functools
 import tempfile
 from collections import defaultdict
-from collections.abc import Iterator
+from collections.abc import Callable, Generator, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import partial
 from multiprocessing import get_context
 from os import scandir as os_scandir
 from pathlib import Path
-from typing import Any, Callable, Generator, Iterator, Optional, overload
+from typing import Any, Optional, overload
 
 from .const import (
     BIN_EXT,
@@ -167,7 +167,7 @@ def get_random_filename(length: int = 10) -> str:
     from secrets import choice
     from string import ascii_lowercase
 
-    return "".join((choice(ascii_lowercase) for _ in range(length)))
+    return "".join(choice(ascii_lowercase) for _ in range(length))
 
 
 def is_image(path: str | Path) -> bool:
@@ -642,7 +642,7 @@ def _dir_size(path: Path) -> int:
     return total
 
 
-def _copy_file(args: tuple[Path, Path]) -> tuple[bool, Path, Optional[Exception]]:
+def _copy_file(args: tuple[Path, Path]) -> tuple[bool, Path, Exception | None]:
     from shutil import copy2
 
     src_file, dest_file = args
@@ -695,7 +695,7 @@ def copy_dir(src: str, dest: str) -> bool:
         return False
 
 
-def _move_file(args: tuple[Path, Path]) -> tuple[bool, Path, Optional[Exception]]:
+def _move_file(args: tuple[Path, Path]) -> tuple[bool, Path, Exception | None]:
     from shutil import move
 
     src_file, dest_file = args
@@ -792,16 +792,16 @@ class FileWalkerConfig:
             "__pycache__",
         }
     )
-    file_pattern: Optional[str] = None
-    exclude_pattern: Optional[str] = "lazy"
-    max_depth: Optional[int] = 999
+    file_pattern: str | None = None
+    exclude_pattern: str | None = "lazy"
+    max_depth: int | None = 999
     follow_symlinks: bool = False
 
 
 def get_files_iter_config(
     path: Path | str,
-    config: Optional[FileWalkerConfig] = None,
-    file_filter: Optional[Callable[[Path], bool]] = None,
+    config: FileWalkerConfig | None = None,
+    file_filter: Callable[[Path], bool] | None = None,
 ) -> Iterator[tuple[Path, Path]]:
     config = config or FileWalkerConfig()
 
@@ -940,8 +940,7 @@ class ReportGenerator:
                         f.write(f" - {item.message}")
                     f.write("\n")
                 f.write(f"\nSummary:\n")
-                for key, value in self.stats.items():
-                    f.write(f"  {key}: {value}\n")
+                f.writelines(f"  {key}: {value}\n" for key, value in self.stats.items())
         elif format == "csv":
             import csv
 

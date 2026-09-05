@@ -2994,7 +2994,7 @@ MIME2EXT: dict = {
     "application/x-t3vm-image": [".t3"],
     "application/x-t602": [".602"],
     "application/x-tads": [".gam"],
-    "application/x-tar": [".gem", ".tar"],
+    "application/x-tar": [".tar"],
     "application/x-tarz": [".tar.Z", ".tar.z", ".taz"],
     "application/x-tcl": [".tcl"],
     "application/x-tex": [".tex"],

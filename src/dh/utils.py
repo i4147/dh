@@ -2,19 +2,16 @@ from __future__ import annotations
 
 import ipaddress
 import re
+import unicodedata
 from pathlib import Path
 from urllib.parse import urlparse
-import re
-import unicodedata
 
 
 def slugify(string):
     return re.sub(
         r"[-\s]+",
         "-",
-        unicode(
-            re.sub(r"[^\w\s-]", "", unicodedata.normalize("NFKD", string).encode("ascii", "ignore")).strip().lower()
-        ),
+        re.sub(r"[^\w\s-]", "", unicodedata.normalize("NFKD", string).encode("ascii", "ignore")).strip().lower(),
     )
 
 
@@ -101,3 +98,19 @@ def is_valid_hostname(hostname: str) -> bool:
         if not re.match(r"^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$", label):
             return False
     return True
+
+
+pattern = re.compile(
+    r"""(?:
+            url\s*\(\s*["']?
+          | (?:src|href)\s*=\s*["']
+        )
+        data:([^;,]+)
+        (?:;[^,]*)?
+        ;base64,\s*
+        ([A-Za-z0-9+/]+={0,2})
+        ["']?
+        (?:\s*\))?
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)

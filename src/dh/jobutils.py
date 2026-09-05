@@ -7,7 +7,7 @@ from concurrent.futures import FIRST_COMPLETED, Executor, Future, ProcessPoolExe
 from dataclasses import dataclass
 from multiprocessing import Pool, get_context
 from pathlib import Path
-from typing import Any, Callable, Iterable, TypeVar
+from typing import Any, TypeVar
 
 MAX_WORKERS = 8
 _MP_CONTEXT = get_context("spawn")
@@ -161,7 +161,7 @@ class ParallelSummary:
     failed: int = 0
 
 
-def _submit_until_full(
+def _submit_until_full[T, R](
     executor: Executor,
     items: Iterator[T],
     func: Callable[[T], tuple[R, str | None]],
@@ -179,7 +179,7 @@ def _submit_until_full(
     return exhausted
 
 
-def mpf3(
+def mpf3[T, R](
     func: Callable[[T], tuple[R, str | None]],
     items: Iterable[T],
     *,
