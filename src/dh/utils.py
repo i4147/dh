@@ -6,13 +6,29 @@ import unicodedata
 from pathlib import Path
 from urllib.parse import urlparse
 
-
-def slugify(string):
-    return re.sub(
-        r"[-\s]+",
-        "-",
-        re.sub(r"[^\w\s-]", "", unicodedata.normalize("NFKD", string).encode("ascii", "ignore")).strip().lower(),
-    )
+pattern = re.compile(
+    r"""(?:
+            url\s*\(\s*["']?
+          | (?:src|href)\s*=\s*["']
+        )
+        data:([^;,]+)
+        (?:;[^,]*)?
+        ;base64,\s*
+        ([A-Za-z0-9+/]+={0,2})
+        ["']?
+        (?:\s*\))?
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+WORD_PATTERN = re.compile(
+    r"""
+    [A-Z]+(?=[A-Z][a-z]|\d|\b)   # Acronym followed by lowercase or number
+    |[A-Z]?[a-z]+                # Standard word
+    |[A-Z]+                      # All caps word
+    |\d+                         # Numbers (optional)
+    """,
+    re.VERBOSE,
+)
 
 
 def get_sha256(path: str | Path, chunk_size: int = 524288) -> str:
@@ -52,28 +68,6 @@ def has_doc(code: str) -> bool:
     return False
 
 
-def is_valid_url(url: str) -> bool:
-    if not isinstance(url, str) or not url.strip():
-        return False
-    url = url.strip()
-    if "${" in url or "`" in url:
-        return False
-    if "://" not in url:
-        return False
-    try:
-        parsed = urlparse(url)
-    except ValueError:
-        return False
-    if parsed.scheme not in ("http", "https", "ftp", "ftps"):
-        return False
-    if parsed.port is not None and not (0 < parsed.port < 65536):
-        return False
-    if not parsed.hostname:
-        return False
-    hostname = parsed.hostname
-    return is_valid_hostname(hostname)
-
-
 def is_valid_hostname(hostname: str) -> bool:
     if hostname == "localhost":
         return True
@@ -100,17 +94,43 @@ def is_valid_hostname(hostname: str) -> bool:
     return True
 
 
-pattern = re.compile(
-    r"""(?:
-            url\s*\(\s*["']?
-          | (?:src|href)\s*=\s*["']
-        )
-        data:([^;,]+)
-        (?:;[^,]*)?
-        ;base64,\s*
-        ([A-Za-z0-9+/]+={0,2})
-        ["']?
-        (?:\s*\))?
-    """,
-    re.IGNORECASE | re.VERBOSE,
-)
+def is_valid_url(url: str) -> bool:
+    if not isinstance(url, str) or not url.strip():
+        return False
+    url = url.strip()
+    if "${" in url or "`" in url:
+        return False
+    if "://" not in url:
+        return False
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    if parsed.scheme not in ("http", "https", "ftp", "ftps"):
+        return False
+    if parsed.port is not None and not (0 < parsed.port < 65536):
+        return False
+    if not parsed.hostname:
+        return False
+    hostname = parsed.hostname
+    return is_valid_hostname(hostname)
+
+
+def slugify(string):
+    return re.sub(
+        r"[-\s]+",
+        "-",
+        re.sub(r"[^\w\s-]", "", unicodedata.normalize("NFKD", string).encode("ascii", "ignore")).strip().lower(),
+    )
+
+
+def tokenize_text(text: str):
+    # First, split on non-alphanumeric separators (except underscore? we handle separately)
+    # Better: extract words from identifiers using the pattern above
+    tokens = []
+    for match in re.finditer(r"[A-Za-z_][A-Za-z0-9_]*", text):
+        identifier = match.group()
+        # Split the identifier into sub-words using WORD_PATTERN
+        subwords = WORD_PATTERN.findall(identifier)
+        tokens.extend(subwords if subwords else [identifier])
+    return tokens

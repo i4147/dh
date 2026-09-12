@@ -3,7 +3,7 @@ from pathlib import Path
 from time import perf_counter as pff
 
 from dh import get_files, get_sha256
-from dh import mpf,mpf2,mpf3, mpf_async, mpf_imap, mpf_imapu, mpf_map, mpf_ppe, mpf_ppe_ac, mpf_tpe,mpf_starmap
+from dh import mpf, mpf2, mpf3, mpf_async, mpf_imap, mpf_imapu, mpf_map, mpf_ppe, mpf_ppe_ac, mpf_tpe, mpf_starmap
 
 
 from loguru import logger
@@ -24,7 +24,7 @@ def process_file(fp) -> None:
 def main() -> None:
     cwd = Path.home() / "projects"
     files = get_files(cwd)
-    funcs=[mpf,mpf2,mpf3, mpf_async, mpf_imap,  mpf_map, mpf_ppe, mpf_ppe_ac, mpf_tpe,mpf_starmap]
+    funcs = [mpf, mpf2, mpf3, mpf_async, mpf_imap, mpf_map, mpf_ppe, mpf_ppe_ac, mpf_tpe, mpf_starmap]
 
     for i in range(1, 7):
         for func in funcs:

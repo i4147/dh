@@ -2,15 +2,14 @@ from __future__ import annotations
 
 import contextlib
 import functools
-import tempfile
 from collections import defaultdict
 from collections.abc import Callable, Generator, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
-from functools import partial
 from multiprocessing import get_context
 from os import scandir as os_scandir
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Any, Optional, overload
 
 from .const import (
@@ -35,6 +34,15 @@ def get_file_age(path: str | Path, str_mode: bool = True) -> str: ...
 
 
 def read_lines(path: str | Path, ke: bool = True) -> list[str]:
+    """Read file lines, using mmap for large files.
+
+    Args:
+        path: Path to the file to read.
+        ke: If True, keep line endings.
+
+    Returns:
+        List of lines from the file.
+    """
     path = Path(path)
     if path.stat().st_size > THRESHOLD:
         return read_lines_mmap(path, ke)
@@ -47,6 +55,15 @@ def read_lines(path: str | Path, ke: bool = True) -> list[str]:
 
 
 def read_lines_mmap(path: Path, keep_ends: bool = True) -> list[str]:
+    """Read file lines using memory mapping for large files.
+
+    Args:
+        path: Path to the file to read.
+        keep_ends: If True, keep line endings.
+
+    Returns:
+        List of lines from the file.
+    """
     import mmap
 
     size = path.stat().st_size
@@ -59,6 +76,14 @@ def read_lines_mmap(path: Path, keep_ends: bool = True) -> list[str]:
 
 
 def gext(path: str | Path) -> str:
+    """Get the full extension of a file, handling multi-part extensions.
+
+    Args:
+        path: Path to the file.
+
+    Returns:
+        The file extension string.
+    """
     path = Path(path)
     suffs = path.suffixes
     if not suffs:
@@ -74,6 +99,14 @@ def gext(path: str | Path) -> str:
 
 
 def get_dirs(path: str | Path) -> list[Path]:
+    """Recursively get all directories under a path.
+
+    Args:
+        path: Root path to search.
+
+    Returns:
+        List of all subdirectories.
+    """
     path = Path(path)
     if not path.is_dir():
         return []
@@ -92,6 +125,15 @@ def get_dirs(path: str | Path) -> list[Path]:
 
 
 def get_file_age(path: str | Path, str_mode: bool = False) -> float | str:
+    """Get the age of a file since its creation/change time.
+
+    Args:
+        path: Path to the file.
+        str_mode: If True, return a human-readable string.
+
+    Returns:
+        File age as float (seconds) or string if str_mode is True.
+    """
     from os import stat as os_stat
     from time import time as time_time
 
@@ -125,6 +167,14 @@ def get_file_age(path: str | Path, str_mode: bool = False) -> float | str:
 
 
 def _normalize_name(name: str) -> str:
+    """Normalize a package name per PEP 503.
+
+    Args:
+        name: Package name to normalize.
+
+    Returns:
+        Normalized package name.
+    """
     from re import sub as re_sub
 
     return re_sub(r"[-_.]+", "-", name).lower()
@@ -132,6 +182,11 @@ def _normalize_name(name: str) -> str:
 
 @functools.lru_cache(maxsize=1024 * 1024)
 def get_installed_packages() -> dict[str, str]:
+    """Get a mapping of installed package names to versions.
+
+    Returns:
+        Sorted dict of normalized package name -> version.
+    """
     from importlib import metadata
     from operator import itemgetter
 
@@ -147,6 +202,11 @@ def get_installed_packages() -> dict[str, str]:
 
 @functools.lru_cache(maxsize=1024 * 1024)
 def get_installed_pkgs() -> list[str]:
+    """Get a sorted list of installed package names.
+
+    Returns:
+        Sorted list of normalized package names.
+    """
     from importlib import metadata
 
     packages = []
@@ -158,12 +218,28 @@ def get_installed_pkgs() -> list[str]:
 
 
 def get_mime_type(path: str | Path) -> str | None:
+    """Guess the MIME type of a file.
+
+    Args:
+        path: Path to the file.
+
+    Returns:
+        MIME type string or None if unknown.
+    """
     from mimetypes import guess_type
 
     return guess_type(str(path))[0]
 
 
 def get_random_filename(length: int = 10) -> str:
+    """Generate a random lowercase alphabetic filename.
+
+    Args:
+        length: Length of the filename.
+
+    Returns:
+        Random filename string.
+    """
     from secrets import choice
     from string import ascii_lowercase
 
@@ -171,6 +247,14 @@ def get_random_filename(length: int = 10) -> str:
 
 
 def is_image(path: str | Path) -> bool:
+    """Check if a path points to an image file.
+
+    Args:
+        path: Path to check.
+
+    Returns:
+        True if the path is a file with an image extension.
+    """
     path = Path(path)
     try:
         return path.is_file() and path.suffix in IMGEXT
@@ -179,6 +263,15 @@ def is_image(path: str | Path) -> bool:
 
 
 def is_within(child_path: str | Path, parent_path: str | Path) -> bool:
+    """Check if a child path is within a parent path.
+
+    Args:
+        child_path: The child path.
+        parent_path: The parent path.
+
+    Returns:
+        True if child is inside parent.
+    """
     child = Path(child_path).resolve()
     parent = Path(parent_path).resolve()
     try:
@@ -189,6 +282,14 @@ def is_within(child_path: str | Path, parent_path: str | Path) -> bool:
 
 
 def normalize_filename(path: str | Path) -> str:
+    """Replace special characters in a filename with underscores.
+
+    Args:
+        path: Path to normalize.
+
+    Returns:
+        Normalized filename string.
+    """
     from re import compile as re_compile, escape as re_escape
 
     path = str(path)
@@ -198,6 +299,14 @@ def normalize_filename(path: str | Path) -> str:
 
 
 def normalize_path(path: str | Path) -> Path:
+    """Normalize a path, replacing emulated prefix with SDCARD.
+
+    Args:
+        path: Path to normalize.
+
+    Returns:
+        Resolved Path object.
+    """
     pathstr = str(path)
     if EMULATED in pathstr:
         return Path(pathstr.replace(EMULATED, SDCARD))
@@ -205,6 +314,14 @@ def normalize_path(path: str | Path) -> Path:
 
 
 def reverse_dict(input_dict: dict) -> dict:
+    """Reverse a dictionary, handling duplicate keys and values.
+
+    Args:
+        input_dict: Dictionary to reverse.
+
+    Returns:
+        Reversed dictionary with lists for duplicates.
+    """
     from collections import defaultdict
 
     seenkeys = set()
@@ -228,6 +345,14 @@ def reverse_dict(input_dict: dict) -> dict:
 
 
 def fsz(sz: float) -> str:
+    """Format a file size in human-readable units.
+
+    Args:
+        sz: Size in bytes.
+
+    Returns:
+        Formatted size string.
+    """
     sz = abs(int(sz))
     if sz == 0:
         return "0 B"
@@ -240,6 +365,15 @@ def fsz(sz: float) -> str:
 
 
 def safe_delete(path: Path, max_retries: int = 3) -> bool:
+    """Safely delete a file or directory.
+
+    Args:
+        path: Path to delete.
+        max_retries: Maximum number of retry attempts.
+
+    Returns:
+        True if deletion succeeded.
+    """
     from shutil import rmtree as shutil_rmtree
 
     try:
@@ -253,6 +387,15 @@ def safe_delete(path: Path, max_retries: int = 3) -> bool:
 
 
 def get_filez(root_dir: str | Path, ext: list[str] | None = None) -> Iterator[Path]:
+    """Iterate over files in a directory, optionally filtered by extension.
+
+    Args:
+        root_dir: Root directory to search.
+        ext: Optional list of extensions to filter by.
+
+    Yields:
+        Paths to matching files.
+    """
     from fastwalk import walk_files
 
     ext_set = set(ext) if ext else None
@@ -265,6 +408,14 @@ def get_filez(root_dir: str | Path, ext: list[str] | None = None) -> Iterator[Pa
 
 
 def unique_path(path: Path | str) -> Path:
+    """Generate a unique path by appending a counter if the path exists.
+
+    Args:
+        path: Desired path.
+
+    Returns:
+        A unique Path that does not exist.
+    """
     path = _clean_fname(Path(path))
     if not path.exists():
         return path
@@ -286,6 +437,14 @@ def unique_path(path: Path | str) -> Path:
 
 
 def _clean_fname(path: Path) -> Path:
+    """Remove trailing counter suffixes from a filename.
+
+    Args:
+        path: Path to clean.
+
+    Returns:
+        Cleaned Path.
+    """
     from re import sub as re_sub
 
     clean_name = re_sub(r"(_\d+)+", "", path.name)
@@ -293,6 +452,14 @@ def _clean_fname(path: Path) -> Path:
 
 
 def format_time(t: float) -> str:
+    """Format a duration in seconds to a human-readable string.
+
+    Args:
+        t: Time in seconds.
+
+    Returns:
+        Formatted time string.
+    """
     if t <= 0:
         return "0s"
     if t < 1:
@@ -337,6 +504,17 @@ def format_time(t: float) -> str:
 def runcmd(
     cmd: list[str], run_silently: bool = False, show_output: bool = True, timeout: float | None = None
 ) -> tuple[int, str, str]:
+    """Run a shell command and return its result.
+
+    Args:
+        cmd: Command as a list of strings.
+        run_silently: If True, suppress all output.
+        show_output: If True, print stdout/stderr.
+        timeout: Optional timeout in seconds.
+
+    Returns:
+        Tuple of (returncode, stdout, stderr).
+    """
     from subprocess import DEVNULL as _DEVNULL, TimeoutExpired as subprocess_TimeoutExpired, run as subprocess_run
     from sys import stderr as sys_stderr, stdout as sys_stdout
 
@@ -379,6 +557,16 @@ def runcmd(
 
 
 def write_txt_file(path: str | Path, data: str, overwrite: bool = False) -> bool:
+    """Write text data to a file.
+
+    Args:
+        path: Destination path.
+        data: Text content to write.
+        overwrite: If True, overwrite existing file.
+
+    Returns:
+        True if write succeeded.
+    """
     if not isinstance(data, str):
         return False
     path = Path(path)
@@ -393,11 +581,29 @@ def write_txt_file(path: str | Path, data: str, overwrite: bool = False) -> bool
 
 
 def should_skip(path: str | Path) -> bool:
+    """Check if a path should be skipped (symlink or in SKIP_DIRS).
+
+    Args:
+        path: Path to check.
+
+    Returns:
+        True if path should be skipped.
+    """
     path = Path(path)
     return bool(path.is_symlink() or not SKIP_DIRS.isdisjoint(path.parts))
 
 
 def append_text(path: str | Path, content: str, encoding: str = "utf-8") -> bool:
+    """Append text content to a file with a newline separator.
+
+    Args:
+        path: Destination path.
+        content: Text content to append.
+        encoding: Text encoding.
+
+    Returns:
+        True if append succeeded.
+    """
     path = Path(path)
     if path.is_symlink() or path.is_dir():
         return False
@@ -411,12 +617,29 @@ def append_text(path: str | Path, content: str, encoding: str = "utf-8") -> bool
 
 
 def get_removed_lines(txt1: str, txt2: str) -> list[str]:
+    """Get lines present in txt1 but not in txt2.
+
+    Args:
+        txt1: First text.
+        txt2: Second text.
+
+    Returns:
+        List of removed lines.
+    """
     set1 = {l for l in txt1.splitlines() if l}
     set2 = {l for l in txt2.splitlines() if l}
     return list(set1 - set2)
 
 
 def restore_bak(path: str | Path) -> bool:
+    """Restore a .bak file to its original name.
+
+    Args:
+        path: Original path.
+
+    Returns:
+        True if restore succeeded.
+    """
     path = Path(path)
     bak_path = path.with_name(path.name + ".bak")
     if bak_path.exists():
@@ -426,6 +649,13 @@ def restore_bak(path: str | Path) -> bool:
 
 
 def rrs(path, before: int, after: int) -> None:
+    """Print a size reduction summary.
+
+    Args:
+        path: Path being processed.
+        before: Original size.
+        after: New size.
+    """
     saved = before - after
     if not saved:
         msg = "\x1b[5;92mNO CHANGE\x1b[0m"
@@ -437,11 +667,29 @@ def rrs(path, before: int, after: int) -> None:
 
 
 def is_empty(path: str | Path) -> bool:
+    """Check if a directory is empty.
+
+    Args:
+        path: Path to check.
+
+    Returns:
+        True if path is an empty directory.
+    """
     path = Path(path)
     return path.is_dir() and (not any(path.iterdir()))
 
 
 def get_files_scandir(path: str | Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
+    """Get files using os.scandir for performance.
+
+    Args:
+        path: Root path.
+        include_hidden: If True, include hidden files.
+        ext: Optional list of extensions to filter.
+
+    Returns:
+        Sorted list of matching file paths.
+    """
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Path does not exist: {path}")
@@ -449,7 +697,7 @@ def get_files_scandir(path: str | Path, include_hidden: bool = True, ext: list[s
         raise NotADirectoryError(f"Path is not a directory: {path}")
     ext_tuple = tuple(ext) if ext else None
     files = []
-    stack = [path]
+    stack: list[Path] = [path]
     while stack:
         current = stack.pop()
         try:
@@ -471,6 +719,15 @@ def get_files_scandir(path: str | Path, include_hidden: bool = True, ext: list[s
 
 
 def get_fast(path, ext: list[str] | None = None) -> Iterator[Path]:
+    """Fast file iterator using fastwalk.
+
+    Args:
+        path: Root path.
+        ext: Optional list of extensions to filter.
+
+    Yields:
+        Matching file paths.
+    """
     from fastwalk import walk_files
 
     for entry in walk_files(path):
@@ -481,6 +738,15 @@ def get_fast(path, ext: list[str] | None = None) -> Iterator[Path]:
 
 
 def get_files_iter(directory: str | Path, ext: list[str] | None = None) -> Iterator[Path]:
+    """Recursively iterate files in a directory.
+
+    Args:
+        directory: Root directory.
+        ext: Optional list of extensions to filter.
+
+    Yields:
+        Resolved file paths.
+    """
     directory = Path(directory)
     if not directory.is_dir():
         raise NotADirectoryError(f"Path is not a directory: {directory}")
@@ -498,6 +764,15 @@ def get_files_iter(directory: str | Path, ext: list[str] | None = None) -> Itera
 
 
 def get_files(path: str | Path, ext: list[str] | None = None) -> list[Path]:
+    """Get files in a directory using BFS.
+
+    Args:
+        path: Root path.
+        ext: Optional list of extensions to filter.
+
+    Returns:
+        Sorted list of matching file paths.
+    """
     from collections import deque
 
     path = Path(path)
@@ -520,6 +795,15 @@ def get_files(path: str | Path, ext: list[str] | None = None) -> list[Path]:
 
 
 def getfiles(root_dir: str | Path, ext: list[str] | None = None) -> list[Path]:
+    """Get files using fastwalk.
+
+    Args:
+        root_dir: Root directory.
+        ext: Optional list of extensions to filter.
+
+    Returns:
+        Sorted list of matching file paths.
+    """
     from fastwalk import walk_files
 
     files = []
@@ -535,12 +819,22 @@ def getfiles(root_dir: str | Path, ext: list[str] | None = None) -> list[Path]:
 
 
 def get_files_pathlib(path: Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
+    """Get files using pathlib.
+
+    Args:
+        path: Root path.
+        include_hidden: If True, include hidden files.
+        ext: Optional list of extensions to filter.
+
+    Returns:
+        Sorted list of matching file paths.
+    """
     if not path.exists():
         raise FileNotFoundError(f"Path does not exist: {path}")
     if not path.is_dir():
         raise NotADirectoryError(f"Path is not a directory: {path}")
     files: list[Path] = []
-    stack = [path]
+    stack: list[Path] = [path]
     while stack:
         current = stack.pop()
         try:
@@ -561,6 +855,16 @@ def get_files_pathlib(path: Path, include_hidden: bool = True, ext: list[str] | 
 
 
 def get_files4(path: str | Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
+    """Get files using os.scandir with explicit stack.
+
+    Args:
+        path: Root path.
+        include_hidden: If True, include hidden files.
+        ext: Optional list of extensions to filter.
+
+    Returns:
+        Sorted list of matching file paths.
+    """
     from os import scandir as os_scandir
 
     path = Path(path)
@@ -570,7 +874,7 @@ def get_files4(path: str | Path, include_hidden: bool = True, ext: list[str] | N
         raise NotADirectoryError(f"Path is not a directory: {path}")
     ext_tuple = tuple(ext) if ext is not None else None
     files = []
-    stack = [path]
+    stack: list[Path] = [path]
     while stack:
         current = stack.pop()
         try:
@@ -592,10 +896,26 @@ def get_files4(path: str | Path, include_hidden: bool = True, ext: list[str] | N
 
 
 def get_nobinary(path: str | Path) -> list[Path]:
+    """Get all non-binary files in a directory.
+
+    Args:
+        path: Root path.
+
+    Returns:
+        List of non-binary file paths.
+    """
     return [f for f in get_files(path) if not is_binary(f)]
 
 
 def get_pyfiles_iter(root: Path) -> Generator[Path, None, None]:
+    """Iterate over Python files in a directory tree.
+
+    Args:
+        root: Root directory.
+
+    Yields:
+        Python file paths.
+    """
     root = Path(root)
     try:
         for entry in root.iterdir():
@@ -612,6 +932,14 @@ def get_pyfiles_iter(root: Path) -> Generator[Path, None, None]:
 
 
 def gsz(path: str | Path) -> int | float:
+    """Get the size of a file or directory.
+
+    Args:
+        path: Path to measure.
+
+    Returns:
+        Size in bytes, or 0 if not applicable.
+    """
     if not isinstance(path, (Path, str)):
         return 0
     p = Path(path)
@@ -625,6 +953,14 @@ def gsz(path: str | Path) -> int | float:
 
 
 def _dir_size(path: Path) -> int:
+    """Calculate directory size using thread pool.
+
+    Args:
+        path: Directory path.
+
+    Returns:
+        Total size in bytes.
+    """
     from concurrent.futures import ThreadPoolExecutor
 
     total = 0
@@ -643,6 +979,14 @@ def _dir_size(path: Path) -> int:
 
 
 def _copy_file(args: tuple[Path, Path]) -> tuple[bool, Path, Exception | None]:
+    """Copy a single file.
+
+    Args:
+        args: Tuple of (source, destination) paths.
+
+    Returns:
+        Tuple of (success, dest_path, error).
+    """
     from shutil import copy2
 
     src_file, dest_file = args
@@ -655,10 +999,27 @@ def _copy_file(args: tuple[Path, Path]) -> tuple[bool, Path, Exception | None]:
 
 
 def _collect_files(src_dir: Path) -> list[Path]:
+    """Collect all files under a directory recursively.
+
+    Args:
+        src_dir: Source directory.
+
+    Returns:
+        List of all paths under src_dir.
+    """
     return list(src_dir.rglob("*")) if src_dir.is_dir() else []
 
 
 def copy_dir(src: str, dest: str) -> bool:
+    """Copy a directory tree using multiprocessing.
+
+    Args:
+        src: Source directory.
+        dest: Destination directory.
+
+    Returns:
+        True if copy succeeded.
+    """
     from concurrent.futures import ProcessPoolExecutor, as_completed
 
     try:
@@ -696,6 +1057,14 @@ def copy_dir(src: str, dest: str) -> bool:
 
 
 def _move_file(args: tuple[Path, Path]) -> tuple[bool, Path, Exception | None]:
+    """Move a single file.
+
+    Args:
+        args: Tuple of (source, destination) paths.
+
+    Returns:
+        Tuple of (success, dest_path, error).
+    """
     from shutil import move
 
     src_file, dest_file = args
@@ -708,6 +1077,15 @@ def _move_file(args: tuple[Path, Path]) -> tuple[bool, Path, Exception | None]:
 
 
 def move_dir(src: str, dest: str) -> bool:
+    """Move a directory tree using multiprocessing.
+
+    Args:
+        src: Source directory.
+        dest: Destination directory.
+
+    Returns:
+        True if move succeeded.
+    """
     from concurrent.futures import ProcessPoolExecutor, as_completed
     from shutil import move
 
@@ -754,7 +1132,7 @@ def move_dir(src: str, dest: str) -> bool:
                 if not success:
                     print(f"Failed to move {dest_file}: {error}")
                     return False
-        for root, dirs, _files in src_path.walk(topdown=False):
+        for root, dirs, _files in src_path.walk(top_down=False):
             for dir_name in dirs:
                 dir_path = Path(root) / dir_name
                 try:
@@ -784,6 +1162,8 @@ DIM = "\x1b[2m"
 
 @dataclass
 class FileWalkerConfig:
+    """Configuration for file walking operations."""
+
     skip_hidden: bool = False
     skip_symlinks: bool = True
     skip_dirs: set[str] = field(
@@ -802,10 +1182,21 @@ def get_files_iter_config(
     path: Path | str,
     config: FileWalkerConfig | None = None,
     file_filter: Callable[[Path], bool] | None = None,
-) -> Iterator[tuple[Path, Path]]:
+) -> Iterator[Path]:
+    """Iterate files with configuration options.
+
+    Args:
+        path: Root path or file.
+        config: Optional FileWalkerConfig.
+        file_filter: Optional filter function.
+
+    Yields:
+        Matching file paths.
+    """
     config = config or FileWalkerConfig()
 
     def should_skip_dir(dir_path: Path) -> bool:
+        """Check if a directory should be skipped based on config."""
         if config.max_depth is not None:
             try:
                 depth = len(dir_path.relative_to(dir_path.anchor).parts)
@@ -816,6 +1207,7 @@ def get_files_iter_config(
         return any(skip in dir_path.parts for skip in config.skip_dirs)
 
     def matches_pattern(file_path: Path) -> bool:
+        """Check if a file matches the configured patterns."""
         if config.file_pattern and not file_path.match(config.file_pattern):
             return False
         return not (config.exclude_pattern and file_path.match(config.exclude_pattern))
@@ -823,16 +1215,16 @@ def get_files_iter_config(
     path = Path(path).resolve()
     if not path.exists():
         print(f"{YELLOW}⚠ Warning:{RESET} '{path}' does not exist, skipping.")
-        return []
+        return
     if path.is_file():
         if config.skip_symlinks and path.is_symlink():
-            return []
+            return
         if config.skip_hidden and path.name.startswith("."):
-            return []
+            return
         if not matches_pattern(path):
-            return []
+            return
         if file_filter and not file_filter(path):
-            return []
+            return
         yield path
     elif path.is_dir():
         for file_path in path.rglob("*"):
@@ -855,6 +1247,8 @@ def get_files_iter_config(
 
 @dataclass
 class ReportItem:
+    """A single item in a report."""
+
     import time
 
     path: str
@@ -865,20 +1259,40 @@ class ReportItem:
 
 
 class ReportGenerator:
+    """Generate formatted reports from ReportItems."""
+
     def __init__(self, title: str = "Report", width: int = 60):
+        """Initialize the report generator.
+
+        Args:
+            title: Report title.
+            width: Display width.
+        """
         self.title = title
         self.width = width
         self.items: list[ReportItem] = []
         self.stats: dict = defaultdict(int)
 
     def add_item(self, item: ReportItem):
+        """Add an item to the report.
+
+        Args:
+            item: ReportItem to add.
+        """
         self.items.append(item)
         self.stats[item.category] += 1
 
     def add_stat(self, key: str, value: int):
+        """Add a statistic to the report.
+
+        Args:
+            key: Statistic name.
+            value: Statistic value.
+        """
         self.stats[key] = value
 
     def _print_header(self):
+        """Print the report header."""
         print(f"\n{BOLD}{CYAN}{'═' * self.width}{RESET}")
         print(f"{BOLD}{CYAN}║{RESET}{self.title.center(self.width - 2)}{BOLD}{CYAN}║{RESET}")
         print(f"{BOLD}{CYAN}{'═' * self.width}{RESET}")
@@ -886,6 +1300,7 @@ class ReportGenerator:
     def _print_category_summary(
         self, category: str, items: list[ReportItem], color: str, symbol: str, show_all: bool = False
     ):
+        """Print a summary for a category of items."""
         if not items:
             return
         print(f"\n{BOLD}{color}{symbol} {category.capitalize()}: {len(items)}{RESET}")
@@ -898,6 +1313,12 @@ class ReportGenerator:
             print(f"  {DIM}... and {len(items) - display_count} more{RESET}")
 
     def print_report(self, show_all: bool = False, sort_by: str = "path"):
+        """Print the formatted report.
+
+        Args:
+            show_all: If True, show all items.
+            sort_by: Sort key ('path', 'category', or 'time').
+        """
         self._print_header()
         if sort_by == "path":
             self.items.sort(key=lambda x: x.path)
@@ -921,6 +1342,7 @@ class ReportGenerator:
         self._print_summary()
 
     def _print_summary(self):
+        """Print the report summary statistics."""
         print(f"\n{BOLD}{CYAN}{'─' * self.width}{RESET}")
         print(f"{BOLD}Summary:{RESET}")
         for key, value in sorted(self.stats.items()):
@@ -929,6 +1351,12 @@ class ReportGenerator:
         print(f"{BOLD}{CYAN}{'─' * self.width}{RESET}\n")
 
     def export_to_file(self, filepath: Path, format: str = "text"):
+        """Export the report to a file.
+
+        Args:
+            filepath: Destination path.
+            format: Export format ('text' or 'csv').
+        """
         import datetime
 
         if format == "text":
@@ -949,11 +1377,24 @@ class ReportGenerator:
                 writer.writerow(["Path", "Category", "Message", "Timestamp"])
                 for item in self.items:
                     writer.writerow(
-                        [item.path, item.category, item.message, datetime.fromtimestamp(item.timestamp).isoformat()]
+                        [
+                            item.path,
+                            item.category,
+                            item.message,
+                            datetime.datetime.fromtimestamp(item.timestamp).isoformat(),
+                        ]
                     )
 
 
 def remove_blank_lines(text: str) -> str:
+    """Remove consecutive blank lines from text.
+
+    Args:
+        text: Input text.
+
+    Returns:
+        Text with consecutive blank lines collapsed.
+    """
     lines = text.splitlines(keepends=True)
     result_lines = []
     prev_blank = False
@@ -967,6 +1408,14 @@ def remove_blank_lines(text: str) -> str:
 
 
 def is_python_file(path: str | Path) -> bool:
+    """Check if a file is a Python file.
+
+    Args:
+        path: Path to check.
+
+    Returns:
+        True if the file is Python code.
+    """
     from ast import parse as ast_parse
 
     path = Path(path)
@@ -995,6 +1444,14 @@ def is_python_file(path: str | Path) -> bool:
 
 
 def get_pyfiles(path: str | Path) -> list[Path]:
+    """Get all Python files in a path.
+
+    Args:
+        path: Root path.
+
+    Returns:
+        Sorted list of Python file paths.
+    """
     path = Path(path)
     if path.is_file():
         if path.suffix == ".py":
@@ -1005,7 +1462,7 @@ def get_pyfiles(path: str | Path) -> list[Path]:
     if not path.is_dir():
         return []
     pyfiles = []
-    stack = [path]
+    stack: list[Path] = [path]
     while stack:
         current = stack.pop()
         try:
@@ -1015,7 +1472,7 @@ def get_pyfiles(path: str | Path) -> list[Path]:
                         continue
                     if entry.is_dir(follow_symlinks=False):
                         if entry.name not in SKIP_DIRS:
-                            stack.append(entry)
+                            stack.append(Path(entry.path))
                     elif entry.is_file(follow_symlinks=False):
                         p = Path(entry.path)
                         if p.suffix == ".py" or (not p.suffix and (not p.name.startswith(".")) and is_python_file(p)):
@@ -1026,6 +1483,15 @@ def get_pyfiles(path: str | Path) -> list[Path]:
 
 
 def walk_paths(inputs: str | Path | list[str | Path], ext: list[str] | None = None) -> Iterator[Path]:
+    """Walk multiple input paths and yield files.
+
+    Args:
+        inputs: Single path or list of paths.
+        ext: Optional list of extensions to filter.
+
+    Yields:
+        Matching file paths.
+    """
     if isinstance(inputs, (str, Path)):
         inputs = [inputs]
     for inp in inputs:
@@ -1047,6 +1513,15 @@ def walk_paths(inputs: str | Path | list[str | Path], ext: list[str] | None = No
 
 
 def worker(file_path: Path, process_fn: Callable[[Path], Any]) -> tuple[Path, Any]:
+    """Process a single file with error handling.
+
+    Args:
+        file_path: Path to process.
+        process_fn: Function to apply.
+
+    Returns:
+        Tuple of (file_path, result or error message).
+    """
     try:
         result = process_fn(file_path)
         return (file_path, result)
@@ -1057,9 +1532,20 @@ def worker(file_path: Path, process_fn: Callable[[Path], Any]) -> tuple[Path, An
 def process_files(
     file_iter: Iterator[Path], process_fn: Callable[[Path], Any], max_workers: int = 4, prefetch: int = 128
 ) -> Iterator[tuple[Path, Any]]:
+    """Process files in parallel using multiprocessing.
+
+    Args:
+        file_iter: Iterator of file paths.
+        process_fn: Function to apply.
+        max_workers: Maximum number of worker processes.
+        prefetch: Number of files to prefetch.
+
+    Yields:
+        Tuples of (file_path, result).
+    """
     ctx = get_context("spawn")
     with ctx.Pool(processes=max_workers) as pool:
-        worker_fn = partial(worker, process_fn=process_fn)
+        worker_fn = functools.partial(worker, process_fn=process_fn)
         batch = []
         for file_path in file_iter:
             batch.append(file_path)
@@ -1079,6 +1565,16 @@ def main_func(
     prefetch: int = 128,
     verbose: bool = True,
 ):
+    """Main entry point for parallel file processing.
+
+    Args:
+        inputs: Path(s) to process.
+        process_fn: Function to apply.
+        ext: Optional extension filter.
+        max_workers: Maximum worker processes.
+        prefetch: Prefetch batch size.
+        verbose: If True, print progress.
+    """
     file_iter = walk_paths(inputs, ext)
     count = 0
     errors = 0
@@ -1094,6 +1590,14 @@ def main_func(
 
 
 def is_text_file(path: str | Path) -> bool:
+    """Check if a file is a text file.
+
+    Args:
+        path: Path to check.
+
+    Returns:
+        True if the file appears to be text.
+    """
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"File not found: {path}")
@@ -1113,6 +1617,14 @@ def is_text_file(path: str | Path) -> bool:
 
 
 def _check_binary_chunk(chunk: bytes) -> bool:
+    """Check if a byte chunk appears to be binary.
+
+    Args:
+        chunk: Bytes to check.
+
+    Returns:
+        True if chunk appears to be binary.
+    """
     if not chunk:
         return False
     null_count = chunk.count(b"\x00")
@@ -1132,9 +1644,15 @@ def _check_binary_chunk(chunk: bytes) -> bool:
 
 
 def atomic_write(path: Path, content: str) -> None:
+    """Atomically write content to a file.
+
+    Args:
+        path: Destination path.
+        content: Text content to write.
+    """
     from os import replace as os_replace
 
-    with tempfile.NamedTemporaryFile(
+    with NamedTemporaryFile(
         mode="w",
         encoding="utf-8",
         dir=path.parent,
@@ -1152,6 +1670,15 @@ def atomic_write(path: Path, content: str) -> None:
 
 
 def walk_files(path: str | Path, ext: list[str] | None = None) -> list[Path]:
+    """Walk a directory tree and return matching files.
+
+    Args:
+        path: Root path.
+        ext: Optional list of extensions to filter.
+
+    Returns:
+        List of matching file paths.
+    """
     files = []
     for root, dirs, filenames in Path(path).walk(top_down=True, on_error=None):
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
@@ -1165,6 +1692,15 @@ def walk_files(path: str | Path, ext: list[str] | None = None) -> list[Path]:
 
 
 def walkfiles(path: str | Path, ext: list[str] | None = None):
+    """Walk a directory tree and yield matching files.
+
+    Args:
+        path: Root path.
+        ext: Optional list of extensions to filter.
+
+    Yields:
+        Matching file paths.
+    """
     for root, dirs, filenames in Path(path).walk(top_down=True, on_error=None):
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         for name in filenames:

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Final
-
 SHEBANG_MAP: dict[str, str] = {
     "python": ".py",
     "python2": ".py",
@@ -4455,14 +4453,14 @@ GREYBLACK: str = "\x1b[1;90m"
 greyblack = GREYBLACK
 ANSI_RESET: str = "\x1b[0m"
 ANSI_BOLD: str = "\x1b[1m"
-CHUNK_SIZE: Final = 32768
-ZERO_DOT_THREE: Final = 0.3
-SKIP_DIRS = frozenset({"lazy", ".git", "__pycache__", ".mypy_cache", ".ruff_cache", ".pytest_cache"})
-THRESHOLD: Final = 2097152
+CHUNK_SIZE: int = 32768
+ZERO_DOT_THREE: float = 0.3
+SKIP_DIRS = frozenset({"lazy", ".git", "__pycache__", ".mypy_cache", ".ruff_cache", ".pytest_cache", ".ropeproject"})
+THRESHOLD: int = 2097152
 SDCARD: str = "/sdcard"
 EMULATED: str = "/storage/emulated/0"
 CONTEXT_METHOD: str = "spawn"
-MAX_WORKERS: Final = 4
+MAX_WORKERS: int = 8
 DOC_TH1: str = '"""'
 DOC_TH2: str = "'''"
 DOC_TH = (DOC_TH1, DOC_TH2)

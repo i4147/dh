@@ -48,6 +48,7 @@ from .const import (
 )
 from .cprint import colored, cprint
 from .fileutils import (
+    atomic_write,
     append_text,
     copy_dir,
     format_time,
@@ -94,6 +95,7 @@ from .fileutils import (
 )
 from .isbinary import is_binary
 from .jobutils import (
+    ParallelSummary,
     mpf,
     mpf2,
     mpf3,
@@ -107,9 +109,11 @@ from .jobutils import (
     mpf_starmap,
     mpf_tpe,
 )
+from .pool_helper import as_completed, wait
 from .utils import get_sha256, has_doc, is_valid_url, slugify
 
 __all__ = [
+    "atomic_write",
     "append_text",
     "copy_dir",
     "format_time",
@@ -203,6 +207,7 @@ __all__ += [
 ]
 __all__ += ["colored", "cprint"]
 __all__ += [
+    "ParallelSummary",
     "mpf",
     "mpf2",
     "mpf3",
@@ -218,3 +223,4 @@ __all__ += [
     "mpf_tpe",
 ]
 __all__ += ["get_sha256", "has_doc", "is_valid_url", "slugify"]
+__all__ += ["as_completed", "wait"]
