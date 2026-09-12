@@ -19,4 +19,4 @@ simz.json
 *_token
 *_api_key
 undo/
-
+*.pyi
