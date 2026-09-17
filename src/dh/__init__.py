@@ -48,8 +48,11 @@ from .const import (
 )
 from .cprint import colored, cprint
 from .fileutils import (
-    atomic_write,
+    FileWalkerConfig,
+    ReportGenerator,
+    ReportItem,
     append_text,
+    atomic_write,
     copy_dir,
     format_time,
     fsz,
@@ -57,7 +60,11 @@ from .fileutils import (
     get_fast,
     get_file_age,
     get_files,
+    get_files4,
     get_files_iter,
+    get_files_iter_config,
+    get_files_pathlib,
+    get_files_scandir,
     get_filez,
     get_installed_packages,
     get_installed_pkgs,
@@ -79,6 +86,7 @@ from .fileutils import (
     move_dir,
     normalize_filename,
     normalize_path,
+    process_files,
     read_lines,
     read_lines_mmap,
     remove_blank_lines,
@@ -90,31 +98,32 @@ from .fileutils import (
     should_skip,
     unique_path,
     walk_files,
+    walk_paths,
     walkfiles,
+    worker,
     write_txt_file,
+    gsze,
 )
 from .isbinary import is_binary
+
 from .jobutils import (
-    ParallelSummary,
+    MAX_WORKERS,
+    DEFAULT_CHUNKSIZE,
+    DEFAULT_EXECUTOR_CHUNKSIZE,
+    PoolMethod,
     mpf,
-    mpf2,
-    mpf3,
-    mpf_async,
-    mpf_imap,
-    mpf_imapu,
-    mpf_joblib,
-    mpf_map,
-    mpf_ppe,
-    mpf_ppe_ac,
-    mpf_starmap,
-    mpf_tpe,
 )
+
+
 from .pool_helper import as_completed, wait
-from .utils import get_sha256, has_doc, is_valid_url, slugify
+from .utils import get_sha256, has_doc, is_valid_url, slugify, tokenize_text
 
 __all__ = [
-    "atomic_write",
+    "FileWalkerConfig",
+    "ReportGenerator",
+    "ReportItem",
     "append_text",
+    "atomic_write",
     "copy_dir",
     "format_time",
     "fsz",
@@ -122,7 +131,11 @@ __all__ = [
     "get_fast",
     "get_file_age",
     "get_files",
+    "get_files4",
     "get_files_iter",
+    "get_files_iter_config",
+    "get_files_pathlib",
+    "get_files_scandir",
     "get_filez",
     "get_installed_packages",
     "get_installed_pkgs",
@@ -145,6 +158,7 @@ __all__ = [
     "move_dir",
     "normalize_filename",
     "normalize_path",
+    "process_files",
     "read_lines",
     "read_lines_mmap",
     "remove_blank_lines",
@@ -156,8 +170,11 @@ __all__ = [
     "should_skip",
     "unique_path",
     "walk_files",
+    "walk_paths",
     "walkfiles",
+    "worker",
     "write_txt_file",
+    "gsze",
 ]
 __all__ += [
     "AREXT",
@@ -167,7 +184,6 @@ __all__ += [
     "CODEXT",
     "CSS_COLORS",
     "DOCEXT",
-    "DOCTH",
     "DOC_TH1",
     "DOC_TH2",
     "EXT2MIME",
@@ -206,21 +222,15 @@ __all__ += [
     "yellow",
 ]
 __all__ += ["colored", "cprint"]
+
 __all__ += [
-    "ParallelSummary",
+    "MAX_WORKERS",
+    "DEFAULT_CHUNKSIZE",
+    "DEFAULT_EXECUTOR_CHUNKSIZE",
+    "PoolMethod",
     "mpf",
-    "mpf2",
-    "mpf3",
-    "mpf_async",
-    "mpf_imap",
-    "mpf_imapu",
-    "mpf_joblib",
-    "mpf_map",
-    "mpf_ppe",
-    "mpf_ppe_ac",
-    "mpf_starmap",
-    "mpf_starmap2",
-    "mpf_tpe",
 ]
-__all__ += ["get_sha256", "has_doc", "is_valid_url", "slugify"]
+
+
+__all__ += ["get_sha256", "has_doc", "is_valid_url", "slugify", "tokenize_text"]
 __all__ += ["as_completed", "wait"]
