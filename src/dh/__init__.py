@@ -77,6 +77,7 @@ from .fileutils import (
     getfiles,
     gext,
     gsz,
+    gsze,
     is_empty,
     is_image,
     is_python_file,
@@ -102,19 +103,15 @@ from .fileutils import (
     walkfiles,
     worker,
     write_txt_file,
-    gsze,
 )
 from .isbinary import is_binary
-
 from .jobutils import (
-    MAX_WORKERS,
     DEFAULT_CHUNKSIZE,
     DEFAULT_EXECUTOR_CHUNKSIZE,
+    MAX_WORKERS,
     PoolMethod,
     mpf,
 )
-
-
 from .pool_helper import as_completed, wait
 from .utils import get_sha256, has_doc, is_valid_url, slugify, tokenize_text
 
@@ -148,6 +145,7 @@ __all__ = [
     "getfiles",
     "gext",
     "gsz",
+    "gsze",
     "is_binary",
     "is_empty",
     "is_image",
@@ -174,7 +172,6 @@ __all__ = [
     "walkfiles",
     "worker",
     "write_txt_file",
-    "gsze",
 ]
 __all__ += [
     "AREXT",
@@ -224,9 +221,9 @@ __all__ += [
 __all__ += ["colored", "cprint"]
 
 __all__ += [
-    "MAX_WORKERS",
     "DEFAULT_CHUNKSIZE",
     "DEFAULT_EXECUTOR_CHUNKSIZE",
+    "MAX_WORKERS",
     "PoolMethod",
     "mpf",
 ]

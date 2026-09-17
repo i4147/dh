@@ -12,7 +12,6 @@ from dh import (
     append_text,
     atomic_write,
     fsz,
-    gext,
     get_dirs,
     get_fast,
     get_file_age,
@@ -31,6 +30,7 @@ from dh import (
     get_random_filename,
     get_removed_lines,
     getfiles,
+    gext,
     gsz,
     is_empty,
     is_image,
@@ -53,7 +53,6 @@ from dh import (
     walkfiles,
     write_txt_file,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -351,16 +350,16 @@ class TestRuncmd:
             runcmd([])
 
     def test_success(self):
-        rc, out, err = runcmd(["python", "-c", "print('hi')"], show_output=False)
+        rc, out, _err = runcmd(["python", "-c", "print('hi')"], show_output=False)
         assert rc == 0
         assert "hi" in out
 
     def test_not_found(self):
-        rc, out, err = runcmd(["definitely-not-a-command-xyz"], show_output=False)
+        rc, _out, _err = runcmd(["definitely-not-a-command-xyz"], show_output=False)
         assert rc == 127
 
     def test_timeout(self):
-        rc, out, err = runcmd(
+        rc, _out, _err = runcmd(
             ["python", "-c", "import time; time.sleep(5)"],
             timeout=0.2,
             show_output=False,

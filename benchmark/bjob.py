@@ -41,6 +41,7 @@ from dh import MAX_WORKERS, PoolMethod, mpf
 # Workloads
 # ---------------------------------------------------------------------------
 
+
 def cpu_work(n: int, *, iters: int = 50_000) -> int:
     """CPU-bound LCG iteration — one item burns a few ms of pure Python."""
     x = n
@@ -64,8 +65,8 @@ def mixed_work(n: int, *, iters: int = 15_000, nap: float = 0.002) -> int:
 
 # name -> (worker, items_factory)
 WORKLOADS: dict[str, tuple[Callable[..., Any], Callable[[int], list[Any]]]] = {
-    "cpu":   (cpu_work,   lambda n: list(range(n))),
-    "io":    (io_work,    lambda n: [0.005] * n),
+    "cpu": (cpu_work, lambda n: list(range(n))),
+    "io": (io_work, lambda n: [0.005] * n),
     "mixed": (mixed_work, lambda n: list(range(n))),
 }
 
@@ -81,15 +82,15 @@ Case = tuple[str, "PoolMethod | None", dict[str, Any]]
 def build_cases(include_joblib: bool) -> list[Case]:
     """Return the (name, method, kwargs) rows we benchmark."""
     cases: list[Case] = [
-        ("map",             PoolMethod.MAP,             {}),
-        ("map(cs=1)",       PoolMethod.MAP,             {"chunksize": 1}),
-        ("map(cs=auto)",    PoolMethod.MAP,             {"chunksize": None}),
-        ("imap",            PoolMethod.IMAP,            {}),
-        ("imap_unordered",  PoolMethod.IMAP_UNORDERED,  {}),
-        ("process_pool",    PoolMethod.PROCESS_POOL,    {}),
-        ("pp+timeout",      PoolMethod.PROCESS_POOL,    {"timeout": 30.0}),
-        ("pp+bounded",      PoolMethod.PROCESS_POOL,    {"max_pending": 16}),
-        ("thread_pool",     PoolMethod.THREAD_POOL,     {}),
+        ("map", PoolMethod.MAP, {}),
+        ("map(cs=1)", PoolMethod.MAP, {"chunksize": 1}),
+        ("map(cs=auto)", PoolMethod.MAP, {"chunksize": None}),
+        ("imap", PoolMethod.IMAP, {}),
+        ("imap_unordered", PoolMethod.IMAP_UNORDERED, {}),
+        ("process_pool", PoolMethod.PROCESS_POOL, {}),
+        ("pp+timeout", PoolMethod.PROCESS_POOL, {"timeout": 30.0}),
+        ("pp+bounded", PoolMethod.PROCESS_POOL, {"max_pending": 16}),
+        ("thread_pool", PoolMethod.THREAD_POOL, {}),
     ]
     if include_joblib:
         cases.append(("joblib", PoolMethod.JOBLIB, {}))
@@ -100,10 +101,11 @@ def build_cases(include_joblib: bool) -> list[Case]:
 # Core timing harness
 # ---------------------------------------------------------------------------
 
+
 def _call_factory(
     worker: Callable[..., Any],
     items: list[Any],
-    method: "PoolMethod | None",
+    method: PoolMethod | None,
     kwargs: dict[str, Any],
     workers: int,
 ) -> Callable[[], list[Any]]:
@@ -116,7 +118,7 @@ def _call_factory(
 def time_case(
     worker: Callable[..., Any],
     items: list[Any],
-    method: "PoolMethod | None",
+    method: PoolMethod | None,
     kwargs: dict[str, Any],
     workers: int,
     repeats: int,
@@ -145,6 +147,7 @@ def _checksum(seq: list[Any]) -> Any:
 # Reporting
 # ---------------------------------------------------------------------------
 
+
 def _fmt_row(name: str, secs: float, speedup: float, ok: bool) -> str:
     tick = "✓" if ok else "✗"
     return f"{name:<16} {secs:>9.3f}s {speedup:>7.2f}x  {tick:>3}"
@@ -159,13 +162,10 @@ def run_workload(
 ) -> None:
     worker, _ = WORKLOADS[wl_name]
 
-    print(f"── workload: {wl_name}  ({len(items)} items, "
-          f"workers={workers}, repeats={repeats}) ──")
+    print(f"── workload: {wl_name}  ({len(items)} items, workers={workers}, repeats={repeats}) ──")
 
     # Baseline: plain serial loop, same worker, same items.
-    baseline_secs, baseline_res = time_case(
-        worker, items, None, {}, workers, repeats
-    )
+    baseline_secs, baseline_res = time_case(worker, items, None, {}, workers, repeats)
     baseline_sum = _checksum(baseline_res)
 
     header = f"{'case':<16} {'best':>10} {'speedup':>8}  {'ok':>3}"
@@ -175,12 +175,9 @@ def run_workload(
 
     for name, method, kwargs in cases:
         try:
-            secs, res = time_case(
-                worker, items, method, kwargs, workers, repeats
-            )
+            secs, res = time_case(worker, items, method, kwargs, workers, repeats)
         except Exception as exc:  # noqa: BLE001 — the whole point is to catch everything
-            print(f"{name:<16} {'—':>10} {'—':>8}  ERR  "
-                  f"{type(exc).__name__}: {exc}")
+            print(f"{name:<16} {'—':>10} {'—':>8}  ERR  {type(exc).__name__}: {exc}")
             continue
 
         speedup = baseline_secs / secs if secs > 0 else float("inf")
@@ -194,29 +191,39 @@ def run_workload(
 # Entry point
 # ---------------------------------------------------------------------------
 
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m dh.benchmark",
         description="Benchmark dh.mpf across backends.",
     )
     parser.add_argument(
-        "--items", type=int, default=64,
+        "--items",
+        type=int,
+        default=64,
         help="number of work items per workload (default: 64)",
     )
     parser.add_argument(
-        "--repeats", type=int, default=3,
+        "--repeats",
+        type=int,
+        default=3,
         help="trials per case; best-of-N is reported (default: 3)",
     )
     parser.add_argument(
-        "--workers", type=int, default=MAX_WORKERS,
+        "--workers",
+        type=int,
+        default=MAX_WORKERS,
         help=f"worker count passed to mpf (default: {MAX_WORKERS})",
     )
     parser.add_argument(
-        "--workload", choices=[*WORKLOADS, "all"], default="all",
+        "--workload",
+        choices=[*WORKLOADS, "all"],
+        default="all",
         help="which workload(s) to run (default: all)",
     )
     parser.add_argument(
-        "--no-joblib", action="store_true",
+        "--no-joblib",
+        action="store_true",
         help="skip the optional joblib backend even if it is installed",
     )
     args = parser.parse_args(argv)
@@ -232,6 +239,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_joblib:
         try:
             import joblib  # noqa: F401
+
             have_joblib = True
         except ImportError:
             have_joblib = False
@@ -239,9 +247,11 @@ def main(argv: list[str] | None = None) -> int:
     workloads = list(WORKLOADS) if args.workload == "all" else [args.workload]
     cases = build_cases(have_joblib)
 
-    print(f"dh.mpf benchmark — "
-          f"workers={args.workers}, items={args.items}, "
-          f"repeats={args.repeats}, joblib={'yes' if have_joblib else 'no'}")
+    print(
+        f"dh.mpf benchmark — "
+        f"workers={args.workers}, items={args.items}, "
+        f"repeats={args.repeats}, joblib={'yes' if have_joblib else 'no'}"
+    )
     print()
 
     for wl_name in workloads:

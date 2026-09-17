@@ -1607,9 +1607,8 @@ def gsze(root_dir: str | Path = ".", ext: list[str] | None = None) -> int:
         if file_path.is_symlink():
             continue
         if file_path.is_file():
-            if normalized_exts is not None:
-                if file_path.suffix.lower() not in normalized_exts:
-                    continue
+            if normalized_exts is not None and file_path.suffix.lower() not in normalized_exts:
+                continue
 
             try:
                 total_size_bytes += file_path.stat().st_size

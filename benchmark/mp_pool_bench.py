@@ -17,9 +17,8 @@ from statistics import mean
 from typing import Final, NamedTuple
 
 from loguru import logger
-from xxhash import xxh64  # type: ignore[import-untyped]
-
 from mp_pool import POOL_WORKERS, PoolMethod, run_pool
+from xxhash import xxh64  # type: ignore[import-untyped]
 
 DEFAULT_CHUNK_SIZE: Final[int] = 32768
 
@@ -84,19 +83,14 @@ def _verify(label: str, expected: Sequence[HashRow], actual: Sequence[HashRow]) 
     logger.warning(f"{label}: results differ from serial baseline!")
 
 
-def _strategies(files: Sequence[Path], chunk_size: int, workers: int) -> dict[
-    str, Callable[[], list[HashRow]]
-]:
+def _strategies(files: Sequence[Path], chunk_size: int, workers: int) -> dict[str, Callable[[], list[HashRow]]]:
     """Return a mapping of strategy label -> zero-arg callable that runs it."""
 
     # star=True variants: bundle (path, chunk_size) as positional args.
     star_tasks: list[tuple[Path, int]] = [(p, chunk_size) for p in files]
 
     def _map_single() -> list[HashRow]:
-        return [
-            hash_file(p, chunk_size)
-            for p in files
-        ]  # placeholder, replaced below
+        return [hash_file(p, chunk_size) for p in files]  # placeholder, replaced below
 
     strategies: dict[str, Callable[[], list[HashRow]]] = {}
 
@@ -108,21 +102,11 @@ def _strategies(files: Sequence[Path], chunk_size: int, workers: int) -> dict[
 
     single_arg = _partial(hash_file, chunk_size=chunk_size)
 
-    strategies["map (single-arg)"] = lambda: run_pool(
-        single_arg, files, "map", workers=workers
-    )
-    strategies["imap_unordered (single-arg)"] = lambda: run_pool(
-        single_arg, files, "imap_unordered", workers=workers
-    )
-    strategies["apply_async (single-arg)"] = lambda: run_pool(
-        single_arg, files, "apply_async", workers=workers
-    )
-    strategies["starmap (star=True)"] = lambda: run_pool(
-        hash_file, star_tasks, "starmap", star=True, workers=workers
-    )
-    strategies["map (star=True)"] = lambda: run_pool(
-        hash_file, star_tasks, "map", star=True, workers=workers
-    )
+    strategies["map (single-arg)"] = lambda: run_pool(single_arg, files, "map", workers=workers)
+    strategies["imap_unordered (single-arg)"] = lambda: run_pool(single_arg, files, "imap_unordered", workers=workers)
+    strategies["apply_async (single-arg)"] = lambda: run_pool(single_arg, files, "apply_async", workers=workers)
+    strategies["starmap (star=True)"] = lambda: run_pool(hash_file, star_tasks, "starmap", star=True, workers=workers)
+    strategies["map (star=True)"] = lambda: run_pool(hash_file, star_tasks, "map", star=True, workers=workers)
     strategies["imap_unordered (star=True)"] = lambda: run_pool(
         hash_file, star_tasks, "imap_unordered", star=True, workers=workers
     )
@@ -170,14 +154,10 @@ def _print_table(baseline: BenchResult, results: Sequence[BenchResult]) -> None:
     header = f"{'strategy':<28} {'best(s)':>9} {'avg(s)':>9} {'speedup(best)':>14}"
     logger.info(header)
     logger.info("-" * len(header))
-    logger.info(
-        f"{baseline.label:<28} {baseline.best:>9.4f} {baseline.avg:>9.4f} {'1.00x':>14}"
-    )
+    logger.info(f"{baseline.label:<28} {baseline.best:>9.4f} {baseline.avg:>9.4f} {'1.00x':>14}")
     for r in results:
         speedup = baseline.best / r.best if r.best > 0 else float("inf")
-        logger.info(
-            f"{r.label:<28} {r.best:>9.4f} {r.avg:>9.4f} {speedup:>13.2f}x"
-        )
+        logger.info(f"{r.label:<28} {r.best:>9.4f} {r.avg:>9.4f} {speedup:>13.2f}x")
 
 
 def parse_args() -> argparse.Namespace:
@@ -230,28 +210,18 @@ def main() -> int:
         return 1
 
     total_bytes = sum(p.stat().st_size for p in files)
-    logger.info(
-        f"Benchmarking {len(files)} files "
-        f"({total_bytes / 1_048_576:.2f} MiB) under {root}"
-    )
-    logger.info(
-        f"workers={args.workers}  runs={args.runs}  chunk_size={args.chunk_size}"
-    )
+    logger.info(f"Benchmarking {len(files)} files ({total_bytes / 1_048_576:.2f} MiB) under {root}")
+    logger.info(f"workers={args.workers}  runs={args.runs}  chunk_size={args.chunk_size}")
 
     # Sanity check: hash_file must be picklable.
     _ = hash_file
 
-    baseline, results = benchmark(
-        files, chunk_size=args.chunk_size, workers=args.workers, runs=args.runs
-    )
+    baseline, results = benchmark(files, chunk_size=args.chunk_size, workers=args.workers, runs=args.runs)
     _print_table(baseline, results)
 
     best = min(results, key=lambda r: r.best) if results else None
     if best is not None:
-        logger.info(
-            f"Fastest strategy: {best.label} ({best.best:.4f}s, "
-            f"{baseline.best / best.best:.2f}x vs serial)"
-        )
+        logger.info(f"Fastest strategy: {best.label} ({best.best:.4f}s, {baseline.best / best.best:.2f}x vs serial)")
     return 0
 
 

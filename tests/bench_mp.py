@@ -7,31 +7,32 @@ Tests various parallel execution strategies with SHA256 hashing of files.
 from __future__ import annotations
 
 import hashlib
+import json
+import os
+import statistics
 import sys
 import time
-import os
-from pathlib import Path
-from typing import Any, Callable
-from dataclasses import dataclass, field
+from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-import json
-import statistics
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
 # Import your custom module
 from dh import (
-    mpf_async,
-    mpf_map,
-    mpf_imap,
-    mpf_imapu,
-    mpf_starmap,
-    mpf_ppe,
-    mpf_tpe,
-    mpf3,
+    MAX_WORKERS,
+    ParallelSummary,
     mpf,
     mpf2,
+    mpf3,
+    mpf_async,
+    mpf_imap,
+    mpf_imapu,
     mpf_joblib,
-    ParallelSummary,
-    MAX_WORKERS,
+    mpf_map,
+    mpf_ppe,
+    mpf_starmap,
+    mpf_tpe,
 )
 
 
@@ -105,9 +106,8 @@ def get_files_from_directory(directory: str | Path, extensions: list[str] | None
 
     files = []
     for file_path in directory.rglob("*"):
-        if file_path.is_file():
-            if extensions is None or file_path.suffix.lower() in extensions:
-                files.append(file_path)
+        if file_path.is_file() and (extensions is None or file_path.suffix.lower() in extensions):
+            files.append(file_path)
 
     return sorted(files)
 

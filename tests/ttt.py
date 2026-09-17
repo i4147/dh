@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from chardet import detect
+
 from dh import BIN_EXT
 
 

@@ -30,11 +30,11 @@ from multiprocessing.pool import AsyncResult, Pool
 from typing import Any, Final, Literal, TypeVar
 
 __all__ = [
-    "POOL_WORKERS",
     "POOL_METHODS",
+    "POOL_WORKERS",
     "PoolMethod",
-    "run_pool",
     "add_pool_method_arg",
+    "run_pool",
 ]
 
 POOL_WORKERS: Final[int] = 8
@@ -50,7 +50,7 @@ PoolMethod = Literal["map", "starmap", "imap_unordered", "apply_async"]
 T = TypeVar("T")
 
 
-def _star_unpack(func: Callable[..., T], item: Sequence[Any]) -> T:
+def _star_unpack[T](func: Callable[..., T], item: Sequence[Any]) -> T:
     """Unpack *item* as positional arguments for *func*.
 
     Defined at module level so :class:`functools.partial` over it stays picklable.
@@ -58,7 +58,7 @@ def _star_unpack(func: Callable[..., T], item: Sequence[Any]) -> T:
     return func(*item)
 
 
-def run_pool(
+def run_pool[T](
     func: Callable[..., T],
     items: Sequence[Any],
     method: PoolMethod = "map",

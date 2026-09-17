@@ -20,9 +20,8 @@ def get_files(directory: Path, extensions: list[str] | None = None) -> list[Path
             if not ext.startswith("."):
                 ext = "." + ext
             for item in directory.rglob(f"*{ext}"):
-                if item.is_file() and not item.is_symlink():
-                    if item not in found_files:
-                        found_files.append(item)
+                if item.is_file() and not item.is_symlink() and item not in found_files:
+                    found_files.append(item)
     return found_files
 
 

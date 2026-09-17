@@ -1,4 +1,4 @@
-from dh import get_filez, ReportGenerator
+from dh import ReportGenerator, get_filez
 
 
 def example_usage():

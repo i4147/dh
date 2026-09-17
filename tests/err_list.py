@@ -1,30 +1,25 @@
-from dh import STDLIB, STDLIB2
 from isort.stdlibs import py2, py3
+
+from dh import STDLIB, STDLIB2
 
 df2 = [p for p in py2.stdlib if not p in py3.stdlib]
 with open("onlypy2", "w") as f2:
-    for k2 in df2:
-        f2.write(f"{k2}\n")
+    f2.writelines(f"{k2}\n" for k2 in df2)
 df3 = [p for p in py3.stdlib if not p in py2.stdlib]
 with open("onlypy3", "w") as f3:
-    for k3 in df3:
-        f3.write(f"{k3}\n")
+    f3.writelines(f"{k3}\n" for k3 in df3)
 df23 = [p for p in (py3.stdlib or py2.stdlib)]
 with open("2or3", "w") as f23:
-    for k23 in df23:
-        f23.write(f"{k23}\n")
+    f23.writelines(f"{k23}\n" for k23 in df23)
 df2and3 = [p for p in (py3.stdlib and py2.stdlib)]
 with open("2and3", "w") as f2and3:
-    for k2and3 in df2and3:
-        f2and3.write(f"{k2and3}\n")
+    f2and3.writelines(f"{k2and3}\n" for k2and3 in df2and3)
 df2a3 = [p for p in py3.stdlib if p in py2.stdlib]
 with open("2a3", "w") as f2a3:
-    for k2a3 in df2a3:
-        f2a3.write(f"{k2a3}\n")
+    f2a3.writelines(f"{k2a3}\n" for k2a3 in df2a3)
 dfo = [p for p in STDLIB2 if p not in STDLIB]
 with open("onlypy2o", "w") as f2o:
-    for k2o in dfo:
-        f2o.write(f"{k2o}\n")
+    f2o.writelines(f"{k2o}\n" for k2o in dfo)
 err = {
     "_bootlocale",
     "_bootsubprocess",
@@ -96,5 +91,4 @@ err = {
 }
 lastdf = [p for p in STDLIB if p in err]
 with open("not_found", "w") as fo:
-    for x in lastdf:
-        fo.write(f"{x}\n")
+    fo.writelines(f"{x}\n" for x in lastdf)

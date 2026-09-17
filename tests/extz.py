@@ -1,6 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/python
-from pathlib import Path
 import sys
+from pathlib import Path
+
 from dh import BIN_EXT, TXT_EXT
 
 

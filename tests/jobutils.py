@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Iterator
 from multiprocessing import Pool, get_context
 from pathlib import Path
-from typing import Any, Callable, Iterable, List
+from typing import Any, List
 
 MAX_WORKERS = 8
 
@@ -19,7 +19,7 @@ def mpf3(process_function: Callable, files: list[Path], **kwargs: Any) -> list[A
     from joblib import Parallel, delayed
 
     file_strings = [str(f) for f in files]
-    return Parallel(n_jobs=MAX_WORKERS)((delayed(process_function)(file_str, **kwargs) for file_str in file_strings))
+    return Parallel(n_jobs=MAX_WORKERS)(delayed(process_function)(file_str, **kwargs) for file_str in file_strings)
 
 # fmt: on
 
