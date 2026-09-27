@@ -4,7 +4,6 @@ File Analysis Report
 [ERROR] data/config.json - Permission denied
 [SUCCESS] src/main.py - Processed successfully
 [BINARY] src/old.py - Skipped binary file
-
 Summary:
   success: 1
   binary: 1

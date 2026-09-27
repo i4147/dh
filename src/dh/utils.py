@@ -25,7 +25,6 @@ pattern: re.Pattern[str] = re.compile(
     """,
     re.IGNORECASE | re.VERBOSE,
 )
-
 WORD_PATTERN: re.Pattern[str] = re.compile(
     r"""
     [A-Z]+(?=[A-Z][a-z]|\d|\b)   # Acronym followed by lowercase or number
@@ -35,14 +34,12 @@ WORD_PATTERN: re.Pattern[str] = re.compile(
     """,
     re.VERBOSE,
 )
-
 _IDENTIFIER_PATTERN: re.Pattern[str] = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _HOSTNAME_LABEL_PATTERN: re.Pattern[str] = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$")
 
 
 def get_sha256(path: str | Path, chunk_size: int = 524288) -> str:
     """Return the hex-encoded SHA-256 digest of the file at *path*.
-
     The file is read in chunks of *chunk_size* bytes to keep memory usage
     bounded regardless of the file size.
     """
@@ -60,7 +57,6 @@ def get_sha256(path: str | Path, chunk_size: int = 524288) -> str:
 
 def has_doc(code: str) -> bool:
     """Return True if *code* contains a comment or a docstring.
-
     Comments are detected with the ``tokenize`` module; docstrings are
     detected by parsing the source with ``ast`` and looking for a
     non-``None`` docstring on the module, a function, an async function,
@@ -73,12 +69,10 @@ def has_doc(code: str) -> bool:
                 return True
     except Exception:
         pass
-
     try:
         tree: ast.Module = ast.parse(code)
     except SyntaxError:
         return False
-
     for node in ast.walk(tree):
         if (
             isinstance(
@@ -93,31 +87,25 @@ def has_doc(code: str) -> bool:
 
 def _is_valid_hostname(hostname: str) -> bool:
     """Return True if *hostname* is a syntactically valid hostname.
-
     Accepts ``localhost``, IPv4, IPv6, and DNS hostnames per RFC 1123.
     """
     if hostname == "localhost":
         return True
-
     try:
         ipaddress.IPv4Address(hostname)
         return True
     except ValueError:
         pass
-
     try:
         ipaddress.IPv6Address(hostname)
         return True
     except ValueError:
         pass
-
     if len(hostname) > 253:
         return False
-
     labels: list[str] = hostname.split(".")
     if not labels:
         return False
-
     for label in labels:
         if not label or len(label) > 63:
             return False
@@ -128,34 +116,27 @@ def _is_valid_hostname(hostname: str) -> bool:
 
 def is_valid_url(url: str) -> bool:
     """Return True if *url* is a syntactically valid absolute URL.
-
     Only ``http``, ``https``, ``ftp``, and ``ftps`` schemes are accepted.
     URLs containing template placeholders (``${...}``) or backticks are
     rejected.
     """
     if not isinstance(url, str) or not url.strip():
         return False
-
     url = url.strip()
     if "${" in url or "`" in url:
         return False
     if "://" not in url:
         return False
-
     try:
         parsed = urlparse(url)
     except ValueError:
         return False
-
     if parsed.scheme not in ("http", "https", "ftp", "ftps"):
         return False
-
     if parsed.port is not None and not (0 < parsed.port < 65536):
         return False
-
     if not parsed.hostname:
         return False
-
     hostname: str = parsed.hostname
     return _is_valid_hostname(hostname)
 
@@ -172,7 +153,6 @@ def slugify(string: str) -> str:
 
 def tokenize_text(text: str) -> list[str]:
     """Split *text* into identifier subword tokens.
-
     Identifiers are matched with ``[A-Za-z_][A-Za-z0-9_]*`` and then
     further split on camelCase / PascalCase / SCREAMING_CASE boundaries
     and digit sequences using :data:`WORD_PATTERN`.

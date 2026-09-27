@@ -1,9 +1,7 @@
 import sys
 from pathlib import Path
 from time import perf_counter as pff
-
 from loguru import logger
-
 from dh import (
     get_files,
     get_sha256,
@@ -15,10 +13,7 @@ from dh import (
     mpf_starmap,
     mpf_starmap2,
 )
-
 MAX_WORKERS = 4
-
-
 def measure_time(func_to_process, filez: list[Path]) -> float:
     start = pff()
     func_to_process(process_file, filez)
@@ -26,12 +21,8 @@ def measure_time(func_to_process, filez: list[Path]) -> float:
     diff_time = end - start
     logger.info(f"{func_to_process!s}: {diff_time:.3f}")
     return diff_time
-
-
 def process_file(fp) -> None:
     return get_sha256(fp)
-
-
 def main() -> None:
     cwd = Path.home() / "tmp" / "0"
     files = get_files(cwd)
@@ -51,7 +42,5 @@ def main() -> None:
             results.setdefault(func, []).append(res)
     for k, v in results.items():
         print(f"{k} : {v}")
-
-
 if __name__ == "__main__":
     sys.exit(main())

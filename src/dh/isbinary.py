@@ -158,8 +158,6 @@ BINARY_EXTENSIONS: frozenset[str] = frozenset(
         "wmv",
     }
 )
-
-
 BINARY_SIGNATURES: tuple[bytes, ...] = tuple(
     sorted(
         (
@@ -241,12 +239,10 @@ def _has_known_binary_signature(chunk: bytes) -> bool:
 def has_binary_extension(filename: str | bytes | Path) -> bool:
     if isinstance(filename, bytes):
         filename = os.fsdecode(filename)
-
     name = str(filename)
     dot = name.rfind(".")
     if dot < 0 or dot == len(name) - 1:
         return False
-
     slash = max(name.rfind("/"), name.rfind(os.sep))
     if dot < slash:
         return False
@@ -283,7 +279,6 @@ def _compute_features(chunk: bytes) -> list[float]:
     n = len(chunk)
     if n == 0:
         return [0.0] * 24
-
     null_count = 0
     control_count = 0
     printable_count = 0
@@ -310,35 +305,29 @@ def _compute_features(chunk: bytes) -> list[float]:
     control_ratio = control_count * inv_n
     printable_ascii_ratio = printable_count * inv_n
     high_byte_ratio = high_count * inv_n
-
     try:
         chunk.decode("utf-8")
         utf8_valid = 1.0
     except (UnicodeDecodeError, ValueError):
         utf8_valid = 0.0
-
     even_total = (n + 1) // 2
     odd_total = n // 2
     even_nulls = 0
     odd_nulls = 0
-
     even_nulls = chunk[0::2].count(0)
     odd_nulls = chunk[1::2].count(0)
     even_null_ratio = even_nulls / even_total if even_total else 0.0
     odd_null_ratio = odd_nulls / odd_total if odd_total else 0.0
-
     entropy = 0.0
     for count in hist:
         if count:
             p = count * inv_n
             entropy -= p * math.log2(p)
-
     bom_utf32le = 1.0 if chunk[:4] == b"\xff\xfe\x00\x00" else 0.0
     bom_utf32be = 1.0 if chunk[:4] == b"\x00\x00\xfe\xff" else 0.0
     bom_utf16le = 1.0 if chunk[:2] == b"\xff\xfe" and chunk[:4] != b"\xff\xfe\x00\x00" else 0.0
     bom_utf16be = 1.0 if chunk[:2] == b"\xfe\xff" else 0.0
     bom_utf8 = 1.0 if chunk[:3] == b"\xef\xbb\xbf" else 0.0
-
     if n >= 10:
         try_utf16le = _try_decode(chunk, "utf-16-le")
         try_utf16be = _try_decode(chunk, "utf-16-be")
@@ -388,7 +377,6 @@ def _compute_features(chunk: bytes) -> list[float]:
 
 
 def _tree(f: list[float]) -> bool:
-
     if f[1] <= 0.000977:
         if f[17] <= 0.000977:
             if f[4] <= 0.500000:
@@ -441,7 +429,6 @@ def _tree(f: list[float]) -> bool:
                 return f[7] <= 3.889752
             return False
         return False
-
     if f[0] <= 0.163978:
         if f[4] <= 0.500000:
             if f[7] <= 3.264621:
@@ -516,13 +503,10 @@ def _tree(f: list[float]) -> bool:
                         return False
                     return True
                 return True
-
             return False
-
         if f[1] <= 0.450000:
             return f[1] <= 0.006212
         return True
-
     if f[23] <= 0.500000:
         if f[3] <= 0.082843:
             if f[6] <= 0.282534:

@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import argparse
 import hashlib
 import statistics
@@ -8,7 +7,6 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
-
 from dh import (
     MAX_WORKERS,
     mpf,
@@ -24,10 +22,7 @@ from dh import (
     mpf_starmap,
     mpf_tpe,
 )
-
 # ----- work function ---------------------------------------------------------
-
-
 def hash_file(path: Path) -> tuple[str, str]:
     """Return (path, sha256 hex) for a given file."""
     h = hashlib.sha256()
@@ -35,8 +30,6 @@ def hash_file(path: Path) -> tuple[str, str]:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return str(path), h.hexdigest()
-
-
 def hash_file_maybe_fail(path: Path) -> tuple[str, str | None]:
     """Wrapper returning the (result, error) shape that mpf3 expects."""
     try:
@@ -44,11 +37,7 @@ def hash_file_maybe_fail(path: Path) -> tuple[str, str | None]:
         return (digest, None)
     except Exception as e:
         return ("", f"{type(e).__name__}: {e}")
-
-
 # ----- benchmark harness -----------------------------------------------------
-
-
 def _run(name: str, fn: Callable[[], Any], files: list[Path]) -> dict[str, Any]:
     print(f"\n=== {name} ===")
     print(f"files={len(files)}")
@@ -59,21 +48,17 @@ def _run(name: str, fn: Callable[[], Any], files: list[Path]) -> dict[str, Any]:
         elapsed = time.perf_counter() - t0
         print(f"  FAILED after {elapsed:.3f}s: {type(e).__name__}: {e}")
         return {"name": name, "elapsed": elapsed, "ok": False, "error": str(e)}
-
     elapsed = time.perf_counter() - t0
     ok = result is not None
     n_results = len(result) if hasattr(result, "__len__") else "?"
     throughput = (len(files) / elapsed) if elapsed > 0 else float("inf")
     print(f"  elapsed={elapsed:.3f}s  results={n_results}  throughput={throughput:.1f} files/s")
     return {"name": name, "elapsed": elapsed, "ok": ok, "n_results": n_results}
-
-
 def benchmark(folder: Path, workers: int, runs: int, pattern: str) -> None:
     files = sorted(p for p in folder.rglob(pattern) if p.is_file())
     if not files:
         print(f"No files matched {pattern!r} under {folder}", file=sys.stderr)
         sys.exit(1)
-
     total_bytes = sum(f.stat().st_size for f in files)
     print(f"Folder:      {folder}")
     print(f"Pattern:     {pattern}")
@@ -81,7 +66,6 @@ def benchmark(folder: Path, workers: int, runs: int, pattern: str) -> None:
     print(f"Total size:  {total_bytes / 1e6:.2f} MB")
     print(f"Workers:     {workers}")
     print(f"Runs:        {runs}")
-
     # Each entry is (name, callable taking no args)
     benchmarks: list[tuple[str, Callable[[], Any]]] = [
         ("serial", lambda: [hash_file(f) for f in files]),
@@ -96,12 +80,9 @@ def benchmark(folder: Path, workers: int, runs: int, pattern: str) -> None:
         ("mpf", lambda: mpf(hash_file, files, workers)),
         ("mpf2", lambda: mpf2(hash_file, files, workers)),
     ]
-
     if _has_joblib():
         benchmarks.append(("mpf_joblib", lambda: mpf_joblib(hash_file, files, n_jobs=workers)))
-
     benchmarks.append(("mpf3", lambda: mpf3(hash_file_maybe_fail, files, max_workers=workers)))
-
     # Collect timings, run each benchmark `runs` times.
     timings: dict[str, list[float]] = {name: [] for name, _ in benchmarks}
     for r in range(runs):
@@ -110,7 +91,6 @@ def benchmark(folder: Path, workers: int, runs: int, pattern: str) -> None:
             info = _run(name, fn, files)
             if info["ok"]:
                 timings[name].append(info["elapsed"])
-
     # Summary
     print("\n" + "=" * 72)
     print(f"{'function':<15}{'best':>10}{'median':>10}{'worst':>10}{'runs':>8}")
@@ -129,20 +109,13 @@ def benchmark(folder: Path, workers: int, runs: int, pattern: str) -> None:
             suffix = f"   x{baseline / best:.2f}"
         print(f"{name:<15}{best:>9.3f}s{med:>9.3f}s{worst:>9.3f}s{len(ts):>8}{suffix}")
     print("=" * 72)
-
-
 def _has_joblib() -> bool:
     try:
         import joblib  # noqa: F401
-
         return True
     except ImportError:
         return False
-
-
 # ----- CLI -------------------------------------------------------------------
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Benchmark dh parallel helpers on file hashing.")
     parser.add_argument("folder", type=Path, help="Folder to scan for files")
@@ -156,13 +129,9 @@ def main() -> None:
         help="Only run these benchmark names (space-separated)",
     )
     args = parser.parse_args()
-
     if not args.folder.is_dir():
         print(f"Not a directory: {args.folder}", file=sys.stderr)
         sys.exit(1)
-
     benchmark(args.folder, args.workers, args.runs, args.pattern)
-
-
 if __name__ == "__main__":
     main()

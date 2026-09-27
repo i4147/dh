@@ -31,8 +31,6 @@ from .isbinary import is_binary
 def get_file_age(path: str | Path, str_mode: bool = False) -> float: ...
 @overload
 def get_file_age(path: str | Path, str_mode: bool = True) -> str: ...
-
-
 def read_lines(path: str | Path, ke: bool = True) -> list[str]:
     """Read file lines, using mmap for large files.
     Args:
@@ -1596,23 +1594,18 @@ def walkfiles(path: str | Path, ext: list[str] | None = None):
 
 def gsze(root_dir: str | Path = ".", ext: list[str] | None = None) -> int:
     root_path = Path(root_dir)
-
     normalized_exts = None
     if ext is not None:
         normalized_exts = {e.lower() for e in ext}
-
     total_size_bytes = 0
-
     for file_path in root_path.rglob("*"):
         if file_path.is_symlink():
             continue
         if file_path.is_file():
             if normalized_exts is not None and file_path.suffix.lower() not in normalized_exts:
                 continue
-
             try:
                 total_size_bytes += file_path.stat().st_size
             except (PermissionError, FileNotFoundError):
                 continue
-
     return total_size_bytes

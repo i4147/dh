@@ -8,21 +8,14 @@ Platform: any
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
-
 # dh
-
 ## Description
-
 A Python package named dh.
-
 ## Installation
-
 ```bash
 pip install -e .
 ```
-
 Usage
-
 ```python
 import dh
 ```
