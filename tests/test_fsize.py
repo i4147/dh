@@ -1,6 +1,7 @@
 from time import perf_counter
 from termcolor import cprint
 from dh import format_size, fsize, fsz
+
 for i in range(0, 10000000, 10000):
     s1 = perf_counter()
     print(f"format_size ->{format_size(i)}", end=" | ")

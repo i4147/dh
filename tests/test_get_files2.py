@@ -2,13 +2,18 @@ import sys
 from pathlib import Path
 from time import perf_counter as pff
 from dh import get_files, get_files2, get_filez
+
+
 def process_dir(fp, func) -> float:
     t1 = pff()
     _ = func(fp)
     t2 = pff()
     return t2 - t1
+
+
 def run_func(path: Path) -> None:
     import secrets
+
     rnd = secrets.randbelow(1024 * 1024)
     reminder = rnd % 3
     tdict = {}
@@ -30,9 +35,13 @@ def run_func(path: Path) -> None:
         tdict[g3] = "get_files"
         best = min(g1, g2, g3)
         print(tdict.get(best))
+
+
 def main() -> None:
     cwd = Path.cwd()
     for _ in range(10):
         run_func(cwd)
+
+
 if __name__ == "__main__":
     sys.exit(main())

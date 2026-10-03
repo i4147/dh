@@ -20,3 +20,8 @@ simz.json
 *_api_key
 undo/
 *.pyi
+out/
+output/
+.mypy_cache
+.pytest_cache
+

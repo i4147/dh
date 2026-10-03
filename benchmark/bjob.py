@@ -21,6 +21,7 @@ Interpretation
 If ``serial`` (baseline) is faster than a parallel method, your workload is
 too small to amortize the pool startup — bump ``--items``.
 """
+
 from __future__ import annotations
 import argparse
 import math
@@ -29,6 +30,8 @@ import time
 from collections.abc import Callable
 from typing import Any
 from dh import MAX_WORKERS, PoolMethod, mpf
+
+
 # ---------------------------------------------------------------------------
 # Workloads
 # ---------------------------------------------------------------------------
@@ -38,15 +41,21 @@ def cpu_work(n: int, *, iters: int = 50_000) -> int:
     for _ in range(iters):
         x = (x * 1103515245 + 12345) & 0x7FFFFFFF
     return x
+
+
 def io_work(t: float) -> float:
     """I/O-bound stand-in: sleep and return the duration."""
     time.sleep(t)
     return t
+
+
 def mixed_work(n: int, *, iters: int = 15_000, nap: float = 0.002) -> int:
     """A little CPU, a little waiting — the common real-world shape."""
     x = cpu_work(n, iters=iters)
     time.sleep(nap)
     return x
+
+
 # name -> (worker, items_factory)
 WORKLOADS: dict[str, tuple[Callable[..., Any], Callable[[int], list[Any]]]] = {
     "cpu": (cpu_work, lambda n: list(range(n))),
@@ -58,6 +67,8 @@ WORKLOADS: dict[str, tuple[Callable[..., Any], Callable[[int], list[Any]]]] = {
 # ---------------------------------------------------------------------------
 #: (display name, method, extra kwargs to mpf)
 Case = tuple[str, "PoolMethod | None", dict[str, Any]]
+
+
 def build_cases(include_joblib: bool) -> list[Case]:
     """Return the (name, method, kwargs) rows we benchmark."""
     cases: list[Case] = [
@@ -74,6 +85,8 @@ def build_cases(include_joblib: bool) -> list[Case]:
     if include_joblib:
         cases.append(("joblib", PoolMethod.JOBLIB, {}))
     return cases
+
+
 # ---------------------------------------------------------------------------
 # Core timing harness
 # ---------------------------------------------------------------------------
@@ -88,6 +101,8 @@ def _call_factory(
     if method is None:
         return lambda: [worker(x) for x in items]
     return lambda: mpf(worker, items, method=method, workers=workers, **kwargs)
+
+
 def time_case(
     worker: Callable[..., Any],
     items: list[Any],
@@ -106,18 +121,24 @@ def time_case(
         dt = time.perf_counter() - t0
         best = min(best, dt)
     return best, last
+
+
 def _checksum(seq: list[Any]) -> Any:
     """Order-independent sum used as a correctness probe."""
     try:
         return sum(x for x in seq if x is not None)
     except TypeError:  # non-numeric results
         return len(seq)
+
+
 # ---------------------------------------------------------------------------
 # Reporting
 # ---------------------------------------------------------------------------
 def _fmt_row(name: str, secs: float, speedup: float, ok: bool) -> str:
     tick = "✓" if ok else "✗"
     return f"{name:<16} {secs:>9.3f}s {speedup:>7.2f}x  {tick:>3}"
+
+
 def run_workload(
     wl_name: str,
     items: list[Any],
@@ -144,6 +165,8 @@ def run_workload(
         ok = len(res) == len(items) and _checksum(res) == baseline_sum
         print(_fmt_row(name, secs, speedup, ok))
     print()
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -192,6 +215,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_joblib:
         try:
             import joblib  # noqa: F401
+
             have_joblib = True
         except ImportError:
             have_joblib = False
@@ -208,5 +232,7 @@ def main(argv: list[str] | None = None) -> int:
         items = make_items(args.items)
         run_workload(wl_name, items, cases, args.workers, args.repeats)
     return 0
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

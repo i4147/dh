@@ -1,5 +1,7 @@
 import pytest
 from dh import get_files
+
+
 @pytest.fixture
 def setup_test_directory(tmp_path: Path):
     base_dir = tmp_path / "test_root"
@@ -99,6 +101,8 @@ def setup_test_directory(tmp_path: Path):
         "target_file_no_ext": target_file_no_ext,
         "target_file_log": target_file_log,
     }
+
+
 def test_get_files_symlinks_only_ignored(setup_test_directory) -> None:
     data = setup_test_directory
     base_dir = data["base_dir"]
@@ -129,6 +133,8 @@ def test_get_files_symlinks_only_ignored(setup_test_directory) -> None:
     result_txt_after_dir_symlink = get_files(base_dir, extensions=[".txt"])
     assert symlink_to_dir not in result_txt_after_dir_symlink
     assert base_dir / "subdir1" / "subfile1.txt" in result_txt_after_dir_symlink
+
+
 def test_get_files_specific_extensions(setup_test_directory) -> None:
     data = setup_test_directory
     base_dir = data["base_dir"]

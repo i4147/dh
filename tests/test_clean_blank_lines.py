@@ -4,36 +4,44 @@ import unittest
 from pathlib import Path
 from loguru import logger
 from dh import clean_blank_lines
+
+
 class TestCleanBlankLines(unittest.TestCase):
     def test_string_input_no_blank_lines(self) -> None:
         input_str = "Line 1\nLine 2\nLine 3"
         expected_output = "Line 1\nLine 2\nLine 3"
         logger.info(f"{input_str}\n{clean_blank_lines(input_str)}")
         self.assertEqual(clean_blank_lines(input_str), expected_output)
+
     def test_string_input_single_blank_lines(self) -> None:
         input_str = "Line 1\n\nLine 2\n\nLine 3"
         expected_output = "Line 1\n\nLine 2\n\nLine 3"
         logger.info(f"{input_str}\n{clean_blank_lines(input_str)}")
         self.assertEqual(clean_blank_lines(input_str), expected_output)
+
     def test_string_input_multiple_blank_lines(self) -> None:
         input_str = "Line 1\n\n\n\nLine 2\n\nLine 3\n\n\n"
         expected_output = "Line 1\n\nLine 2\n\nLine 3"
         logger.info(f"{input_str}\n{clean_blank_lines(input_str)}")
         self.assertEqual(clean_blank_lines(input_str), expected_output)
+
     def test_string_input_leading_trailing_blank_lines(self) -> None:
         input_str = "\n\n\nLine 1\nLine 2\n\n"
         expected_output = "\nLine 1\nLine 2"
         self.assertEqual(clean_blank_lines(input_str), expected_output)
+
     def test_string_input_empty_string(self) -> None:
         input_str = ""
         expected_output = "\n"
         logger.info(f"{input_str}\n{clean_blank_lines(input_str)}")
         self.assertEqual(clean_blank_lines(input_str), expected_output)
+
     def test_string_input_only_blank_lines(self) -> None:
         input_str = "\n\n\n\n"
         expected_output = "\n"
         logger.info(f"{input_str}\n{clean_blank_lines(input_str)}")
         self.assertEqual(clean_blank_lines(input_str), expected_output)
+
     def test_file_input_multiple_blank_lines(self) -> None:
         with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".txt", encoding="utf-8") as tmp_file:
             file_path = Path(tmp_file.name)
@@ -50,6 +58,7 @@ class TestCleanBlankLines(unittest.TestCase):
             self.assertEqual(result_path, file_path)
         if os.path.exists(file_path):
             os.remove(file_path)
+
     def test_file_input_no_blank_lines(self) -> None:
         with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".txt", encoding="utf-8") as tmp_file:
             file_path = Path(tmp_file.name)
@@ -64,8 +73,11 @@ class TestCleanBlankLines(unittest.TestCase):
             )
         if os.path.exists(file_path):
             os.remove(file_path)
+
     def test_invalid_input_type(self) -> None:
         with self.assertRaises(TypeError):
             clean_blank_lines(12345)
+
+
 if __name__ == "__main__":
     unittest.main(argv=["first-arg-is-ignored"], exit=False)

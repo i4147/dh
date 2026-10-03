@@ -15,12 +15,14 @@ Example
     results = run_pool(add, [(1, 2), (3, 4)], method="starmap",
                        star=True)                                  # same, via starmap
 """
+
 from __future__ import annotations
 import argparse
 from collections.abc import Callable, Sequence
 from functools import partial
 from multiprocessing.pool import AsyncResult, Pool
 from typing import Any, Final, Literal, TypeVar
+
 __all__ = [
     "POOL_METHODS",
     "POOL_WORKERS",
@@ -37,11 +39,15 @@ POOL_METHODS: Final[tuple[str, ...]] = (
 )
 PoolMethod = Literal["map", "starmap", "imap_unordered", "apply_async"]
 T = TypeVar("T")
+
+
 def _star_unpack[T](func: Callable[..., T], item: Sequence[Any]) -> T:
     """Unpack *item* as positional arguments for *func*.
     Defined at module level so :class:`functools.partial` over it stays picklable.
     """
     return func(*item)
+
+
 def run_pool[T](
     func: Callable[..., T],
     items: Sequence[Any],
@@ -95,6 +101,8 @@ def run_pool[T](
                 results = [pool.apply_async(func, (item,)) for item in items]
             return [r.get() for r in results]
     raise ValueError(f"Unsupported pool method: {method!r}")
+
+
 def add_pool_method_arg(parser: argparse.ArgumentParser) -> None:
     """Register the standard ``--pool-method`` option on *parser*."""
     parser.add_argument(

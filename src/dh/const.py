@@ -4466,7 +4466,6 @@ ANSI_RESET: str = "\x1b[0m"
 ANSI_BOLD: str = "\x1b[1m"
 CHUNK_SIZE: int = 32768
 ZERO_DOT_THREE: float = 0.3
-
 SKIP_DIRS: Final[frozenset[str]] = frozenset(
     {
         ".ropeproject",
@@ -4491,7 +4490,6 @@ SKIP_DIRS: Final[frozenset[str]] = frozenset(
         ".ruff_cache",
     }
 )
-
 THRESHOLD: int = 2097152
 SDCARD: str = "/sdcard"
 EMULATED: str = "/storage/emulated/0"

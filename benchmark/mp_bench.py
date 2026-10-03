@@ -22,6 +22,8 @@ from dh import (
     mpf_starmap,
     mpf_tpe,
 )
+
+
 # ----- work function ---------------------------------------------------------
 def hash_file(path: Path) -> tuple[str, str]:
     """Return (path, sha256 hex) for a given file."""
@@ -30,6 +32,8 @@ def hash_file(path: Path) -> tuple[str, str]:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return str(path), h.hexdigest()
+
+
 def hash_file_maybe_fail(path: Path) -> tuple[str, str | None]:
     """Wrapper returning the (result, error) shape that mpf3 expects."""
     try:
@@ -37,6 +41,8 @@ def hash_file_maybe_fail(path: Path) -> tuple[str, str | None]:
         return (digest, None)
     except Exception as e:
         return ("", f"{type(e).__name__}: {e}")
+
+
 # ----- benchmark harness -----------------------------------------------------
 def _run(name: str, fn: Callable[[], Any], files: list[Path]) -> dict[str, Any]:
     print(f"\n=== {name} ===")
@@ -54,6 +60,8 @@ def _run(name: str, fn: Callable[[], Any], files: list[Path]) -> dict[str, Any]:
     throughput = (len(files) / elapsed) if elapsed > 0 else float("inf")
     print(f"  elapsed={elapsed:.3f}s  results={n_results}  throughput={throughput:.1f} files/s")
     return {"name": name, "elapsed": elapsed, "ok": ok, "n_results": n_results}
+
+
 def benchmark(folder: Path, workers: int, runs: int, pattern: str) -> None:
     files = sorted(p for p in folder.rglob(pattern) if p.is_file())
     if not files:
@@ -109,12 +117,17 @@ def benchmark(folder: Path, workers: int, runs: int, pattern: str) -> None:
             suffix = f"   x{baseline / best:.2f}"
         print(f"{name:<15}{best:>9.3f}s{med:>9.3f}s{worst:>9.3f}s{len(ts):>8}{suffix}")
     print("=" * 72)
+
+
 def _has_joblib() -> bool:
     try:
         import joblib  # noqa: F401
+
         return True
     except ImportError:
         return False
+
+
 # ----- CLI -------------------------------------------------------------------
 def main() -> None:
     parser = argparse.ArgumentParser(description="Benchmark dh parallel helpers on file hashing.")
@@ -133,5 +146,7 @@ def main() -> None:
         print(f"Not a directory: {args.folder}", file=sys.stderr)
         sys.exit(1)
     benchmark(args.folder, args.workers, args.runs, args.pattern)
+
+
 if __name__ == "__main__":
     main()

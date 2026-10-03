@@ -6,7 +6,6 @@ helpers without depending on ``concurrent.futures``.
 """
 
 from __future__ import annotations
-
 import time
 from collections.abc import Iterable, Iterator
 from multiprocessing.pool import AsyncResult

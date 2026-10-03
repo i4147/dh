@@ -17,14 +17,20 @@ from dh import (
     mpf_starmap,
     mpf_tpe,
 )
+
+
 def measure_time(func_to_process, filez: list[Path]) -> None:
     start = pff()
     func_to_process(process_file, filez)
     end = pff()
     diff_time = end - start
     logger.info(f"{func_to_process!s}: {diff_time:.3f} s")
+
+
 def process_file(fp) -> None:
     return get_sha256(fp)
+
+
 def main() -> None:
     cwd = Path.home() / "projects"
     files = get_files(cwd)
@@ -32,5 +38,7 @@ def main() -> None:
     for i in range(1, 7):
         for func in funcs:
             measure_time(func, files)
+
+
 if __name__ == "__main__":
     sys.exit(main())
