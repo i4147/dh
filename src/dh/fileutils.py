@@ -3,27 +3,20 @@ from __future__ import annotations
 import contextlib
 import functools
 from collections import defaultdict
-from collections.abc import Callable, Generator, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from multiprocessing import get_context
 from os import scandir as os_scandir
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any, Optional, overload
-from .const import (
-    BIN_EXT,
-    CHUNK_SIZE,
-    EMULATED,
-    IMGEXT,
-    PY_KEYWORDS,
-    SDCARD,
-    SKIP_DIRS,
-    THRESHOLD,
-    TXT_EXT,
-    ZERO_DOT_THREE,
-)
+from typing import TYPE_CHECKING, Any, Optional, overload
+
+from .const import (BIN_EXT, CHUNK_SIZE, EMULATED, IMGEXT, PY_KEYWORDS, SDCARD,
+                    SKIP_DIRS, THRESHOLD, TXT_EXT, ZERO_DOT_THREE)
 from .isbinary import is_binary
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator, Iterator
 
 
 @overload
@@ -261,7 +254,8 @@ class _FilenameNormalizer:
         self.path = str(path)
 
     def normalize(self) -> str:
-        from re import compile as re_compile, escape as re_escape
+        from re import compile as re_compile
+        from re import escape as re_escape
 
         special_chars = '<>:"/\\|?*' + "".join(map(chr, range(32)))
         pattern = re_compile("|".join(map(re_escape, special_chars)))
@@ -460,11 +454,15 @@ class _CommandRunner:
         self.timeout = timeout
 
     def run(self) -> tuple[int, str, str]:
-        from subprocess import DEVNULL as _DEVNULL, TimeoutExpired as subprocess_TimeoutExpired, run as subprocess_run
-        from sys import stderr as sys_stderr, stdout as sys_stdout
+        from subprocess import DEVNULL as _DEVNULL
+        from subprocess import TimeoutExpired as subprocess_TimeoutExpired
+        from subprocess import run as subprocess_run
+        from sys import stderr as sys_stderr
+        from sys import stdout as sys_stdout
 
         if not self.cmd:
-            raise ValueError("cmd must be a non-empty list (e.g., ['ls', '-l'])")
+            msg = "cmd must be a non-empty list (e.g., ['ls', '-l'])"
+            raise ValueError(msg)
 
         try:
             if self.run_silently:
@@ -603,9 +601,11 @@ class _FileCollector:
 
     def collect(self) -> list[Path]:
         if not self.path.exists():
-            raise FileNotFoundError(f"Path does not exist: {self.path}")
+            msg = f"Path does not exist: {self.path}"
+            raise FileNotFoundError(msg)
         if not self.path.is_dir():
-            raise NotADirectoryError(f"Path is not a directory: {self.path}")
+            msg = f"Path is not a directory: {self.path}"
+            raise NotADirectoryError(msg)
 
         stack: list[Path] = [self.path]
         while stack:
@@ -652,7 +652,8 @@ def get_fast(path, ext: list[str] | None = None) -> Iterator[Path]:
 def get_files_iter(directory: str | Path, ext: list[str] | None = None) -> Iterator[Path]:
     directory = Path(directory)
     if not directory.is_dir():
-        raise NotADirectoryError(f"Path is not a directory: {directory}")
+        msg = f"Path is not a directory: {directory}"
+        raise NotADirectoryError(msg)
     ext_set = set(ext) if ext else None
     with os_scandir(directory) as entries:
         for entry in entries:
@@ -704,17 +705,18 @@ def getfiles(root_dir: str | Path, ext: list[str] | None = None) -> list[Path]:
     for path in walk_files(root_dir):
         if should_skip(path):
             continue
-        if path.is_file():
-            if ext is None or (path.suffix and path.suffix in ext):
-                files.append(path)
+        if path.is_file() and (ext is None or (path.suffix and path.suffix in ext)):
+            files.append(path)
     return sorted(files)
 
 
 def get_files_pathlib(path: Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
     if not path.exists():
-        raise FileNotFoundError(f"Path does not exist: {path}")
+        msg = f"Path does not exist: {path}"
+        raise FileNotFoundError(msg)
     if not path.is_dir():
-        raise NotADirectoryError(f"Path is not a directory: {path}")
+        msg = f"Path is not a directory: {path}"
+        raise NotADirectoryError(msg)
     files: list[Path] = []
     stack: list[Path] = [path]
     while stack:
@@ -739,9 +741,11 @@ def get_files_pathlib(path: Path, include_hidden: bool = True, ext: list[str] | 
 def get_files4(path: str | Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
     path = Path(path)
     if not path.exists():
-        raise FileNotFoundError(f"Path does not exist: {path}")
+        msg = f"Path does not exist: {path}"
+        raise FileNotFoundError(msg)
     if not path.is_dir():
-        raise NotADirectoryError(f"Path is not a directory: {path}")
+        msg = f"Path is not a directory: {path}"
+        raise NotADirectoryError(msg)
     ext_tuple = tuple(ext) if ext is not None else None
     files = []
     stack: list[Path] = [path]
@@ -874,9 +878,11 @@ class _DirectoryCopier:
 
     def _validate_source(self) -> None:
         if not self.src_path.exists():
-            raise FileNotFoundError(f"Source path does not exist: {self.src_path}")
+            msg = f"Source path does not exist: {self.src_path}"
+            raise FileNotFoundError(msg)
         if not self.src_path.is_dir():
-            raise NotADirectoryError(f"Source must be a directory: {self.src_path}")
+            msg = f"Source must be a directory: {self.src_path}"
+            raise NotADirectoryError(msg)
 
     def _prepare_tasks(self, files: list[Path], dest_folder: Path) -> list[tuple[Path, Path]]:
         tasks = []
@@ -956,9 +962,11 @@ class _DirectoryMover:
 
     def _validate_source(self) -> None:
         if not self.src_path.exists():
-            raise FileNotFoundError(f"Source path does not exist: {self.src_path}")
+            msg = f"Source path does not exist: {self.src_path}"
+            raise FileNotFoundError(msg)
         if not self.src_path.is_dir():
-            raise NotADirectoryError(f"Source must be a directory: {self.src_path}")
+            msg = f"Source must be a directory: {self.src_path}"
+            raise NotADirectoryError(msg)
 
     def _prepare_tasks(self, files: list[Path], dest_folder: Path) -> list[tuple[Path, Path]]:
         tasks = []
@@ -1405,9 +1413,11 @@ class _TextFileDeterminer:
 
     def _validate(self) -> None:
         if not self.path.exists():
-            raise FileNotFoundError(f"File not found: {self.path}")
+            msg = f"File not found: {self.path}"
+            raise FileNotFoundError(msg)
         if not self.path.is_file():
-            raise ValueError(f"Path is not a file: {self.path}")
+            msg = f"Path is not a file: {self.path}"
+            raise ValueError(msg)
 
     def is_text(self) -> bool:
         if self.path.suffix in BIN_EXT:
@@ -1419,7 +1429,8 @@ class _TextFileDeterminer:
                 chunk = f.read()
             return not _check_binary_chunk(chunk)
         except Exception as e:
-            raise RuntimeError(f"Error checking file {self.path}: {e!s}")
+            msg = f"Error checking file {self.path}: {e!s}"
+            raise RuntimeError(msg)
 
 
 def is_text_file(path: str | Path) -> bool:

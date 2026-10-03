@@ -1,9 +1,13 @@
 from __future__ import annotations
+
 import logging
 import math
 import os
 from functools import lru_cache
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 __all__ = [
@@ -229,10 +233,7 @@ _CONTROL_BYTES: frozenset[int] = frozenset(range(32)) - {9, 10, 13}
 
 
 def _has_known_binary_signature(chunk: bytes) -> bool:
-    for sig in BINARY_SIGNATURES:
-        if chunk.startswith(sig):
-            return True
-    return False
+    return any(chunk.startswith(sig) for sig in BINARY_SIGNATURES)
 
 
 def has_binary_extension(filename: str | bytes | Path) -> bool:
@@ -294,7 +295,7 @@ def _compute_features(chunk: bytes) -> list[float]:
             printable_count += 1
         elif b >= 0x80:
             high_count += 1
-        if 0x20 <= b <= 0x7E or b == 9 or b == 10 or b == 13:
+        if 32 <= b <= 126 or b in {9, 10, 13}:
             current_run += 1
             max_run = max(max_run, current_run)
         else:

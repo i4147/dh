@@ -5,18 +5,16 @@ import multiprocessing as mp
 import multiprocessing.pool
 import sys
 import time
-from collections.abc import Callable, Iterable, Sequence
-from concurrent.futures import (
-    FIRST_COMPLETED,
-    Future,
-    ProcessPoolExecutor,
-    ThreadPoolExecutor,
-    TimeoutError as FutureTimeoutError,
-    wait,
-)
+from concurrent.futures import (FIRST_COMPLETED, Future, ProcessPoolExecutor,
+                                ThreadPoolExecutor)
+from concurrent.futures import TimeoutError as FutureTimeoutError
+from concurrent.futures import wait
 from enum import Enum
 from functools import partial
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +46,8 @@ class PoolMethod(str, Enum):
             return cls(str(value).lower())
         except ValueError as exc:
             valid = ", ".join(m.value for m in cls)
-            raise ValueError(f"unknown method {value!r}; expected one of: {valid}") from exc
+            msg = f"unknown method {value!r}; expected one of: {valid}"
+            raise ValueError(msg) from exc
 
     @property
     def is_mp_pool(self) -> bool:
@@ -109,7 +108,8 @@ class _PoolDispatcher:
         if self.method is PoolMethod.APPLY_ASYNC:
             return self._apply_async_sequential()
 
-        raise AssertionError(f"unhandled mp.pool method: {self.method}")
+        msg = f"unhandled mp.pool method: {self.method}"
+        raise AssertionError(msg)
 
     def _normalize_starmap_args(self) -> list[tuple[Any, ...]]:
         return [item if isinstance(item, tuple) else (item,) for item in self.items]
@@ -288,7 +288,8 @@ def _run_executor(
 
     if maxtasksperchild is not None:
         if not is_process:
-            raise ValueError("maxtasksperchild is only supported by ProcessPoolExecutor")
+            msg = "maxtasksperchild is only supported by ProcessPoolExecutor"
+            raise ValueError(msg)
         kwargs["max_tasks_per_child"] = maxtasksperchild
 
     should_use_simple_path = (
@@ -337,7 +338,8 @@ def _run_joblib(
     try:
         from joblib import Parallel, delayed
     except ImportError as exc:
-        raise ImportError("the 'joblib' backend requires joblib — `pip install joblib`") from exc
+        msg = "the 'joblib' backend requires joblib — `pip install joblib`"
+        raise ImportError(msg) from exc
 
     n_jobs = -1 if workers is None else workers
     items_list = list(items)
@@ -370,7 +372,8 @@ def mpf(
     on_progress: Callable[[int, Any], None] | None = None,
 ) -> list[Any]:
     if not callable(func):
-        raise TypeError("`func` must be callable")
+        msg = "`func` must be callable"
+        raise TypeError(msg)
 
     pool_method = PoolMethod.parse(method)
 
@@ -413,7 +416,8 @@ def mpf(
 
     if pool_method is PoolMethod.THREAD_POOL:
         if maxtasksperchild is not None:
-            raise ValueError("ThreadPoolExecutor does not support maxtasksperchild")
+            msg = "ThreadPoolExecutor does not support maxtasksperchild"
+            raise ValueError(msg)
         return _run_executor(
             ThreadPoolExecutor,
             func,
@@ -430,7 +434,8 @@ def mpf(
             on_progress=on_progress,
         )
 
-    raise AssertionError(f"unhandled method: {pool_method}")
+    msg = f"unhandled method: {pool_method}"
+    raise AssertionError(msg)
 
 
 def _handle_mp_pool_method(
@@ -446,11 +451,12 @@ def _handle_mp_pool_method(
     timeout: float | None,
 ) -> list[Any]:
     if timeout is not None:
-        raise ValueError(
+        msg = (
             "timeout is only supported by the executor backends "
             "('process_pool' / 'thread_pool'); use one of those or "
             "handle deadlines inside your worker"
         )
+        raise ValueError(msg)
     return _run_mp_pool(
         pool_method,
         func,
@@ -474,9 +480,9 @@ def _handle_joblib_method(
     maxtasksperchild: int | None,
 ) -> list[Any]:
     if initializer is not None or maxtasksperchild is not None:
-        raise ValueError(
-            "the 'joblib' backend does not support initializer/maxtasksperchild; use 'process_pool' instead"
-        )
+        msg = "the 'joblib' backend does not support initializer/maxtasksperchild; use 'process_pool' instead"
+        raise ValueError(msg)
     if timeout is not None:
-        raise ValueError("the 'joblib' backend does not support timeout")
+        msg = "the 'joblib' backend does not support timeout"
+        raise ValueError(msg)
     return _run_joblib(func, items, workers, unpack)

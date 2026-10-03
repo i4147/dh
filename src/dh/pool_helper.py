@@ -6,6 +6,7 @@ helpers without depending on ``concurrent.futures``.
 """
 
 from __future__ import annotations
+
 import time
 from collections.abc import Iterable, Iterator
 from multiprocessing.pool import AsyncResult
@@ -24,14 +25,16 @@ def _deadline(timeout: float | None) -> float | None:
     if timeout is None:
         return None
     if timeout < 0:
-        raise TimeoutError("timeout must be non-negative")
+        msg = "timeout must be non-negative"
+        raise TimeoutError(msg)
     return time.monotonic() + timeout
 
 
 def _check_timeout(deadline: float | None) -> None:
     """Raise once a deadline has elapsed."""
     if deadline is not None and time.monotonic() >= deadline:
-        raise TimeoutError("timed out waiting for multiprocessing results")
+        msg = "timed out waiting for multiprocessing results"
+        raise TimeoutError(msg)
 
 
 def as_completed(results: AsyncResults, timeout: float | None = None) -> Iterator[AsyncResult[Any]]:

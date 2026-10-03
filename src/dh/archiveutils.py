@@ -1,3 +1,33 @@
+"""Create a Python library module for in-place processing and transformation of archive files, supporting both single-file compression formats and container archive formats.
+
+**Purpose:**
+Build a module (centered around an `ArchiveProcessor` class) that lets a caller open an archive file, iterate over or transform its contents using custom processor/filter callbacks, and write the result back out — either overwriting the original file or writing to a new path — while preserving the original archive format structure as much as possible.
+
+**Supported formats:**
+- Single-file compression extension): `.gz` (gzip), `.bz2` (bzip2), `.xz` (lzma), `.zst` (zstandard), `.br` (brotli), `.bz3` (bzip3), `.snappy` (snappy), `.lz4` (lz4).
+- Container archive formats: `.zip` and `.whl` (treated as zip), `.tar`, `.7z`.
+- Compressed tar combinations, detected via compound extensions: `.tar.gz`/`.tgz`, `.tar.xz`/`.txz`, `.tar.zst`, `.tar.7z`, `.tar.br`, `.tar.bz2`/`.tbz2`, `.tar.bz3`, `.tar.snappy`, `.tar.lz4`.
+
+**Main inputs:**
+- Path to an existing archive file (constructor should validate existence and raise `FileNotFoundError` if missing, and detect format/compression type from the filising a custom `UnsupportedFormatError` for unrecognized extensions).
+- User-supplied callables for processing member contents: a `ProcessorFunc` type `Callable[[bytes, str], bytes]` that takes raw bytes and the member's name/path and returns transformed bytes.
+- User-supplied callables for filtering which members to include/process: a `FilterFunc` type `Callable[[str], bool]` that takes a member name and returns a boolean.
+
+**Main outputs:**
+- A rewritten archive (same format/compression) either overwriting the original file path or saved to a new destination path, with selected members transformed by the processor and/or filtered by the filter function, and all other members/content preserved unchanged.
+
+**Notable behavior/design requirements:**
+- Use `from __future__ import annotations` and type hints throughout; define reusable type aliases `ProcessorFunc`, `FilterFunUnion[str, os.PathLike]`).
+- Define an exception hierarchy: a base `ArchiveInPived `Unsupportedecognized/intain class-level diction to format/compression identifiers:_EXTENSIONS`, `ARCHIV initolve the archive's `format_type` and `compression` attributes by matching the path's suffix(es) against these dictionaries (checking compound tar extensions before single extensions).
+- Use the standard library modules `bz2`, `gzip`, `lzma`, `tarfile`, `zipfile`, `shutil`, `tempfile`, `io`, and `importlib` (for optionally/dynamically loading support for formats like zstandard, brotli, 7z third-party packages) — handle missing optional dependencies gracefully (e.g., raise a clear error only when that specific format is actually used).
+- Use safe, atomic-style processing: extract/read the archive into a temporary location (via `tempfile`), apply transformations, then write/replace the final output, minimizing risk of corrupting the original file if an error occurs mid-process.manager style helper (`@contextmanager`)raction/working directories or file handles, `shutil.rmtree` or similar) happens even on failure.
+- Design meth that single-file compressed formats and container/tar formats are each handled via clear, dedicated internal code paths, since reading/writing a plain gzip/bzs substantially from iip/tar/7z members.
+- Use precise typing (`LiterinaryIO`, ` binary stream handles are involved.
+---
+LiveDoc: https://felo.ai/zh-Hans/livedoc/WcPycST9CTabqwDfnQx22p"""
+
+from __future__ import annotations
+
 import bz2
 import gzip
 import importlib
@@ -62,7 +92,8 @@ class ArchiveProcessor:
     def __init__(self, archive_path: PathLike) -> None:
         self.archive_path: Path = Path(archive_path)
         if not self.archive_path.exists():
-            raise FileNotFoundError(f"Archive not found: {archive_path}")
+            msg = f"Archive not found: {archive_path}"
+            raise FileNotFoundError(msg)
         self.format_type: str = ""
         self.compression: str | None = None
         self._detect_format()
@@ -84,7 +115,8 @@ class ArchiveProcessor:
                 self.format_type = "single"
                 self.compression = compression
                 return
-        raise UnsupportedFormatError(f"Unsupported archive format: {filename}")
+        msg = f"Unsupported archive format: {filename}"
+        raise UnsupportedFormatError(msg)
 
     @contextmanager
     def _open_archive(self, mode: Literal["r", "w"] = "r") -> Any:
@@ -105,23 +137,24 @@ class ArchiveProcessor:
                     archive = tarfile.open(self.archive_path, "r:xz")
                 else:
                     archive = tarfile.open(self.archive_path, "r:*")
-            else:  # mode == "w"
-                if self.compression is None:
-                    archive = tarfile.open(self.archive_path, "w")
-                elif self.compression == "gz":
-                    archive = tarfile.open(self.archive_path, "w:gz")
-                elif self.compression == "bz2":
-                    archive = tarfile.open(self.archive_path, "w:bz2")
-                elif self.compression == "xz":
-                    archive = tarfile.open(self.archive_path, "w:xz")
-                else:
-                    raise UnsupportedFormatError(f"Unsupported tar compression for writing: {self.compression}")
+            elif self.compression is None:
+                archive = tarfile.open(self.archive_path, "w")
+            elif self.compression == "gz":
+                archive = tarfile.open(self.archive_path, "w:gz")
+            elif self.compression == "bz2":
+                archive = tarfile.open(self.archive_path, "w:bz2")
+            elif self.compression == "xz":
+                archive = tarfile.open(self.archive_path, "w:xz")
+            else:
+                msg = f"Unsupported tar compression for writing: {self.compression}"
+                raise UnsupportedFormatError(msg)
         elif self.format_type == "7zip":
             import py7zr
 
             archive = py7zr.SevenZipFile(self.archive_path, mode)
         else:
-            raise UnsupportedFormatError(f"Unsupported archive type: {self.format_type}")
+            msg = f"Unsupported archive type: {self.format_type}"
+            raise UnsupportedFormatError(msg)
         try:
             yield archive
         finally:
@@ -145,7 +178,8 @@ class ArchiveProcessor:
             return data
         handler = self._get_compression_handler(compression)
         if handler is None:
-            raise UnsupportedFormatError(f"Unsupported compression: {compression}")
+            msg = f"Unsupported compression: {compression}"
+            raise UnsupportedFormatError(msg)
         try:
             if compression == "gzip":
                 return gzip.decompress(data)
@@ -164,16 +198,19 @@ class ArchiveProcessor:
             elif compression == "lz4":
                 return handler.decompress(data)
             else:
-                raise UnsupportedFormatError(f"Unsupported compression: {compression}")
+                msg = f"Unsupported compression: {compression}"
+                raise UnsupportedFormatError(msg)
         except Exception as e:
-            raise ArchiveInPlaceError(f"Failed to decompress {compression} data: {e}") from e
+            msg = f"Failed to decompress {compression} data: {e}"
+            raise ArchiveInPlaceError(msg) from e
 
     def _compress_data(self, data: bytes, compression: str | None) -> bytes:
         if compression is None:
             return data
         handler = self._get_compression_handler(compression)
         if handler is None:
-            raise UnsupportedFormatError(f"Unsupported compression: {compression}")
+            msg = f"Unsupported compression: {compression}"
+            raise UnsupportedFormatError(msg)
         try:
             if compression == "gzip":
                 return gzip.compress(data)
@@ -192,9 +229,11 @@ class ArchiveProcessor:
             elif compression == "lz4":
                 return handler.compress(data)
             else:
-                raise UnsupportedFormatError(f"Unsupported compression: {compression}")
+                msg = f"Unsupported compression: {compression}"
+                raise UnsupportedFormatError(msg)
         except Exception as e:
-            raise ArchiveInPlaceError(f"Failed to compress {compression} data: {e}") from e
+            msg = f"Failed to compress {compression} data: {e}"
+            raise ArchiveInPlaceError(msg) from e
 
     def list_files(self) -> list[str]:
         if self.format_type == "single":
@@ -204,17 +243,20 @@ class ArchiveProcessor:
                 if isinstance(archive, zipfile.ZipFile):
                     return archive.namelist()
                 else:
-                    raise ArchiveInPlaceError("Expected ZipFile")
+                    msg = "Expected ZipFile"
+                    raise ArchiveInPlaceError(msg)
             elif self.format_type == "tar":
                 if isinstance(archive, tarfile.TarFile):
                     return [member.name for member in archive.getmembers() if member.isfile()]
                 else:
-                    raise ArchiveInPlaceError("Expected TarFile")
+                    msg = "Expected TarFile"
+                    raise ArchiveInPlaceError(msg)
             elif self.format_type == "7zip":
                 if hasattr(archive, "getnames"):
                     return archive.getnames()  # type: ignore[no-any-return]
                 else:
-                    raise ArchiveInPlaceError("Expected SevenZipFile")
+                    msg = "Expected SevenZipFile"
+                    raise ArchiveInPlaceError(msg)
         return []
 
     def process_files(

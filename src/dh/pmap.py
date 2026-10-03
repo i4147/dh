@@ -1,10 +1,13 @@
 from __future__ import annotations
+
 import functools
 import multiprocessing
 import multiprocessing.dummy  # Thread-backed Pool exposing the same API as mp.Pool
 import os
-from collections.abc import Callable, Iterable
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
 
 # --------------------------------------------------------------------------- #
 # Public type aliases
@@ -40,23 +43,28 @@ def _resolve_max_workers(max_workers: int | None, n_items: int) -> int:
         except (TypeError, ValueError):
             max_workers = _DEFAULT_WORKERS
     if max_workers < 1:
-        raise ValueError(f"max_workers must be >= 1, got {max_workers!r}")
+        msg = f"max_workers must be >= 1, got {max_workers!r}"
+        raise ValueError(msg)
     return min(max_workers, n_items)
 
 
 def _validate(backend: str, method: str, chunksize: int, items: list[Any]) -> None:
     """Reject bad backend/method/chunksize/item combinations up front."""
     if backend not in _VALID_BACKENDS:
-        raise ValueError(f"backend must be one of {sorted(_VALID_BACKENDS)}, got {backend!r}")
+        msg = f"backend must be one of {sorted(_VALID_BACKENDS)}, got {backend!r}"
+        raise ValueError(msg)
     valid_methods = _MP_METHODS if backend in _MP_BACKENDS else _COMMON_METHODS
     if method not in valid_methods:
-        raise ValueError(f"method must be one of {sorted(valid_methods)} for backend={backend!r}; got {method!r}")
+        msg = f"method must be one of {sorted(valid_methods)} for backend={backend!r}; got {method!r}"
+        raise ValueError(msg)
     if not isinstance(chunksize, int) or isinstance(chunksize, bool) or chunksize < 1:
-        raise ValueError(f"chunksize must be an int >= 1, got {chunksize!r}")
+        msg = f"chunksize must be an int >= 1, got {chunksize!r}"
+        raise ValueError(msg)
     if method in _TUPLE_ARG_METHODS:
         for i, item in enumerate(items):
             if not isinstance(item, (tuple, list)):
-                raise TypeError(f"items[{i}] must be a tuple/list when method={method!r}; got {type(item).__name__}")
+                msg = f"items[{i}] must be a tuple/list when method={method!r}; got {type(item).__name__}"
+                raise TypeError(msg)
 
 
 def _apply_star(fn: Callable[..., Any], args: tuple[Any, ...]) -> Any:
@@ -112,7 +120,8 @@ def _run_mp(
         if method == "apply_async":
             async_results = [pool.apply_async(fn, args) for args in items]
             return [r.get(timeout=timeout) for r in async_results]
-        raise AssertionError(f"unhandled method: {method!r}")
+        msg = f"unhandled method: {method!r}"
+        raise AssertionError(msg)
     except BaseException:
         # Terminate immediately so __exit__ doesn't block on pending work.
         pool.terminate()
@@ -133,13 +142,9 @@ def _run_futures(
     timeout: float | None,
 ) -> list[Any]:
     """Run through ``concurrent.futures.ThreadPoolExecutor`` or ``ProcessPoolExecutor``."""
-    from concurrent.futures import (
-        ProcessPoolExecutor,
-        ThreadPoolExecutor,
-        TimeoutError as FuturesTimeout,
-        as_completed,
-        wait,
-    )
+    from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+    from concurrent.futures import TimeoutError as FuturesTimeout
+    from concurrent.futures import as_completed, wait
 
     Executor = ThreadPoolExecutor if kind == "thread" else ProcessPoolExecutor
     call = functools.partial(_apply_star, fn) if method == "starmap" else fn
@@ -154,7 +159,8 @@ def _run_futures(
             # Bounded batch wait; preserves input order on return.
             _, pending = wait(futures, timeout=timeout)
             if pending:
-                raise FuturesTimeout(f"{len(pending)} of {len(futures)} tasks did not complete")
+                msg = f"{len(pending)} of {len(futures)} tasks did not complete"
+                raise FuturesTimeout(msg)
             return [f.result() for f in futures]
         # imap_unordered → completion order.
         return [f.result() for f in as_completed(futures, timeout=timeout)]
@@ -180,7 +186,8 @@ def _run_joblib(
     try:
         from joblib import Parallel, delayed
     except ImportError as exc:  # pragma: no cover
-        raise ImportError("backend='joblib' requires the 'joblib' package (pip install joblib)") from exc
+        msg = "backend='joblib' requires the 'joblib' package (pip install joblib)"
+        raise ImportError(msg) from exc
     if method == "starmap":
         jobs = (delayed(fn)(*args) for args in items)
     else:
@@ -292,4 +299,5 @@ def run_parallel(
         return _run_futures(fn, items, method, kind, max_workers, chunksize, timeout)
     if backend == "joblib":
         return _run_joblib(fn, items, method, max_workers, chunksize, timeout)
-    raise AssertionError(f"unhandled backend: {backend!r}")  # pragma: no cover
+    msg = f"unhandled backend: {backend!r}"
+    raise AssertionError(msg)  # pragma: no cover

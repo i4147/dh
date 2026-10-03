@@ -1,14 +1,18 @@
 from __future__ import annotations
+
 import ast
 import ipaddress
 import re
 import tokenize
 import unicodedata
-from collections.abc import Iterator
 from hashlib import sha256
 from io import StringIO
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 pattern: re.Pattern[str] = re.compile(
     r"""(?:
@@ -160,5 +164,5 @@ def tokenize_text(text: str) -> list[str]:
     for match in _IDENTIFIER_PATTERN.finditer(text):
         identifier: str = match.group()
         subwords: list[str] = WORD_PATTERN.findall(identifier)
-        tokens.extend(subwords if subwords else [identifier])
+        tokens.extend(subwords or [identifier])
     return tokens
