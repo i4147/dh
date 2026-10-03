@@ -142,9 +142,13 @@ def _run_futures(
     timeout: float | None,
 ) -> list[Any]:
     """Run through ``concurrent.futures.ThreadPoolExecutor`` or ``ProcessPoolExecutor``."""
-    from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-    from concurrent.futures import TimeoutError as FuturesTimeout
-    from concurrent.futures import as_completed, wait
+    from concurrent.futures import (
+        ProcessPoolExecutor,
+        ThreadPoolExecutor,
+        TimeoutError as FuturesTimeout,
+        as_completed,
+        wait,
+    )
 
     Executor = ThreadPoolExecutor if kind == "thread" else ProcessPoolExecutor
     call = functools.partial(_apply_star, fn) if method == "starmap" else fn

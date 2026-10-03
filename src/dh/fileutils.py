@@ -11,8 +11,18 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, Any, Optional, overload
 
-from .const import (BIN_EXT, CHUNK_SIZE, EMULATED, IMGEXT, PY_KEYWORDS, SDCARD,
-                    SKIP_DIRS, THRESHOLD, TXT_EXT, ZERO_DOT_THREE)
+from .const import (
+    BIN_EXT,
+    CHUNK_SIZE,
+    EMULATED,
+    IMGEXT,
+    PY_KEYWORDS,
+    SDCARD,
+    SKIP_DIRS,
+    THRESHOLD,
+    TXT_EXT,
+    ZERO_DOT_THREE,
+)
 from .isbinary import is_binary
 
 if TYPE_CHECKING:
@@ -254,8 +264,7 @@ class _FilenameNormalizer:
         self.path = str(path)
 
     def normalize(self) -> str:
-        from re import compile as re_compile
-        from re import escape as re_escape
+        from re import compile as re_compile, escape as re_escape
 
         special_chars = '<>:"/\\|?*' + "".join(map(chr, range(32)))
         pattern = re_compile("|".join(map(re_escape, special_chars)))
@@ -454,11 +463,8 @@ class _CommandRunner:
         self.timeout = timeout
 
     def run(self) -> tuple[int, str, str]:
-        from subprocess import DEVNULL as _DEVNULL
-        from subprocess import TimeoutExpired as subprocess_TimeoutExpired
-        from subprocess import run as subprocess_run
-        from sys import stderr as sys_stderr
-        from sys import stdout as sys_stdout
+        from subprocess import DEVNULL as _DEVNULL, TimeoutExpired as subprocess_TimeoutExpired, run as subprocess_run
+        from sys import stderr as sys_stderr, stdout as sys_stdout
 
         if not self.cmd:
             msg = "cmd must be a non-empty list (e.g., ['ls', '-l'])"

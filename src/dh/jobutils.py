@@ -5,10 +5,14 @@ import multiprocessing as mp
 import multiprocessing.pool
 import sys
 import time
-from concurrent.futures import (FIRST_COMPLETED, Future, ProcessPoolExecutor,
-                                ThreadPoolExecutor)
-from concurrent.futures import TimeoutError as FutureTimeoutError
-from concurrent.futures import wait
+from concurrent.futures import (
+    FIRST_COMPLETED,
+    Future,
+    ProcessPoolExecutor,
+    ThreadPoolExecutor,
+    TimeoutError as FutureTimeoutError,
+    wait,
+)
 from enum import Enum
 from functools import partial
 from typing import TYPE_CHECKING, Any
