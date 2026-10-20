@@ -1,45 +1,34 @@
-"""Benchmark mp_pool.run_pool dispatch strategies on a file-hashing workload.
-Regenerate this script: parse --path, --workers, --runs, and optional --chunk-size; collect files under
---path via pathlib.rglob; define a picklable hash_file worker using xxhash.xxh64; measure serial baseline
-and each mp_pool.run_pool strategy (map, starmap, imap_unordered, apply_async — each in single-arg and
-star=True modes where applicable); verify digests match the serial run; report min/mean wall times and
-speedups with loguru.
-"""
-
 from __future__ import annotations
 import argparse
-import time
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from statistics import mean
+import time
 from typing import Final, NamedTuple
+
 from loguru import logger
 from mp_pool import POOL_WORKERS, PoolMethod, run_pool
 from xxhash import xxh64  # type: ignore[import-untyped]
+
 
 DEFAULT_CHUNK_SIZE: Final[int] = 32768
 HashRow = tuple[Path, str]
 
 
 class BenchResult(NamedTuple):
-    """Timing summary for one strategy."""
-
     label: str
     runs: list[float]
 
     @property
     def best(self) -> float:
-        """Minimum observed wall time in seconds."""
         return min(self.runs)
 
     @property
     def avg(self) -> float:
-        """Mean observed wall time in seconds."""
         return mean(self.runs)
 
 
 def hash_file(path: Path, chunk_size: int = DEFAULT_CHUNK_SIZE) -> HashRow:
-    """Return ``(path, xxh64_hexdigest)`` for *path*, or ``(path, "")`` on failure."""
     h = xxh64()
     try:
         with path.open("rb") as f:
@@ -52,7 +41,6 @@ def hash_file(path: Path, chunk_size: int = DEFAULT_CHUNK_SIZE) -> HashRow:
 
 
 def collect_files(root: Path, limit: int | None = None) -> list[Path]:
-    """Return regular files under *root*, optionally truncated to *limit*."""
     files = [p for p in root.rglob("*") if p.is_file()]
     files.sort()
     if limit is not None:
@@ -61,35 +49,29 @@ def collect_files(root: Path, limit: int | None = None) -> list[Path]:
 
 
 def run_serial(files: Sequence[Path], chunk_size: int) -> list[HashRow]:
-    """Serial reference: hash every file in the calling process."""
     return [hash_file(p, chunk_size) for p in files]
 
 
 def _time_once(fn: Callable[[], Sequence[HashRow]]) -> tuple[list[HashRow], float]:
-    """Execute *fn* once and return ``(result, elapsed_seconds)``."""
     start = time.perf_counter()
     result = list(fn())
     return result, time.perf_counter() - start
 
 
 def _verify(label: str, expected: Sequence[HashRow], actual: Sequence[HashRow]) -> None:
-    """Compare digest sets (order-insensitive) and warn on mismatch."""
     if sorted(expected, key=lambda r: str(r[0])) == sorted(actual, key=lambda r: str(r[0])):
         return
     logger.warning(f"{label}: results differ from serial baseline!")
 
 
 def _strategies(files: Sequence[Path], chunk_size: int, workers: int) -> dict[str, Callable[[], list[HashRow]]]:
-    """Return a mapping of strategy label -> zero-arg callable that runs it."""
-    # star=True variants: bundle (path, chunk_size) as positional args.
     star_tasks: list[tuple[Path, int]] = [(p, chunk_size) for p in files]
 
     def _map_single() -> list[HashRow]:
-        return [hash_file(p, chunk_size) for p in files]  # placeholder, replaced below
+        return [hash_file(p, chunk_size) for p in files]
 
     strategies: dict[str, Callable[[], list[HashRow]]] = {}
 
-    # map / imap_unordered take a single argument, so bind chunk_size via closure.
     def _wrap(func: Callable[[Path], HashRow]) -> Callable[[Path], HashRow]:
         return func
 
@@ -107,7 +89,7 @@ def _strategies(files: Sequence[Path], chunk_size: int, workers: int) -> dict[st
     strategies["apply_async (star=True)"] = lambda: run_pool(
         hash_file, star_tasks, "apply_async", star=True, workers=workers
     )
-    _ = _map_single, _wrap  # silence unused warnings on some linters
+    _ = _map_single, _wrap
     return strategies
 
 
@@ -117,7 +99,6 @@ def benchmark(
     workers: int,
     runs: int,
 ) -> tuple[BenchResult, list[BenchResult]]:
-    """Run the serial baseline plus every strategy; return (baseline, others)."""
     serial_times: list[float] = []
     expected: list[HashRow] = []
     for i in range(runs):
@@ -140,7 +121,6 @@ def benchmark(
 
 
 def _print_table(baseline: BenchResult, results: Sequence[BenchResult]) -> None:
-    """Log a formatted table of timings and speedups."""
     header = f"{'strategy':<28} {'best(s)':>9} {'avg(s)':>9} {'speedup(best)':>14}"
     logger.info(header)
     logger.info("-" * len(header))
@@ -151,7 +131,6 @@ def _print_table(baseline: BenchResult, results: Sequence[BenchResult]) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--path",
@@ -186,7 +165,6 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
-    """CLI entry point."""
     args: argparse.Namespace = parse_args()
     root = Path(args.path).resolve()
     if not root.is_dir():
@@ -199,7 +177,6 @@ def main() -> int:
     total_bytes = sum(p.stat().st_size for p in files)
     logger.info(f"Benchmarking {len(files)} files ({total_bytes / 1_048_576:.2f} MiB) under {root}")
     logger.info(f"workers={args.workers}  runs={args.runs}  chunk_size={args.chunk_size}")
-    # Sanity check: hash_file must be picklable.
     _ = hash_file
     baseline, results = benchmark(files, chunk_size=args.chunk_size, workers=args.workers, runs=args.runs)
     _print_table(baseline, results)

@@ -1,7 +1,7 @@
-import sys
 from pathlib import Path
+import sys
 from time import perf_counter as pff
-from loguru import logger
+
 from dh import (
     get_files,
     get_sha256,
@@ -13,6 +13,8 @@ from dh import (
     mpf_starmap,
     mpf_starmap2,
 )
+from loguru import logger
+
 
 MAX_WORKERS = 4
 

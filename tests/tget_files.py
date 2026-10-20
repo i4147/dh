@@ -1,5 +1,5 @@
-import pytest
 from dh import get_files
+import pytest
 
 
 @pytest.fixture
@@ -47,48 +47,38 @@ def setup_test_directory(tmp_path: Path):
             created_symlinks.append(link_path)
     except OSError as e:
         pytest.skip(f"Could not create symlinks: {e}. Skipping symlink tests.")
-    expected_files_default = sorted(
-        [
-            base_dir / "file1.txt",
-            base_dir / "file2.log",
-            base_dir / "document",
-            base_dir / "config_file",
-            base_dir / "script.py",
-            base_dir / "data.json",
-            subdir1 / "subfile1.txt",
-            subdir1 / "archive.zip",
-            subdir1 / "readme",
-            subdir2 / "main.py",
-            subdir2 / "notes",
-            subdir2 / "temp.log",
-        ]
-    )
-    expected_files_no_ext = sorted(
-        [
-            base_dir / "document",
-            base_dir / "config_file",
-            subdir1 / "readme",
-            subdir2 / "notes",
-        ]
-    )
-    expected_files_txt = sorted(
-        [
-            base_dir / "file1.txt",
-            subdir1 / "subfile1.txt",
-        ]
-    )
-    expected_files_py = sorted(
-        [
-            base_dir / "script.py",
-            subdir2 / "main.py",
-        ]
-    )
-    expected_files_log = sorted(
-        [
-            base_dir / "file2.log",
-            subdir2 / "temp.log",
-        ]
-    )
+    expected_files_default = sorted([
+        base_dir / "file1.txt",
+        base_dir / "file2.log",
+        base_dir / "document",
+        base_dir / "config_file",
+        base_dir / "script.py",
+        base_dir / "data.json",
+        subdir1 / "subfile1.txt",
+        subdir1 / "archive.zip",
+        subdir1 / "readme",
+        subdir2 / "main.py",
+        subdir2 / "notes",
+        subdir2 / "temp.log",
+    ])
+    expected_files_no_ext = sorted([
+        base_dir / "document",
+        base_dir / "config_file",
+        subdir1 / "readme",
+        subdir2 / "notes",
+    ])
+    expected_files_txt = sorted([
+        base_dir / "file1.txt",
+        subdir1 / "subfile1.txt",
+    ])
+    expected_files_py = sorted([
+        base_dir / "script.py",
+        subdir2 / "main.py",
+    ])
+    expected_files_log = sorted([
+        base_dir / "file2.log",
+        subdir2 / "temp.log",
+    ])
     return {
         "base_dir": base_dir,
         "expected_files_default": expected_files_default,

@@ -4,6 +4,7 @@ from multiprocessing import Pool, get_context
 from pathlib import Path
 from typing import Any, List
 
+
 MAX_WORKERS = 8
 _MP_CONTEXT = get_context("spawn")
 

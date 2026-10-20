@@ -1,47 +1,28 @@
-#!/usr/bin/env python3
-"""
-Benchmark script for testing parallel processing functions from the dh module.
-Tests various parallel execution strategies with SHA256 hashing of files.
-"""
-
 from __future__ import annotations
-import hashlib
-import json
-import os
-import statistics
-import sys
-import time
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass, field
+import hashlib
+import json
+import os
 from pathlib import Path
+import statistics
+import sys
+import time
 from typing import Any
 
-# Import your custom module
 from dh import (
     MAX_WORKERS,
     ParallelSummary,
     mpf,
-    mpf2,
-    mpf3,
-    mpf_async,
-    mpf_imap,
-    mpf_imapu,
-    mpf_joblib,
-    mpf_map,
-    mpf_ppe,
-    mpf_starmap,
-    mpf_tpe,
 )
 
 
 @dataclass
 class BenchmarkResult:
-    """Store benchmark results for a single function."""
-
     function_name: str
     total_time: float
-    throughput: float  # files per second
+    throughput: float
     success_rate: float
     results: list[Any] = field(default_factory=list)
     summary: ParallelSummary | None = None
@@ -57,7 +38,6 @@ class BenchmarkResult:
 
 
 def calculate_sha256(file_path: Path | str) -> tuple[str, str | None]:
-    """Calculate SHA256 hash of a file. Returns (hash, error_message)."""
     try:
         file_path = Path(file_path)
         if not file_path.exists():
@@ -72,7 +52,6 @@ def calculate_sha256(file_path: Path | str) -> tuple[str, str | None]:
 
 
 def calculate_sha256_simple(file_path: Path | str) -> str:
-    """Simple SHA256 calculation without error tuple."""
     file_path = Path(file_path)
     sha256_hash = hashlib.sha256()
     with open(file_path, "rb") as f:
@@ -82,7 +61,6 @@ def calculate_sha256_simple(file_path: Path | str) -> str:
 
 
 def calculate_sha256_with_args(file_path: Path | str, buffer_size: int = 8192) -> str:
-    """SHA256 calculation with additional arguments."""
     file_path = Path(file_path)
     sha256_hash = hashlib.sha256()
     with open(file_path, "rb") as f:
@@ -92,7 +70,6 @@ def calculate_sha256_with_args(file_path: Path | str, buffer_size: int = 8192) -
 
 
 def get_files_from_directory(directory: str | Path, extensions: list[str] | None = None) -> list[Path]:
-    """Get all files from directory with optional extension filtering."""
     directory = Path(directory)
     if not directory.exists():
         print(f"Directory not found: {directory}")
@@ -110,15 +87,12 @@ def get_files_from_directory(directory: str | Path, extensions: list[str] | None
 def benchmark_function(
     func: Callable, name: str, files: list[Path], workers: int = MAX_WORKERS, **kwargs
 ) -> BenchmarkResult:
-    """Benchmark a single function."""
     print(f"\n{'=' * 60}")
     print(f"Benchmarking: {name}")
     print(f"Files: {len(files)}, Workers: {workers}")
     start_time = time.perf_counter()
     try:
-        # Different calling conventions for different functions
         if name in ["mpf3"]:
-            # mpf3 has a different signature
             summary = func(
                 calculate_sha256,
                 files,
@@ -129,7 +103,6 @@ def benchmark_function(
             results = []
             success_rate = summary.success_rate if summary.total > 0 else 0
         elif name in ["mpf_starmap"]:
-            # starmap with extra args
             extra_args = [(8192,) for _ in files]
             results = func(calculate_sha256_with_args, files, extra_args=extra_args, workers=workers)
             success_rate = sum(1 for r in results if r is not None) / len(results) * 100 if results else 0
@@ -137,7 +110,6 @@ def benchmark_function(
             results = func(calculate_sha256_simple, files, n_jobs=workers)
             success_rate = sum(1 for r in results if r is not None) / len(results) * 100 if results else 0
         else:
-            # Standard functions
             results = func(calculate_sha256_simple, files, workers=workers)
             success_rate = sum(1 for r in results if r is not None) / len(results) * 100 if results else 0
         end_time = time.perf_counter()
@@ -165,23 +137,19 @@ def benchmark_function(
 
 
 def run_benchmarks(directory: str | Path, workers: int = MAX_WORKERS, repeat: int = 3):
-    """Run all benchmarks."""
     print(f"Starting benchmarks...")
     print(f"Directory: {directory}")
     print(f"Workers: {workers}")
     print(f"Repeat: {repeat} times")
-    # Get files
     files = get_files_from_directory(directory)
     if not files:
         print("No files found to process!")
         return
     print(f"Found {len(files)} files")
-    # Show file size distribution
     total_size = sum(f.stat().st_size for f in files)
     avg_size = total_size / len(files) if files else 0
     print(f"Total size: {total_size / (1024 * 1024):.2f} MB")
     print(f"Average file size: {avg_size / 1024:.2f} KB")
-    # Define functions to benchmark
     benchmark_functions = [
         ("mpf_async", mpf_async, {}),
         ("mpf_map", mpf_map, {}),
@@ -194,10 +162,7 @@ def run_benchmarks(directory: str | Path, workers: int = MAX_WORKERS, repeat: in
         ("mpf3", mpf3, {"max_pending_factor": 4}),
         ("mpf", mpf, {}),
         ("mpf2", mpf2, {}),
-        # Uncomment if joblib is installed
-        # ("mpf_joblib", mpf_joblib, {}),
     ]
-    # Run benchmarks
     all_results = []
     for func_name, func, kwargs in benchmark_functions:
         if repeat > 1:
@@ -206,7 +171,7 @@ def run_benchmarks(directory: str | Path, workers: int = MAX_WORKERS, repeat: in
                 print(f"\n--- Run {i + 1}/{repeat} for {func_name} ---")
                 result = benchmark_function(func, func_name, files, workers, **kwargs)
                 times.append(result.total_time)
-                if i == repeat - 1:  # Keep the last result
+                if i == repeat - 1:
                     final_result = result
                     final_result.total_time = statistics.mean(times)
                     final_result.throughput = len(files) / final_result.total_time if final_result.total_time > 0 else 0
@@ -214,19 +179,16 @@ def run_benchmarks(directory: str | Path, workers: int = MAX_WORKERS, repeat: in
         else:
             result = benchmark_function(func, func_name, files, workers, **kwargs)
             all_results.append(result)
-    # Print summary
     print("\n" + "=" * 80)
     print("BENCHMARK SUMMARY")
     print("=" * 80)
     print(f"{'Function':<25} {'Time (s)':<10} {'Files/s':<12} {'Success %':<10}")
     print("-" * 80)
-    # Sort by throughput (descending)
     sorted_results = sorted(all_results, key=lambda x: x.throughput, reverse=True)
     for result in sorted_results:
         print(
             f"{result.function_name:<25} {result.total_time:<10.3f} {result.throughput:<12.2f} {result.success_rate:<10.1f}"
         )
-    # Save results to JSON
     output_file = Path(f"benchmark_results_{time.strftime('%Y%m%d_%H%M%S')}.json")
     with open(output_file, "w") as f:
         json.dump([r.to_dict() for r in sorted_results], f, indent=2)
@@ -235,13 +197,11 @@ def run_benchmarks(directory: str | Path, workers: int = MAX_WORKERS, repeat: in
 
 
 def run_quick_test(directory: str | Path, workers: int = 4):
-    """Quick test to verify all functions work."""
     print("Running quick test...")
     files = get_files_from_directory(directory)
     if not files:
         print("No files found!")
         return
-    # Test with a small subset
     test_files = files[: min(5, len(files))]
     print(f"Testing with {len(test_files)} files")
     tests = [
@@ -267,20 +227,16 @@ def run_quick_test(directory: str | Path, workers: int = 4):
 
 
 def create_test_files(directory: str | Path, num_files: int = 100, file_size_kb: int = 100):
-    """Create test files for benchmarking."""
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     print(f"Creating {num_files} test files of {file_size_kb}KB in {directory}...")
-    # Create varied file sizes (50% to 200% of specified size)
     import random
 
-    random.seed(42)  # For reproducible tests
+    random.seed(42)
     for i in range(num_files):
         size = int(file_size_kb * 1024 * random.uniform(0.5, 2.0))
         file_path = directory / f"test_file_{i:04d}.txt"
-        # Create file with random content
         with open(file_path, "wb") as f:
-            # Write in chunks to avoid memory issues
             chunk_size = 8192
             remaining = size
             while remaining > 0:
@@ -292,7 +248,6 @@ def create_test_files(directory: str | Path, num_files: int = 100, file_size_kb:
 
 
 def main():
-    """Main entry point."""
     if len(sys.argv) < 2:
         print("Usage: python benchmark_dh.py <directory> [workers] [--create-test-files]")
         print("  directory: Directory containing files to process")
@@ -301,30 +256,24 @@ def main():
         sys.exit(1)
     directory = sys.argv[1]
     workers = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else MAX_WORKERS
-    # Check for test file creation flag
     if "--create-test-files" in sys.argv:
         create_test_files(directory, num_files=200, file_size_kb=50)
-    # Run quick test first
     print("\n" + "=" * 60)
     print("QUICK FUNCTIONALITY TEST")
     print("=" * 60)
     run_quick_test(directory, workers=min(workers, 4))
-    # Run full benchmarks
     print("\n" + "=" * 60)
     print("FULL BENCHMARKS")
     print("=" * 60)
     results = run_benchmarks(directory, workers=workers, repeat=3)
-    # Print recommendations
     print("\n" + "=" * 60)
     print("RECOMMENDATIONS")
     print("=" * 60)
     if results:
-        # Find fastest function
         fastest = max(results, key=lambda x: x.throughput)
         print(f"Fastest function: {fastest.function_name}")
         print(f"  - Throughput: {fastest.throughput:.2f} files/s")
         print(f"  - Success rate: {fastest.success_rate:.1f}%")
-        # Check mpf3 specifically
         mpf3_result = next((r for r in results if r.function_name == "mpf3"), None)
         if mpf3_result:
             print(f"\nmpf3 performance: {mpf3_result.throughput:.2f} files/s")
@@ -333,7 +282,6 @@ def main():
                 print("  - Consider using a simpler function if you don't need advanced features")
             else:
                 print("  - mpf3 performance is competitive")
-        # Check for I/O vs CPU bound
         print("\nTip: For I/O-bound tasks (like file hashing), ThreadPoolExecutor might be faster.")
         print("For CPU-bound tasks, ProcessPoolExecutor is usually better.")
         print("The optimal choice depends on your specific workload.")

@@ -1,5 +1,7 @@
 from pathlib import Path
+
 from dh import get_filez, get_lines, is_binary
+
 
 if __name__ == "__main__":
     cwd = Path.cwd()

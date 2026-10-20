@@ -1,6 +1,7 @@
-import sys
 from pathlib import Path
+import sys
 from time import perf_counter as pff
+
 from dh import get_files, get_files2, get_filez
 
 

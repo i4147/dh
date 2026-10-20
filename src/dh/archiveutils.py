@@ -1,31 +1,3 @@
-"""Create a Python library module for in-place processing and transformation of archive files, supporting both single-file compression formats and container archive formats.
-
-**Purpose:**
-Build a module (centered around an `ArchiveProcessor` class) that lets a caller open an archive file, iterate over or transform its contents using custom processor/filter callbacks, and write the result back out — either overwriting the original file or writing to a new path — while preserving the original archive format structure as much as possible.
-
-**Supported formats:**
-- Single-file compression extension): `.gz` (gzip), `.bz2` (bzip2), `.xz` (lzma), `.zst` (zstandard), `.br` (brotli), `.bz3` (bzip3), `.snappy` (snappy), `.lz4` (lz4).
-- Container archive formats: `.zip` and `.whl` (treated as zip), `.tar`, `.7z`.
-- Compressed tar combinations, detected via compound extensions: `.tar.gz`/`.tgz`, `.tar.xz`/`.txz`, `.tar.zst`, `.tar.7z`, `.tar.br`, `.tar.bz2`/`.tbz2`, `.tar.bz3`, `.tar.snappy`, `.tar.lz4`.
-
-**Main inputs:**
-- Path to an existing archive file (constructor should validate existence and raise `FileNotFoundError` if missing, and detect format/compression type from the filising a custom `UnsupportedFormatError` for unrecognized extensions).
-- User-supplied callables for processing member contents: a `ProcessorFunc` type `Callable[[bytes, str], bytes]` that takes raw bytes and the member's name/path and returns transformed bytes.
-- User-supplied callables for filtering which members to include/process: a `FilterFunc` type `Callable[[str], bool]` that takes a member name and returns a boolean.
-
-**Main outputs:**
-- A rewritten archive (same format/compression) either overwriting the original file path or saved to a new destination path, with selected members transformed by the processor and/or filtered by the filter function, and all other members/content preserved unchanged.
-
-**Notable behavior/design requirements:**
-- Use `from __future__ import annotations` and type hints throughout; define reusable type aliases `ProcessorFunc`, `FilterFunUnion[str, os.PathLike]`).
-- Define an exception hierarchy: a base `ArchiveInPived `Unsupportedecognized/intain class-level diction to format/compression identifiers:_EXTENSIONS`, `ARCHIV initolve the archive's `format_type` and `compression` attributes by matching the path's suffix(es) against these dictionaries (checking compound tar extensions before single extensions).
-- Use the standard library modules `bz2`, `gzip`, `lzma`, `tarfile`, `zipfile`, `shutil`, `tempfile`, `io`, and `importlib` (for optionally/dynamically loading support for formats like zstandard, brotli, 7z third-party packages) — handle missing optional dependencies gracefully (e.g., raise a clear error only when that specific format is actually used).
-- Use safe, atomic-style processing: extract/read the archive into a temporary location (via `tempfile`), apply transformations, then write/replace the final output, minimizing risk of corrupting the original file if an error occurs mid-process.manager style helper (`@contextmanager`)raction/working directories or file handles, `shutil.rmtree` or similar) happens even on failure.
-- Design meth that single-file compressed formats and container/tar formats are each handled via clear, dedicated internal code paths, since reading/writing a plain gzip/bzs substantially from iip/tar/7z members.
-- Use precise typing (`LiterinaryIO`, ` binary stream handles are involved.
----
-LiveDoc: https://felo.ai/zh-Hans/livedoc/WcPycST9CTabqwDfnQx22p"""
-
 from __future__ import annotations
 
 import bz2
@@ -41,9 +13,8 @@ import zipfile
 from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, BinaryIO, Literal, Optional, Union, cast
+from typing import Any, Literal, Union
 
-# Type aliases
 ProcessorFunc = Callable[[bytes, str], bytes]
 FilterFunc = Callable[[str], bool]
 PathLike = Union[str, os.PathLike]
@@ -253,7 +224,7 @@ class ArchiveProcessor:
                     raise ArchiveInPlaceError(msg)
             elif self.format_type == "7zip":
                 if hasattr(archive, "getnames"):
-                    return archive.getnames()  # type: ignore[no-any-return]
+                    return archive.getnames()
                 else:
                     msg = "Expected SevenZipFile"
                     raise ArchiveInPlaceError(msg)

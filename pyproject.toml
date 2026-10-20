@@ -6,7 +6,7 @@ name = "dh"
 version = "1.4.7"
 description = "A Python package named dh"
 readme = "README.md"
-authors = [{ name = "Isaac Onagh", email = "mkalafsaz@gmail.com" }]
+authors = [{ name = "Isaac Onagh", email = "yesnacoc@gmail.com" }]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Operating System :: OS Independent",

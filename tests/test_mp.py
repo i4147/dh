@@ -1,7 +1,7 @@
-import sys
 from pathlib import Path
+import sys
 from time import perf_counter as pff
-from loguru import logger
+
 from dh import (
     get_files,
     get_sha256,
@@ -17,6 +17,7 @@ from dh import (
     mpf_starmap,
     mpf_tpe,
 )
+from loguru import logger
 
 
 def measure_time(func_to_process, filez: list[Path]) -> None:

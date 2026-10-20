@@ -1,12 +1,13 @@
 from __future__ import annotations
 import argparse
+from collections.abc import Callable
 import hashlib
+from pathlib import Path
 import statistics
 import sys
 import time
-from collections.abc import Callable
-from pathlib import Path
 from typing import Any
+
 from dh import (
     MAX_WORKERS,
     mpf,
@@ -24,9 +25,7 @@ from dh import (
 )
 
 
-# ----- work function ---------------------------------------------------------
 def hash_file(path: Path) -> tuple[str, str]:
-    """Return (path, sha256 hex) for a given file."""
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
@@ -35,7 +34,6 @@ def hash_file(path: Path) -> tuple[str, str]:
 
 
 def hash_file_maybe_fail(path: Path) -> tuple[str, str | None]:
-    """Wrapper returning the (result, error) shape that mpf3 expects."""
     try:
         _, digest = hash_file(path)
         return (digest, None)
@@ -43,7 +41,6 @@ def hash_file_maybe_fail(path: Path) -> tuple[str, str | None]:
         return ("", f"{type(e).__name__}: {e}")
 
 
-# ----- benchmark harness -----------------------------------------------------
 def _run(name: str, fn: Callable[[], Any], files: list[Path]) -> dict[str, Any]:
     print(f"\n=== {name} ===")
     print(f"files={len(files)}")
@@ -74,7 +71,6 @@ def benchmark(folder: Path, workers: int, runs: int, pattern: str) -> None:
     print(f"Total size:  {total_bytes / 1e6:.2f} MB")
     print(f"Workers:     {workers}")
     print(f"Runs:        {runs}")
-    # Each entry is (name, callable taking no args)
     benchmarks: list[tuple[str, Callable[[], Any]]] = [
         ("serial", lambda: [hash_file(f) for f in files]),
         ("mpf_map", lambda: mpf_map(hash_file, files, workers=workers)),
@@ -91,7 +87,6 @@ def benchmark(folder: Path, workers: int, runs: int, pattern: str) -> None:
     if _has_joblib():
         benchmarks.append(("mpf_joblib", lambda: mpf_joblib(hash_file, files, n_jobs=workers)))
     benchmarks.append(("mpf3", lambda: mpf3(hash_file_maybe_fail, files, max_workers=workers)))
-    # Collect timings, run each benchmark `runs` times.
     timings: dict[str, list[float]] = {name: [] for name, _ in benchmarks}
     for r in range(runs):
         print(f"\n----- run {r + 1}/{runs} -----")
@@ -99,7 +94,6 @@ def benchmark(folder: Path, workers: int, runs: int, pattern: str) -> None:
             info = _run(name, fn, files)
             if info["ok"]:
                 timings[name].append(info["elapsed"])
-    # Summary
     print("\n" + "=" * 72)
     print(f"{'function':<15}{'best':>10}{'median':>10}{'worst':>10}{'runs':>8}")
     print("-" * 72)
@@ -128,7 +122,6 @@ def _has_joblib() -> bool:
         return False
 
 
-# ----- CLI -------------------------------------------------------------------
 def main() -> None:
     parser = argparse.ArgumentParser(description="Benchmark dh parallel helpers on file hashing.")
     parser.add_argument("folder", type=Path, help="Folder to scan for files")

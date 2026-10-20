@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import ipaddress
 import re
 import tokenize
 import unicodedata
@@ -9,11 +8,11 @@ from hashlib import sha256
 from io import StringIO
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
+from urllib.parse import urlsplit
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-
+PROTOCOLS = {"http", "https"}
 pattern: re.Pattern[str] = re.compile(
     r"""(?:
             url\s*\(\s*["']?
@@ -42,10 +41,6 @@ _HOSTNAME_LABEL_PATTERN: re.Pattern[str] = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9\
 
 
 def get_sha256(path: str | Path, chunk_size: int = 524288) -> str:
-    """Return the hex-encoded SHA-256 digest of the file at *path*.
-    The file is read in chunks of *chunk_size* bytes to keep memory usage
-    bounded regardless of the file size.
-    """
     path = Path(path)
     h = sha256()
 
@@ -59,12 +54,6 @@ def get_sha256(path: str | Path, chunk_size: int = 524288) -> str:
 
 
 def has_doc(code: str) -> bool:
-    """Return True if *code* contains a comment or a docstring.
-    Comments are detected with the ``tokenize`` module; docstrings are
-    detected by parsing the source with ``ast`` and looking for a
-    non-``None`` docstring on the module, a function, an async function,
-    or a class.
-    """
     try:
         tokens: Iterator[tokenize.TokenInfo] = tokenize.generate_tokens(StringIO(code).readline)
         for tok in tokens:
@@ -88,64 +77,17 @@ def has_doc(code: str) -> bool:
     return False
 
 
-def _is_valid_hostname(hostname: str) -> bool:
-    """Return True if *hostname* is a syntactically valid hostname.
-    Accepts ``localhost``, IPv4, IPv6, and DNS hostnames per RFC 1123.
-    """
-    if hostname == "localhost":
-        return True
+def is_valid_url(url: str | None) -> bool:
     try:
-        ipaddress.IPv4Address(hostname)
-        return True
-    except ValueError:
-        pass
-    try:
-        ipaddress.IPv6Address(hostname)
-        return True
-    except ValueError:
-        pass
-    if len(hostname) > 253:
-        return False
-    labels: list[str] = hostname.split(".")
-    if not labels:
-        return False
-    for label in labels:
-        if not label or len(label) > 63:
-            return False
-        if not _HOSTNAME_LABEL_PATTERN.match(label):
-            return False
-    return True
-
-
-def is_valid_url(url: str) -> bool:
-    """Return True if *url* is a syntactically valid absolute URL.
-    Only ``http``, ``https``, ``ftp``, and ``ftps`` schemes are accepted.
-    URLs containing template placeholders (``${...}``) or backticks are
-    rejected.
-    """
-    if not isinstance(url, str) or not url.strip():
-        return False
-    url = url.strip()
-    if "${" in url or "`" in url:
-        return False
-    if "://" not in url:
-        return False
-    try:
-        parsed = urlparse(url)
+        parsed_url = urlsplit(url)
     except ValueError:
         return False
-    if parsed.scheme not in ("http", "https", "ftp", "ftps"):
+    if not parsed_url.scheme or parsed_url.scheme not in PROTOCOLS:
         return False
-    if parsed.port is not None and not (0 < parsed.port < 65536):
-        return False
-    if not parsed.hostname:
-        return False
-    hostname: str = parsed.hostname
-    return _is_valid_hostname(hostname)
+    return not (len(parsed_url.netloc) < 5 or (parsed_url.netloc.startswith("www.") and len(parsed_url.netloc) < 8))
 
 
 def slugify(string: str) -> str:
-    """Return an ASCII, lower-case, hyphen-separated slug of *string*."""
     normalized: str = unicodedata.normalize("NFKD", string).encode("ascii", "ignore").decode("ascii")
     return re.sub(
         r"[-\s]+",
@@ -155,11 +97,6 @@ def slugify(string: str) -> str:
 
 
 def tokenize_text(text: str) -> list[str]:
-    """Split *text* into identifier subword tokens.
-    Identifiers are matched with ``[A-Za-z_][A-Za-z0-9_]*`` and then
-    further split on camelCase / PascalCase / SCREAMING_CASE boundaries
-    and digit sequences using :data:`WORD_PATTERN`.
-    """
     tokens: list[str] = []
     for match in _IDENTIFIER_PATTERN.finditer(text):
         identifier: str = match.group()

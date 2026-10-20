@@ -1,32 +1,23 @@
-#!/usr/bin/env python3
-"""
-Benchmark parallel file-hashing strategies.
-Usage:
-    python bench_mpf.py <folder> [--repeat N] [--pattern GLOB] [--pool SIZE]
-"""
-
 from __future__ import annotations
 import argparse
+from collections import deque
+from collections.abc import Callable, Iterable, Iterator
 import hashlib
+from multiprocessing import Pool
+from multiprocessing.pool import AsyncResult
 import os
+from pathlib import Path
 import statistics
 import sys
 import time
-from collections import deque
-from collections.abc import Callable, Iterable, Iterator
-from multiprocessing import Pool
-from multiprocessing.pool import AsyncResult
-from pathlib import Path
 from typing import TypeVar
+
 
 T = TypeVar("T")
 R = TypeVar("R")
-CHUNK = 1 << 20  # 1 MiB read buffer
+CHUNK = 1 << 20
 
 
-# ---------------------------------------------------------------------------
-# Implementations under test
-# ---------------------------------------------------------------------------
 def mpf_as[T, R](func: Callable[[T], R], files: Iterable[T]) -> list[R]:
     results: list[R] = []
     with Pool(8) as pool:
@@ -85,9 +76,6 @@ def mpf_imap2[T, R](
         return list(pool.imap(func, files, chunksize=chunksize))
 
 
-# ---------------------------------------------------------------------------
-# Workload
-# ---------------------------------------------------------------------------
 def sha256_file(path: str) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as fh:
@@ -106,9 +94,6 @@ def collect_files(folder: str, pattern: str = "*") -> list[str]:
     return files
 
 
-# ---------------------------------------------------------------------------
-# Benchmark harness
-# ---------------------------------------------------------------------------
 def time_once(fn: Callable[[], object]) -> float:
     t0 = time.perf_counter()
     fn()
@@ -150,7 +135,6 @@ def main() -> int:
     print(f"CPUs        : {os.cpu_count()}  (pool size for parametrized: {args.pool})")
     print(f"Repeat      : {args.repeat}  Warmup: {args.warmup}")
     print("-" * 72)
-    # Sanity: all implementations should produce the same digests, in order.
     expected = [sha256_file(f) for f in files[: min(50, len(files))]]
     checks = {
         "mpf_as": mpf_as(sha256_file, files),
@@ -182,7 +166,6 @@ def main() -> int:
             f"min={stats['min'] * 1000:8.1f}ms  "
             f"max={stats['max'] * 1000:8.1f}ms"
         )
-    # Rank by median (more robust than mean to GC/scheduler noise).
     rows.sort(key=lambda r: r["median"])
     print("-" * 72)
     print("Ranking (by median):")

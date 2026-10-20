@@ -1,5 +1,7 @@
 import random
+
 from dh import cprint
+
 
 colors = ("red", "green", "yellow", "blue", "cyan", "magenta", "grey", "white")
 for i in range(255):

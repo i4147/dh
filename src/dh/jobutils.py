@@ -2,30 +2,31 @@ from __future__ import annotations
 
 import logging
 import multiprocessing as mp
-import multiprocessing.pool
-import sys
+import os
 import time
-from concurrent.futures import (
-    FIRST_COMPLETED,
-    Future,
-    ProcessPoolExecutor,
-    ThreadPoolExecutor,
-    TimeoutError as FutureTimeoutError,
-    wait,
-)
+from collections.abc import Callable, Iterable, Iterator, Sequence, Sized
+from concurrent.futures import (FIRST_COMPLETED, Future, ProcessPoolExecutor,
+                                ThreadPoolExecutor)
+from concurrent.futures import TimeoutError as FutureTimeoutError
+from concurrent.futures import wait
+from contextlib import suppress
 from enum import Enum
 from functools import partial
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Sequence
-
-logger = logging.getLogger(__name__)
-
+__all__ = [
+    "DEFAULT_CHUNKSIZE",
+    "DEFAULT_EXECUTOR_CHUNKSIZE",
+    "MAX_WORKERS",
+    "ExecutorType",
+    "PoolMethod",
+    "mpf",
+    "mpf_iter",
+]
+logger: logging.Logger = logging.getLogger(__name__)
 MAX_WORKERS: int = 8
 DEFAULT_CHUNKSIZE: int | None = 4
 DEFAULT_EXECUTOR_CHUNKSIZE: int = 1
-
 ExecutorType = type[ProcessPoolExecutor] | type[ThreadPoolExecutor]
 
 
@@ -41,13 +42,14 @@ class PoolMethod(str, Enum):
     JOBLIB = "joblib"
     PROCESS_POOL = "process_pool"
     THREAD_POOL = "thread_pool"
+    SERIAL = "serial"
 
     @classmethod
     def parse(cls, value: str | PoolMethod) -> PoolMethod:
         if isinstance(value, cls):
             return value
         try:
-            return cls(str(value).lower())
+            return cls(str(value).strip().lower().replace("-", "_"))
         except ValueError as exc:
             valid = ", ".join(m.value for m in cls)
             msg = f"unknown method {value!r}; expected one of: {valid}"
@@ -58,7 +60,7 @@ class PoolMethod(str, Enum):
         return self.value in _MP_POOL_METHODS
 
 
-_MP_POOL_METHODS = frozenset(
+_MP_POOL_METHODS: frozenset[str] = frozenset(
     {
         "map",
         "map_async",
@@ -72,85 +74,97 @@ _MP_POOL_METHODS = frozenset(
 )
 
 
-class _PoolDispatcher:
-    def __init__(
-        self,
-        pool: mp.pool.Pool,
-        method: PoolMethod,
-        func: Callable[..., Any],
-        items: list[Any],
-        chunksize: int | None,
-    ):
-        self.pool = pool
-        self.method = method
+class _Star:
+    __slots__ = ("func",)
+
+    def __init__(self, func: Callable[..., Any]) -> None:
         self.func = func
-        self.items = items
-        self.chunksize = chunksize
 
-    def dispatch(self) -> list[Any]:
-        if self.method is PoolMethod.MAP:
-            return self.pool.map(self.func, self.items, chunksize=self.chunksize)
-
-        if self.method is PoolMethod.MAP_ASYNC:
-            return self.pool.map_async(self.func, self.items, chunksize=self.chunksize).get()
-
-        if self.method in (PoolMethod.STARMAP, PoolMethod.STARMAP_ASYNC):
-            args = self._normalize_starmap_args()
-            if self.method is PoolMethod.STARMAP:
-                return self.pool.starmap(self.func, args, chunksize=self.chunksize)
-            return self.pool.starmap_async(self.func, args, chunksize=self.chunksize).get()
-
-        if self.method is PoolMethod.IMAP:
-            return list(self.pool.imap(self.func, self.items, chunksize=self.chunksize))
-
-        if self.method is PoolMethod.IMAP_UNORDERED:
-            return list(self.pool.imap_unordered(self.func, self.items, chunksize=self.chunksize))
-
-        if self.method is PoolMethod.APPLY:
-            return self._apply_sequential()
-
-        if self.method is PoolMethod.APPLY_ASYNC:
-            return self._apply_async_sequential()
-
-        msg = f"unhandled mp.pool method: {self.method}"
-        raise AssertionError(msg)
-
-    def _normalize_starmap_args(self) -> list[tuple[Any, ...]]:
-        return [item if isinstance(item, tuple) else (item,) for item in self.items]
-
-    def _apply_sequential(self) -> list[Any]:
-        return [self.pool.apply(self.func, args=(item,)) for item in self.items]
-
-    def _apply_async_sequential(self) -> list[Any]:
-        futs = [self.pool.apply_async(self.func, args=(item,)) for item in self.items]
-        return [f.get() for f in futs]
+    def __call__(self, item: Any) -> Any:
+        return self.func(*item) if isinstance(item, tuple) else self.func(item)
 
 
-def _run_mp_pool(
-    method: PoolMethod,
+class _Retry:
+    __slots__ = ("delay", "func", "retries")
+
+    def __init__(self, func: Callable[..., Any], retries: int, delay: float) -> None:
+        self.func = func
+        self.retries = retries
+        self.delay = delay
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        attempt = 0
+        while True:
+            try:
+                return self.func(*args, **kwargs)
+            except Exception:
+                if attempt >= self.retries:
+                    raise
+                if self.delay > 0:
+                    time.sleep(self.delay * (2**attempt))
+                attempt += 1
+
+
+class _Catch:
+    __slots__ = ("func",)
+
+    def __init__(self, func: Callable[..., Any]) -> None:
+        self.func = func
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return self.func(*args, **kwargs)
+        except Exception as exc:
+            return exc
+
+
+class _Indexed:
+    __slots__ = ("func",)
+
+    def __init__(self, func: Callable[..., Any]) -> None:
+        self.func = func
+
+    def __call__(self, pair: tuple[int, Any]) -> tuple[int, Any]:
+        idx, item = pair
+        return idx, self.func(item)
+
+
+def _resolve_workers(workers: int | None, n: int | None) -> int:
+    resolved = workers if workers and workers > 0 else (os.cpu_count() or 1)
+    if n is not None:
+        resolved = min(resolved, max(n, 1))
+    return max(resolved, 1)
+
+
+def _resolve_chunksize(chunksize: int | None, n: int | None, workers: int) -> int | None:
+    if chunksize is None:
+        return None
+    if chunksize > 0:
+        return chunksize
+    if n is None:
+        return 1
+    return max(1, n // (workers * 4))
+
+
+def _build_call(
     func: Callable[..., Any],
-    items: Iterable[Any],
-    *,
-    workers: int,
-    chunksize: int | None,
-    initializer: Callable[..., Any] | None,
-    initargs: Sequence[Any],
-    maxtasksperchild: int | None,
-    context: str | None,
-) -> list[Any]:
-    items_list = list(items)
-    if not items_list:
-        return []
-
-    ctx = mp.get_context(context)
-    pool_kwargs = _build_pool_kwargs(workers, initializer, initargs, maxtasksperchild)
-
-    with ctx.Pool(**pool_kwargs) as pool:
-        dispatcher = _PoolDispatcher(pool, method, func, items_list, chunksize)
-        return dispatcher.dispatch()
+    func_args: Sequence[Any],
+    func_kwargs: dict[str, Any] | None,
+    unpack: bool,
+    retries: int,
+    retry_delay: float,
+) -> Callable[..., Any]:
+    call: Callable[..., Any] = func
+    if func_args or func_kwargs:
+        call = partial(call, *func_args, **(func_kwargs or {}))
+    if unpack:
+        call = _Star(call)
+    if retries > 0:
+        call = _Retry(call, retries, retry_delay)
+    return call
 
 
-def _build_pool_kwargs(
+def _pool_kwargs(
     workers: int,
     initializer: Callable[..., Any] | None,
     initargs: Sequence[Any],
@@ -165,195 +179,234 @@ def _build_pool_kwargs(
     return kwargs
 
 
-def _submit_args(item: Any, unpack: bool) -> tuple[Any, ...]:
-    if unpack:
-        return item if isinstance(item, tuple) else (item,)
-    return (item,)
-
-
-class _ExecutorFutureManager:
-    def __init__(
-        self,
-        executor_cls: ExecutorType,
-        func: Callable[..., Any],
-        items_list: list[Any],
-        workers: int,
-        chunksize: int | None,
-        unpack: bool,
-        timeout: float | None,
-        return_exceptions: bool,
-        max_pending: int | None,
-        on_progress: Callable[[int, Any], None] | None,
-    ):
-        self.executor_cls = executor_cls
-        self.func = func
-        self.items_list = items_list
-        self.workers = workers
-        self.chunksize = chunksize
-        self.unpack = unpack
-        self.timeout = timeout
-        self.return_exceptions = return_exceptions
-        self.max_pending = max_pending
-        self.on_progress = on_progress
-        self.n_items = len(items_list)
-        self.results: list[Any] = [None] * self.n_items
-        self.pending: dict[Future[Any], tuple[int, float]] = {}
-        self.item_iter = iter(enumerate(items_list))
-        self.exhausted = False
-        self.cap = max(max_pending if max_pending is not None else max(4 * workers, workers), 1)
-
-    def execute(self) -> list[Any]:
-        kwargs = self._build_executor_kwargs()
-        with self.executor_cls(**kwargs) as ex:
-            self._fill_queue(ex)
-            self._process_futures(ex)
-        return self.results
-
-    def _build_executor_kwargs(self) -> dict[str, Any]:
-        return {"max_workers": self.workers}
-
-    def _fill_queue(self, executor: ProcessPoolExecutor | ThreadPoolExecutor) -> None:
-        while len(self.pending) < self.cap and not self.exhausted:
-            try:
-                idx, item = next(self.item_iter)
-            except StopIteration:
-                self.exhausted = True
-                return
-            args = _submit_args(item, self.unpack)
-            fut = executor.submit(self.func, *args)
-            self.pending[fut] = (idx, time.monotonic())
-
-    def _process_futures(self, executor: ProcessPoolExecutor | ThreadPoolExecutor) -> None:
-        while self.pending:
-            wait_time = self._calculate_wait_time()
-            done, _ = wait(self.pending.keys(), return_when=FIRST_COMPLETED, timeout=wait_time)
-
-            self._handle_completed(done)
-            self._handle_timeouts()
-            self._fill_queue(executor)
-
-    def _calculate_wait_time(self) -> float | None:
-        if self.timeout is None:
-            return None
-        earliest = min(t for _, t in self.pending.values())
-        return max(0.0, self.timeout - (time.monotonic() - earliest))
-
-    def _handle_completed(self, done: set[Future[Any]]) -> None:
-        for fut in done:
-            info = self.pending.pop(fut, None)
-            if info is None:
-                continue
-            idx = info[0]
-            try:
-                self.results[idx] = fut.result()
-            except Exception as exc:
-                logger.debug("task %d failed: %r", idx, exc)
-                self.results[idx] = exc
-            if self.on_progress is not None:
-                self.on_progress(idx, self.results[idx])
-
-    def _handle_timeouts(self) -> None:
-        if self.timeout is None:
-            return
-        now = time.monotonic()
-        timed_out = [f for f, (_, t) in self.pending.items() if now - t >= self.timeout]
-        for fut in timed_out:
-            idx = self.pending.pop(fut)[0]
-            fut.cancel()
-            err = FutureTimeoutError(f"task {idx} exceeded {self.timeout}s")
-            logger.debug("task %d timed out after %.3fs", idx, self.timeout)
-            self.results[idx] = err
-            if self.on_progress is not None:
-                self.on_progress(idx, err)
-
-
-def _run_executor(
-    executor_cls: ExecutorType,
-    func: Callable[..., Any],
+def _run_mp_pool(
+    method: PoolMethod,
+    call: Callable[..., Any],
     items: Iterable[Any],
     *,
     workers: int,
     chunksize: int | None,
-    unpack: bool,
     initializer: Callable[..., Any] | None,
     initargs: Sequence[Any],
     maxtasksperchild: int | None,
+    context: str | None,
+    return_exceptions: bool,
+    on_progress: Callable[[int, Any], None] | None,
+    ordered: bool,
+) -> list[Any]:
+    payload = list(items)
+    n = len(payload)
+    if n == 0:
+        return []
+    w = _resolve_workers(workers, n)
+    cs = _resolve_chunksize(chunksize, n, w)
+    if method in (PoolMethod.STARMAP, PoolMethod.STARMAP_ASYNC):
+        call = _Star(call)
+        method = PoolMethod.MAP if method is PoolMethod.STARMAP else PoolMethod.MAP_ASYNC
+    runner: Callable[..., Any] = _Catch(call) if return_exceptions else call
+    tagged = method is PoolMethod.IMAP_UNORDERED and (ordered or on_progress is not None)
+    if tagged:
+        runner = _Indexed(runner)
+        payload = list(enumerate(payload))
+    ctx = mp.get_context(context)
+    with ctx.Pool(**_pool_kwargs(w, initializer, initargs, maxtasksperchild)) as pool:
+        if method in (PoolMethod.IMAP, PoolMethod.IMAP_UNORDERED):
+            stream = (
+                pool.imap(runner, payload, cs or 1)
+                if method is PoolMethod.IMAP
+                else pool.imap_unordered(runner, payload, cs or 1)
+            )
+            slots: list[Any] = [None] * n if (tagged and ordered) else []
+            for pos, raw in enumerate(stream):
+                idx, value = raw if tagged else (pos, raw)
+                if tagged and ordered:
+                    slots[idx] = value
+                else:
+                    slots.append(value)
+                if on_progress is not None:
+                    on_progress(idx, value)
+            return slots
+        if method is PoolMethod.MAP:
+            out = pool.map(runner, payload, cs)
+        elif method is PoolMethod.MAP_ASYNC:
+            out = pool.map_async(runner, payload, cs).get()
+        elif method is PoolMethod.APPLY:
+            out = [pool.apply(runner, (x,)) for x in payload]
+        elif method is PoolMethod.APPLY_ASYNC:
+            futs = [pool.apply_async(runner, (x,)) for x in payload]
+            out = [f.get() for f in futs]
+        else:
+            msg = f"unhandled mp.pool method: {method}"
+            raise AssertionError(msg)
+    if on_progress is not None:
+        for idx, value in enumerate(out):
+            on_progress(idx, value)
+    return out
+
+
+def _kill_workers(executor: ProcessPoolExecutor) -> None:
+    processes = getattr(executor, "_processes", None) or {}
+    for proc in list(processes.values()):
+        with suppress(Exception):
+            proc.terminate()
+
+
+def _run_executor(
+    executor_cls: ExecutorType,
+    call: Callable[..., Any],
+    items: Iterable[Any],
+    *,
+    workers: int,
+    chunksize: int | None,
+    n: int | None,
+    initializer: Callable[..., Any] | None,
+    initargs: Sequence[Any],
+    maxtasksperchild: int | None,
+    context: str | None,
     timeout: float | None,
     return_exceptions: bool,
     max_pending: int | None,
     on_progress: Callable[[int, Any], None] | None,
+    fail_fast: bool,
 ) -> list[Any]:
     is_process = executor_cls is ProcessPoolExecutor
     kwargs: dict[str, Any] = {"max_workers": workers}
-
     if initializer is not None:
         kwargs["initializer"] = initializer
         kwargs["initargs"] = tuple(initargs)
-
     if maxtasksperchild is not None:
         if not is_process:
             msg = "maxtasksperchild is only supported by ProcessPoolExecutor"
             raise ValueError(msg)
         kwargs["max_tasks_per_child"] = maxtasksperchild
-
-    should_use_simple_path = (
-        not unpack and timeout is None and on_progress is None and not return_exceptions and max_pending is None
-    )
-
-    if should_use_simple_path:
-        with executor_cls(**kwargs) as ex:
+    if is_process and context is not None:
+        kwargs["mp_context"] = mp.get_context(context)
+    if timeout is None and on_progress is None and max_pending is None:
+        runner: Callable[..., Any] = _Catch(call) if return_exceptions else call
+        with executor_cls(**kwargs) as pool:
             if is_process:
-                cs = chunksize if chunksize is not None else DEFAULT_EXECUTOR_CHUNKSIZE
-                return list(ex.map(func, items, chunksize=cs))
-            return list(ex.map(func, items))
+                cs = _resolve_chunksize(chunksize, n, workers) or DEFAULT_EXECUTOR_CHUNKSIZE
+                return list(pool.map(runner, items, chunksize=cs))
+            return list(pool.map(runner, items))
+    if max_pending is not None:
+        cap = max(1, max_pending)
+    elif timeout is not None:
+        cap = workers
+    else:
+        cap = max(4 * workers, 1)
+    source = iter(items)
+    pending: dict[Future[Any], tuple[int, float]] = {}
+    results: dict[int, Any] = {}
+    errors: dict[int, BaseException] = {}
+    submitted = 0
+    exhausted = False
+    hung = False
+    failed = False
 
-    items_list = list(items)
-    if not items_list:
-        return []
+    def record(idx: int, value: Any, is_error: bool) -> None:
+        results[idx] = value
+        if is_error:
+            errors[idx] = value
+        if on_progress is not None:
+            on_progress(idx, value)
 
-    manager = _ExecutorFutureManager(
-        executor_cls,
-        func,
-        items_list,
-        workers,
-        chunksize,
-        unpack,
-        timeout,
-        return_exceptions,
-        max_pending,
-        on_progress,
-    )
-    results = manager.execute()
+    ex = executor_cls(**kwargs)
+    try:
+        while True:
+            while not exhausted and len(pending) < cap:
+                try:
+                    item = next(source)
+                except StopIteration:
+                    exhausted = True
+                    break
+                pending[ex.submit(call, item)] = (submitted, time.monotonic())
+                submitted += 1
+            if not pending:
+                break
+            wait_for: float | None = None
+            if timeout is not None:
+                earliest = min(started for _, started in pending.values())
+                wait_for = max(0.0, timeout - (time.monotonic() - earliest))
+            done, _ = wait(list(pending), timeout=wait_for, return_when=FIRST_COMPLETED)
+            for fut in done:
+                idx = pending.pop(fut)[0]
+                try:
+                    value = fut.result()
+                except Exception as exc:
+                    logger.debug("task %d failed: %r", idx, exc)
+                    if fail_fast and not return_exceptions:
+                        raise
+                    record(idx, exc, True)
+                else:
+                    record(idx, value, False)
+            if timeout is not None and pending:
+                now = time.monotonic()
+                expired = [f for f, (_, started) in pending.items() if now - started >= timeout and not f.done()]
+                for fut in expired:
+                    idx = pending.pop(fut)[0]
+                    if not fut.cancel():
+                        hung = True
+                    err = FutureTimeoutError(f"task {idx} exceeded {timeout}s")
+                    logger.debug("task %d timed out after %.3fs", idx, timeout)
+                    if fail_fast and not return_exceptions:
+                        raise err
+                    record(idx, err, True)
+    except BaseException:
+        failed = True
+        raise
+    finally:
+        abandon = hung or failed
+        ex.shutdown(wait=not abandon, cancel_futures=True)
+        if abandon and is_process:
+            _kill_workers(ex)
+    if errors and not return_exceptions:
+        raise errors[min(errors)]
+    return [results[i] for i in range(submitted)]
 
-    if not return_exceptions:
-        for r in results:
-            if isinstance(r, BaseException):
-                raise r
 
-    return results
+def _run_serial(
+    call: Callable[..., Any],
+    items: Iterable[Any],
+    *,
+    initializer: Callable[..., Any] | None,
+    initargs: Sequence[Any],
+    return_exceptions: bool,
+    on_progress: Callable[[int, Any], None] | None,
+) -> list[Any]:
+    if initializer is not None:
+        initializer(*initargs)
+    out: list[Any] = []
+    for idx, item in enumerate(items):
+        try:
+            value = call(item)
+        except Exception as exc:
+            if not return_exceptions:
+                raise
+            value = exc
+        out.append(value)
+        if on_progress is not None:
+            on_progress(idx, value)
+    return out
 
 
 def _run_joblib(
-    func: Callable[..., Any],
+    call: Callable[..., Any],
     items: Iterable[Any],
-    workers: int | None,
-    unpack: bool,
+    workers: int,
+    return_exceptions: bool,
+    on_progress: Callable[[int, Any], None] | None,
 ) -> list[Any]:
     try:
         from joblib import Parallel, delayed
     except ImportError as exc:
         msg = "the 'joblib' backend requires joblib — `pip install joblib`"
         raise ImportError(msg) from exc
-
-    n_jobs = -1 if workers is None else workers
-    items_list = list(items)
-
-    if unpack:
-        return Parallel(n_jobs=n_jobs)(
-            delayed(func)(*(item if isinstance(item, tuple) else (item,))) for item in items_list
-        )
-
-    return Parallel(n_jobs=n_jobs)(delayed(func)(item) for item in items_list)
+    runner: Callable[..., Any] = _Catch(call) if return_exceptions else call
+    out = list(Parallel(n_jobs=workers)(delayed(runner)(item) for item in items))
+    if on_progress is not None:
+        for idx, value in enumerate(out):
+            on_progress(idx, value)
+    return out
 
 
 def mpf(
@@ -374,119 +427,129 @@ def mpf(
     return_exceptions: bool = False,
     max_pending: int | None = None,
     on_progress: Callable[[int, Any], None] | None = None,
+    ordered: bool = False,
+    retries: int = 0,
+    retry_delay: float = 0.0,
+    fail_fast: bool = True,
 ) -> list[Any]:
     if not callable(func):
         msg = "`func` must be callable"
         raise TypeError(msg)
-
+    if retries < 0:
+        msg = "retries must be >= 0"
+        raise ValueError(msg)
+    if timeout is not None and timeout <= 0:
+        msg = "timeout must be > 0"
+        raise ValueError(msg)
     pool_method = PoolMethod.parse(method)
-
-    if func_args or func_kwargs:
-        func = partial(func, *func_args, **(func_kwargs or {}))
-
+    call = _build_call(func, func_args, func_kwargs, unpack, retries, retry_delay)
+    n = len(items) if isinstance(items, Sized) else None
+    if n == 0:
+        return []
+    w = _resolve_workers(workers, n)
     if pool_method.is_mp_pool:
-        return _handle_mp_pool_method(
+        if timeout is not None:
+            msg = (
+                "timeout is only supported by the executor backends "
+                "('process_pool' / 'thread_pool'); use one of those or "
+                "handle deadlines inside your worker"
+            )
+            raise ValueError(msg)
+        return _run_mp_pool(
             pool_method,
-            func,
-            items,
-            workers,
-            chunksize,
-            initializer,
-            initargs,
-            maxtasksperchild,
-            context,
-            timeout,
-        )
-
-    if pool_method is PoolMethod.JOBLIB:
-        return _handle_joblib_method(func, items, workers, unpack, initializer, timeout, maxtasksperchild)
-
-    if pool_method is PoolMethod.PROCESS_POOL:
-        return _run_executor(
-            ProcessPoolExecutor,
-            func,
+            call,
             items,
             workers=workers,
             chunksize=chunksize,
-            unpack=unpack,
             initializer=initializer,
             initargs=initargs,
             maxtasksperchild=maxtasksperchild,
-            timeout=timeout,
+            context=context,
             return_exceptions=return_exceptions,
-            max_pending=max_pending,
+            on_progress=on_progress,
+            ordered=ordered,
+        )
+    if pool_method is PoolMethod.SERIAL:
+        if timeout is not None:
+            msg = "the 'serial' backend does not support timeout"
+            raise ValueError(msg)
+        return _run_serial(
+            call,
+            items,
+            initializer=initializer,
+            initargs=initargs,
+            return_exceptions=return_exceptions,
             on_progress=on_progress,
         )
-
-    if pool_method is PoolMethod.THREAD_POOL:
+    if pool_method is PoolMethod.JOBLIB:
+        if initializer is not None or maxtasksperchild is not None:
+            msg = "the 'joblib' backend does not support initializer/maxtasksperchild; use 'process_pool' instead"
+            raise ValueError(msg)
+        if timeout is not None:
+            msg = "the 'joblib' backend does not support timeout"
+            raise ValueError(msg)
+        return _run_joblib(call, items, w, return_exceptions, on_progress)
+    if pool_method is PoolMethod.PROCESS_POOL:
+        executor_cls: ExecutorType = ProcessPoolExecutor
+    elif pool_method is PoolMethod.THREAD_POOL:
         if maxtasksperchild is not None:
             msg = "ThreadPoolExecutor does not support maxtasksperchild"
             raise ValueError(msg)
-        return _run_executor(
-            ThreadPoolExecutor,
-            func,
-            items,
-            workers=workers,
-            chunksize=chunksize,
-            unpack=unpack,
-            initializer=initializer,
-            initargs=initargs,
-            maxtasksperchild=None,
-            timeout=timeout,
-            return_exceptions=return_exceptions,
-            max_pending=max_pending,
-            on_progress=on_progress,
-        )
-
-    msg = f"unhandled method: {pool_method}"
-    raise AssertionError(msg)
-
-
-def _handle_mp_pool_method(
-    pool_method: PoolMethod,
-    func: Callable[..., Any],
-    items: Iterable[Any],
-    workers: int,
-    chunksize: int | None,
-    initializer: Callable[..., Any] | None,
-    initargs: Sequence[Any],
-    maxtasksperchild: int | None,
-    context: str | None,
-    timeout: float | None,
-) -> list[Any]:
-    if timeout is not None:
-        msg = (
-            "timeout is only supported by the executor backends "
-            "('process_pool' / 'thread_pool'); use one of those or "
-            "handle deadlines inside your worker"
-        )
-        raise ValueError(msg)
-    return _run_mp_pool(
-        pool_method,
-        func,
+        executor_cls = ThreadPoolExecutor
+    else:
+        msg = f"unhandled method: {pool_method}"
+        raise AssertionError(msg)
+    return _run_executor(
+        executor_cls,
+        call,
         items,
-        workers=workers,
+        workers=w,
         chunksize=chunksize,
+        n=n,
         initializer=initializer,
         initargs=initargs,
         maxtasksperchild=maxtasksperchild,
         context=context,
+        timeout=timeout,
+        return_exceptions=return_exceptions,
+        max_pending=max_pending,
+        on_progress=on_progress,
+        fail_fast=fail_fast,
     )
 
 
-def _handle_joblib_method(
+def mpf_iter(
     func: Callable[..., Any],
     items: Iterable[Any],
-    workers: int | None,
-    unpack: bool,
-    initializer: Callable[..., Any] | None,
-    timeout: float | None,
-    maxtasksperchild: int | None,
-) -> list[Any]:
-    if initializer is not None or maxtasksperchild is not None:
-        msg = "the 'joblib' backend does not support initializer/maxtasksperchild; use 'process_pool' instead"
+    *,
+    workers: int = MAX_WORKERS,
+    chunksize: int | None = DEFAULT_CHUNKSIZE,
+    unpack: bool = False,
+    func_args: Sequence[Any] = (),
+    func_kwargs: dict[str, Any] | None = None,
+    initializer: Callable[..., Any] | None = None,
+    initargs: Sequence[Any] = (),
+    maxtasksperchild: int | None = None,
+    context: str | None = None,
+    ordered: bool = True,
+    return_exceptions: bool = False,
+    retries: int = 0,
+    retry_delay: float = 0.0,
+) -> Iterator[Any]:
+    if not callable(func):
+        msg = "`func` must be callable"
+        raise TypeError(msg)
+    if retries < 0:
+        msg = "retries must be >= 0"
         raise ValueError(msg)
-    if timeout is not None:
-        msg = "the 'joblib' backend does not support timeout"
-        raise ValueError(msg)
-    return _run_joblib(func, items, workers, unpack)
+    call = _build_call(func, func_args, func_kwargs, unpack, retries, retry_delay)
+    runner: Callable[..., Any] = _Catch(call) if return_exceptions else call
+    n = len(items) if isinstance(items, Sized) else None
+    if n == 0:
+        return
+    w = _resolve_workers(workers, n)
+    cs = _resolve_chunksize(chunksize, n, w) or 1
+    ctx = mp.get_context(context)
+    with ctx.Pool(**_pool_kwargs(w, initializer, initargs, maxtasksperchild)) as pool:
+        stream = pool.imap(runner, items, cs) if ordered else pool.imap_unordered(runner, items, cs)
+        yield from stream

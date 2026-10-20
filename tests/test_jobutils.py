@@ -1,22 +1,21 @@
 from __future__ import annotations
-
-import pytest
-import time
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+import time
+from unittest.mock import MagicMock, Mock, patch
 
 from dh import (
+    DEFAULT_CHUNKSIZE,
+    MAX_WORKERS,
     PoolMethod,
-    mpf,
-    _run_mp_pool,
+    _ExecutorFutureManager,
+    _PoolDispatcher,
     _run_executor,
     _run_joblib,
-    _PoolDispatcher,
-    _ExecutorFutureManager,
-    MAX_WORKERS,
-    DEFAULT_CHUNKSIZE,
+    _run_mp_pool,
+    mpf,
 )
+import pytest
 
 
 class TestPoolMethodEnum:
@@ -50,7 +49,7 @@ class TestPoolMethodEnum:
 class TestSimpleMapOperations:
     def test_thread_pool_map_basic(self):
         def square(x):
-            return x ** 2
+            return x**2
 
         items = [1, 2, 3, 4, 5]
         result = mpf(square, items, method="thread_pool", workers=2)
@@ -102,9 +101,7 @@ class TestFunctionArguments:
             return f"{greeting}, {name}!"
 
         items = ["Alice", "Bob"]
-        result = mpf(
-            greet, items, method="thread_pool", func_kwargs={"greeting": "Hi"}, workers=2
-        )
+        result = mpf(greet, items, method="thread_pool", func_kwargs={"greeting": "Hi"}, workers=2)
         assert result == ["Hi, Alice!", "Hi, Bob!"]
 
     def test_func_args_and_kwargs_combined(self):
@@ -202,7 +199,7 @@ class TestProgressCallback:
             progress_calls.append((idx, result))
 
         def square(x):
-            return x ** 2
+            return x**2
 
         items = [1, 2, 3]
         mpf(square, items, method="thread_pool", on_progress=progress_fn, workers=2)
@@ -334,7 +331,7 @@ class TestMaxPendingQueue:
 class TestChunksize:
     def test_chunksize_with_process_pool(self):
         def square(x):
-            return x ** 2
+            return x**2
 
         items = list(range(100))
         result = mpf(
@@ -345,7 +342,7 @@ class TestChunksize:
             workers=2,
         )
 
-        assert result == [x ** 2 for x in range(100)]
+        assert result == [x**2 for x in range(100)]
 
     def test_chunksize_none_defaults_correctly(self):
         def add_one(x):
@@ -360,7 +357,7 @@ class TestJobLibBackend:
     @pytest.mark.skipif(True, reason="joblib may not be installed in test environment")
     def test_joblib_basic(self):
         def square(x):
-            return x ** 2
+            return x**2
 
         items = [1, 2, 3, 4, 5]
         result = mpf(square, items, method="joblib", workers=2)
@@ -492,7 +489,7 @@ class TestDifferentMethods:
 
     def test_imap_method(self):
         def square(x):
-            return x ** 2
+            return x**2
 
         items = [1, 2, 3, 4, 5]
         result = mpf(square, items, method="imap", workers=2)
@@ -601,7 +598,7 @@ class TestPoolDispatcher:
 class TestExecutorFutureManager:
     def test_future_manager_simple_execution(self):
         def square(x):
-            return x ** 2
+            return x**2
 
         from concurrent.futures import ThreadPoolExecutor
 
@@ -675,7 +672,7 @@ class TestIntegrationScenarios:
         def process_item(item):
             if item < 0:
                 raise ValueError("Negative not allowed")
-            return item ** 2
+            return item**2
 
         items = [1, -2, 3, 4, -5, 6]
         result = mpf(

@@ -1,10 +1,9 @@
-# tests/test_fileutils.py
 from __future__ import annotations
 import os
-import time
 from pathlib import Path
+import time
 from unittest import mock
-import pytest
+
 from dh import (
     append_text,
     atomic_write,
@@ -50,14 +49,11 @@ from dh import (
     walkfiles,
     write_txt_file,
 )
+import pytest
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
 @pytest.fixture
 def sample_tree(tmp_path: Path) -> Path:
-    """Create a small directory tree for testing."""
     (tmp_path / "a.txt").write_text("hello\nworld\n")
     (tmp_path / "b.py").write_text("print('hi')\n")
     (tmp_path / "sub").mkdir()
@@ -82,9 +78,6 @@ def text_file(tmp_path: Path) -> Path:
     return p
 
 
-# ---------------------------------------------------------------------------
-# read_lines
-# ---------------------------------------------------------------------------
 class TestReadLines:
     def test_small_file_keep_ends(self, text_file: Path):
         lines = read_lines(text_file, ke=True)
@@ -107,7 +100,6 @@ class TestReadLines:
         assert lines == []
 
     def test_large_file_uses_mmap(self, tmp_path: Path, monkeypatch):
-        # Force the mmap branch
         monkeypatch.setattr("fileutils.THRESHOLD", 0)
         p = tmp_path / "big.txt"
         p.write_text("x\ny\nz\n")
@@ -115,9 +107,6 @@ class TestReadLines:
         assert lines == ["x\n", "y\n", "z\n"]
 
 
-# ---------------------------------------------------------------------------
-# gext
-# ---------------------------------------------------------------------------
 class TestGext:
     @pytest.mark.parametrize(
         "name,expected",
@@ -136,9 +125,6 @@ class TestGext:
         assert gext(name) == expected
 
 
-# ---------------------------------------------------------------------------
-# get_dirs
-# ---------------------------------------------------------------------------
 class TestGetDirs:
     def test_finds_subdirs(self, sample_tree: Path):
         dirs = get_dirs(sample_tree)
@@ -150,9 +136,6 @@ class TestGetDirs:
         assert get_dirs(text_file) == []
 
 
-# ---------------------------------------------------------------------------
-# get_file_age
-# ---------------------------------------------------------------------------
 class TestGetFileAge:
     def test_nonexistent_returns_zero(self, tmp_path: Path):
         assert get_file_age(tmp_path / "nope") == 0.0
@@ -173,9 +156,6 @@ class TestGetFileAge:
         assert get_file_age(tmp_path, str_mode=True) == "0 sec"
 
 
-# ---------------------------------------------------------------------------
-# installed packages
-# ---------------------------------------------------------------------------
 class TestInstalledPackages:
     def test_returns_dict(self):
         pkgs = get_installed_packages()
@@ -186,9 +166,6 @@ class TestInstalledPackages:
         assert isinstance(pkgs, list)
 
 
-# ---------------------------------------------------------------------------
-# MIME / random
-# ---------------------------------------------------------------------------
 class TestMimeAndRandom:
     def test_mime_type(self):
         assert get_mime_type("a.txt") == "text/plain"
@@ -201,9 +178,6 @@ class TestMimeAndRandom:
         assert name.isalpha()
 
 
-# ---------------------------------------------------------------------------
-# is_image / is_within
-# ---------------------------------------------------------------------------
 class TestIsImage:
     def test_png(self, tmp_path: Path):
         p = tmp_path / "x.png"
@@ -229,9 +203,6 @@ class TestIsWithin:
         assert is_within(other, tmp_path) is False
 
 
-# ---------------------------------------------------------------------------
-# normalize_filename / normalize_path
-# ---------------------------------------------------------------------------
 class TestNormalize:
     def test_special_chars(self):
         result = normalize_filename('a<b>c:d"e/f\\g|h?i*j')
@@ -243,9 +214,6 @@ class TestNormalize:
         assert p == tmp_path.resolve()
 
 
-# ---------------------------------------------------------------------------
-# reverse_dict
-# ---------------------------------------------------------------------------
 class TestReverseDict:
     def test_simple(self):
         assert reverse_dict({"a": 1, "b": 2}) == {1: "a", 2: "b"}
@@ -255,9 +223,6 @@ class TestReverseDict:
         assert result[1] == ["a", "b"]
 
 
-# ---------------------------------------------------------------------------
-# fsz
-# ---------------------------------------------------------------------------
 class TestFsz:
     @pytest.mark.parametrize(
         "size,expected",
@@ -276,9 +241,6 @@ class TestFsz:
         assert fsz(-1024) == "1.0 KB"
 
 
-# ---------------------------------------------------------------------------
-# safe_delete
-# ---------------------------------------------------------------------------
 class TestSafeDelete:
     def test_delete_file(self, text_file: Path):
         assert safe_delete(text_file) is True
@@ -292,9 +254,6 @@ class TestSafeDelete:
         assert safe_delete(tmp_path / "nope") is False
 
 
-# ---------------------------------------------------------------------------
-# unique_path / _clean_fname
-# ---------------------------------------------------------------------------
 class TestUniquePath:
     def test_nonexistent_returns_same(self, tmp_path: Path):
         p = tmp_path / "new.txt"
@@ -311,9 +270,6 @@ class TestUniquePath:
         assert _clean_fname(p).name == "a.txt"
 
 
-# ---------------------------------------------------------------------------
-# runcmd
-# ---------------------------------------------------------------------------
 class TestRuncmd:
     def test_empty_raises(self):
         with pytest.raises(ValueError):
@@ -342,9 +298,6 @@ class TestRuncmd:
         assert out == "" and err == ""
 
 
-# ---------------------------------------------------------------------------
-# write_txt_file / append_text
-# ---------------------------------------------------------------------------
 class TestWriteAppend:
     def test_write_new(self, tmp_path: Path):
         p = tmp_path / "out.txt"
@@ -381,9 +334,6 @@ class TestWriteAppend:
         assert append_text(tmp_path, "x") is False
 
 
-# ---------------------------------------------------------------------------
-# should_skip
-# ---------------------------------------------------------------------------
 class TestShouldSkip:
     def test_skip_pycache_part(self, tmp_path: Path):
         p = tmp_path / "__pycache__" / "x.pyc"
@@ -395,9 +345,6 @@ class TestShouldSkip:
         assert should_skip(text_file) is False
 
 
-# ---------------------------------------------------------------------------
-# get_removed_lines
-# ---------------------------------------------------------------------------
 class TestGetRemovedLines:
     def test_basic(self):
         assert get_removed_lines("a\nb\nc", "a\nc") == ["b"]
@@ -406,9 +353,6 @@ class TestGetRemovedLines:
         assert get_removed_lines("a\n\nb", "a\nb") == []
 
 
-# ---------------------------------------------------------------------------
-# restore_bak
-# ---------------------------------------------------------------------------
 class TestRestoreBak:
     def test_restore(self, tmp_path: Path):
         p = tmp_path / "file.txt"
@@ -422,9 +366,6 @@ class TestRestoreBak:
         assert restore_bak(tmp_path / "missing.txt") is False
 
 
-# ---------------------------------------------------------------------------
-# rrs (smoke test)
-# ---------------------------------------------------------------------------
 class TestRrs:
     def test_rrs_prints(self, capsys):
         rrs(Path("x.bin"), 1000, 500)
@@ -437,9 +378,6 @@ class TestRrs:
         assert "NO CHANGE" in out
 
 
-# ---------------------------------------------------------------------------
-# is_empty
-# ---------------------------------------------------------------------------
 class TestIsEmpty:
     def test_empty(self, tmp_path: Path):
         d = tmp_path / "empty"
@@ -456,9 +394,6 @@ class TestIsEmpty:
         assert is_empty(text_file) is False
 
 
-# ---------------------------------------------------------------------------
-# File-gathering functions
-# ---------------------------------------------------------------------------
 class TestFileGatherers:
     def test_get_files_scandir(self, sample_tree: Path):
         files = get_files_scandir(sample_tree)
@@ -510,9 +445,6 @@ class TestFileGatherers:
         assert any(f.name == "a.txt" for f in files)
 
 
-# ---------------------------------------------------------------------------
-# is_python_file / get_pyfiles
-# ---------------------------------------------------------------------------
 class TestPythonFiles:
     def test_simple_py(self, tmp_path: Path):
         p = tmp_path / "x.py"
@@ -561,9 +493,6 @@ class TestPythonFiles:
         assert not any("__pycache__" in f.parts for f in files)
 
 
-# ---------------------------------------------------------------------------
-# gsz / _dir_size
-# ---------------------------------------------------------------------------
 class TestGsz:
     def test_file_size(self, text_file: Path):
         assert gsz(text_file) == text_file.stat().st_size
@@ -586,9 +515,6 @@ class TestGsz:
         assert gsz(link) == 0
 
 
-# ---------------------------------------------------------------------------
-# walk_paths / walk_files / walkfiles
-# ---------------------------------------------------------------------------
 class TestWalkers:
     def test_walk_paths_single_file(self, text_file: Path):
         result = list(walk_paths(text_file))
@@ -615,9 +541,6 @@ class TestWalkers:
         assert any(f.name == "a.txt" for f in files)
 
 
-# ---------------------------------------------------------------------------
-# is_text_file / _check_binary_chunk
-# ---------------------------------------------------------------------------
 class TestTextDetection:
     def test_text_file(self, text_file: Path):
         assert is_text_file(text_file) is True
@@ -643,9 +566,6 @@ class TestTextDetection:
         assert _check_binary_chunk(b"hello world\n" * 20) is False
 
 
-# ---------------------------------------------------------------------------
-# atomic_write
-# ---------------------------------------------------------------------------
 class TestAtomicWrite:
     def test_writes_content(self, tmp_path: Path):
         p = tmp_path / "out.txt"
@@ -659,9 +579,6 @@ class TestAtomicWrite:
         assert p.read_text() == "new"
 
 
-# ---------------------------------------------------------------------------
-# remove_blank_lines
-# ---------------------------------------------------------------------------
 class TestRemoveBlankLines:
     def test_collapses_consecutive(self):
         assert remove_blank_lines("a\n\n\nb") == "a\n\nb"
@@ -673,9 +590,6 @@ class TestRemoveBlankLines:
         assert remove_blank_lines("a\nb") == "a\nb"
 
 
-# ---------------------------------------------------------------------------
-# get_files_iter_config
-# ---------------------------------------------------------------------------
 class TestGetFilesIterConfig:
     def test_walks_directory(self, sample_tree: Path):
         config = FileWalkerConfig()
@@ -705,9 +619,6 @@ class TestGetFilesIterConfig:
         assert files == [text_file]
 
 
-# ---------------------------------------------------------------------------
-# ReportGenerator
-# ---------------------------------------------------------------------------
 class TestReportGenerator:
     def test_add_item_and_stats(self):
         rg = ReportGenerator("Test")
@@ -745,9 +656,6 @@ class TestReportGenerator:
         assert rg.stats["total"] == 5
 
 
-# ---------------------------------------------------------------------------
-# copy_dir / move_dir
-# ---------------------------------------------------------------------------
 class TestCopyMoveDir:
     def test_copy_dir(self, tmp_path: Path):
         from fileutils import copy_dir
@@ -784,18 +692,12 @@ class TestCopyMoveDir:
             assert move_dir(str(tmp_path / "nope"), str(tmp_path)) is False
 
 
-# ---------------------------------------------------------------------------
-# get_nobinary
-# ---------------------------------------------------------------------------
 class TestGetNobinary:
     def test_filters_binaries(self, sample_tree: Path):
         files = get_nobinary(sample_tree)
         assert all(not f.name.endswith(".bin") for f in files)
 
 
-# ---------------------------------------------------------------------------
-# Constants exist
-# ---------------------------------------------------------------------------
 class TestConstants:
     def test_color_codes(self):
         for c in (BOLD, GREEN, YELLOW, CYAN, RED, RESET, DIM):

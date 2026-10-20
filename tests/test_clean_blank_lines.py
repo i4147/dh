@@ -1,9 +1,10 @@
 import os
+from pathlib import Path
 import tempfile
 import unittest
-from pathlib import Path
-from loguru import logger
+
 from dh import clean_blank_lines
+from loguru import logger
 
 
 class TestCleanBlankLines(unittest.TestCase):

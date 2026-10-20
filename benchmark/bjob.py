@@ -1,42 +1,15 @@
-#!/usr/bin/env python3
-"""Benchmark :func:`dh.mpf` across backends and workload shapes.
-Every "case" runs the same worker over the same items through a different
-backend. We report the *best* wall time over ``--repeats`` trials (best-of-N
-is far more stable than mean when the OS scheduler and CPU frequency are
-noisy), the speedup vs. a serial baseline, and a correctness check.
-Usage
------
-    python -m dh.benchmark                  # default: all workloads
-    python -m dh.benchmark --items 256
-    python -m dh.benchmark --workload io
-    python -m dh.benchmark --repeats 5
-    python -m dh.benchmark --no-joblib      # skip the optional backend
-Interpretation
---------------
-* ``cpu``    — real Python bytecode in each item → ``ProcessPool*`` wins,
-  ``thread_pool`` collapses under the GIL.
-* ``io``     — ``time.sleep`` dominated → ``thread_pool`` wins; process
-  backends pay fork + IPC overhead for nothing.
-* ``mixed``  — the realistic middle ground.
-If ``serial`` (baseline) is faster than a parallel method, your workload is
-too small to amortize the pool startup — bump ``--items``.
-"""
-
 from __future__ import annotations
 import argparse
+from collections.abc import Callable
 import math
 import sys
 import time
-from collections.abc import Callable
 from typing import Any
+
 from dh import MAX_WORKERS, PoolMethod, mpf
 
 
-# ---------------------------------------------------------------------------
-# Workloads
-# ---------------------------------------------------------------------------
 def cpu_work(n: int, *, iters: int = 50_000) -> int:
-    """CPU-bound LCG iteration — one item burns a few ms of pure Python."""
     x = n
     for _ in range(iters):
         x = (x * 1103515245 + 12345) & 0x7FFFFFFF
@@ -44,33 +17,25 @@ def cpu_work(n: int, *, iters: int = 50_000) -> int:
 
 
 def io_work(t: float) -> float:
-    """I/O-bound stand-in: sleep and return the duration."""
     time.sleep(t)
     return t
 
 
 def mixed_work(n: int, *, iters: int = 15_000, nap: float = 0.002) -> int:
-    """A little CPU, a little waiting — the common real-world shape."""
     x = cpu_work(n, iters=iters)
     time.sleep(nap)
     return x
 
 
-# name -> (worker, items_factory)
 WORKLOADS: dict[str, tuple[Callable[..., Any], Callable[[int], list[Any]]]] = {
     "cpu": (cpu_work, lambda n: list(range(n))),
     "io": (io_work, lambda n: [0.005] * n),
     "mixed": (mixed_work, lambda n: list(range(n))),
 }
-# ---------------------------------------------------------------------------
-# Case matrix
-# ---------------------------------------------------------------------------
-#: (display name, method, extra kwargs to mpf)
 Case = tuple[str, "PoolMethod | None", dict[str, Any]]
 
 
 def build_cases(include_joblib: bool) -> list[Case]:
-    """Return the (name, method, kwargs) rows we benchmark."""
     cases: list[Case] = [
         ("map", PoolMethod.MAP, {}),
         ("map(cs=1)", PoolMethod.MAP, {"chunksize": 1}),
@@ -87,9 +52,6 @@ def build_cases(include_joblib: bool) -> list[Case]:
     return cases
 
 
-# ---------------------------------------------------------------------------
-# Core timing harness
-# ---------------------------------------------------------------------------
 def _call_factory(
     worker: Callable[..., Any],
     items: list[Any],
@@ -97,7 +59,6 @@ def _call_factory(
     kwargs: dict[str, Any],
     workers: int,
 ) -> Callable[[], list[Any]]:
-    """Return a zero-arg callable that performs one full run."""
     if method is None:
         return lambda: [worker(x) for x in items]
     return lambda: mpf(worker, items, method=method, workers=workers, **kwargs)
@@ -111,7 +72,6 @@ def time_case(
     workers: int,
     repeats: int,
 ) -> tuple[float, list[Any]]:
-    """Run the case ``repeats`` times; return (best_seconds, last_result)."""
     call = _call_factory(worker, items, method, kwargs, workers)
     best = math.inf
     last: list[Any] = []
@@ -124,16 +84,12 @@ def time_case(
 
 
 def _checksum(seq: list[Any]) -> Any:
-    """Order-independent sum used as a correctness probe."""
     try:
         return sum(x for x in seq if x is not None)
-    except TypeError:  # non-numeric results
+    except TypeError:
         return len(seq)
 
 
-# ---------------------------------------------------------------------------
-# Reporting
-# ---------------------------------------------------------------------------
 def _fmt_row(name: str, secs: float, speedup: float, ok: bool) -> str:
     tick = "✓" if ok else "✗"
     return f"{name:<16} {secs:>9.3f}s {speedup:>7.2f}x  {tick:>3}"
@@ -148,7 +104,6 @@ def run_workload(
 ) -> None:
     worker, _ = WORKLOADS[wl_name]
     print(f"── workload: {wl_name}  ({len(items)} items, workers={workers}, repeats={repeats}) ──")
-    # Baseline: plain serial loop, same worker, same items.
     baseline_secs, baseline_res = time_case(worker, items, None, {}, workers, repeats)
     baseline_sum = _checksum(baseline_res)
     header = f"{'case':<16} {'best':>10} {'speedup':>8}  {'ok':>3}"
@@ -167,9 +122,6 @@ def run_workload(
     print()
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m dh.benchmark",

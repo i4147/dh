@@ -1,5 +1,6 @@
-from isort.stdlibs import py2, py3
 from dh import STDLIB, STDLIB2
+from isort.stdlibs import py2, py3
+
 
 df2 = [p for p in py2.stdlib if not p in py3.stdlib]
 with open("onlypy2", "w") as f2:
