@@ -1,20 +1,9 @@
 from __future__ import annotations
 from concurrent.futures import TimeoutError as FutureTimeoutError
-from pathlib import Path
 import time
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock
 
-from dh import (
-    DEFAULT_CHUNKSIZE,
-    MAX_WORKERS,
-    PoolMethod,
-    _ExecutorFutureManager,
-    _PoolDispatcher,
-    _run_executor,
-    _run_joblib,
-    _run_mp_pool,
-    mpf,
-)
+from dh import PoolMethod, _ExecutorFutureManager, _PoolDispatcher, mpf
 import pytest
 
 

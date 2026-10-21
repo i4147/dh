@@ -7,7 +7,7 @@ import time
 from typing import Final, NamedTuple
 
 from loguru import logger
-from mp_pool import POOL_WORKERS, PoolMethod, run_pool
+from mp_pool import POOL_WORKERS, run_pool
 from xxhash import xxh64  # type: ignore[import-untyped]
 
 

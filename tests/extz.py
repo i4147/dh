@@ -1,4 +1,3 @@
-from pathlib import Path
 import sys
 
 from dh import BIN_EXT, TXT_EXT

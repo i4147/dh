@@ -1,19 +1,21 @@
 from __future__ import annotations
-
+from collections.abc import Callable, Iterable, Iterator, Sequence, Sized
+from concurrent.futures import (
+    FIRST_COMPLETED,
+    Future,
+    ProcessPoolExecutor,
+    ThreadPoolExecutor,
+    TimeoutError as FutureTimeoutError,
+    wait,
+)
+from contextlib import suppress
+from enum import Enum
+from functools import partial
 import logging
 import multiprocessing as mp
 import os
 import time
-from collections.abc import Callable, Iterable, Iterator, Sequence, Sized
-from concurrent.futures import (FIRST_COMPLETED, Future, ProcessPoolExecutor,
-                                ThreadPoolExecutor)
-from concurrent.futures import TimeoutError as FutureTimeoutError
-from concurrent.futures import wait
-from contextlib import suppress
-from enum import Enum
-from functools import partial
 from typing import Any
-
 __all__ = [
     "DEFAULT_CHUNKSIZE",
     "DEFAULT_EXECUTOR_CHUNKSIZE",
@@ -28,8 +30,6 @@ MAX_WORKERS: int = 8
 DEFAULT_CHUNKSIZE: int | None = 4
 DEFAULT_EXECUTOR_CHUNKSIZE: int = 1
 ExecutorType = type[ProcessPoolExecutor] | type[ThreadPoolExecutor]
-
-
 class PoolMethod(str, Enum):
     MAP = "map"
     MAP_ASYNC = "map_async"
@@ -43,7 +43,6 @@ class PoolMethod(str, Enum):
     PROCESS_POOL = "process_pool"
     THREAD_POOL = "thread_pool"
     SERIAL = "serial"
-
     @classmethod
     def parse(cls, value: str | PoolMethod) -> PoolMethod:
         if isinstance(value, cls):
@@ -54,44 +53,31 @@ class PoolMethod(str, Enum):
             valid = ", ".join(m.value for m in cls)
             msg = f"unknown method {value!r}; expected one of: {valid}"
             raise ValueError(msg) from exc
-
     @property
     def is_mp_pool(self) -> bool:
         return self.value in _MP_POOL_METHODS
-
-
-_MP_POOL_METHODS: frozenset[str] = frozenset(
-    {
-        "map",
-        "map_async",
-        "starmap",
-        "starmap_async",
-        "imap",
-        "imap_unordered",
-        "apply",
-        "apply_async",
-    }
-)
-
-
+_MP_POOL_METHODS: frozenset[str] = frozenset({
+    "map",
+    "map_async",
+    "starmap",
+    "starmap_async",
+    "imap",
+    "imap_unordered",
+    "apply",
+    "apply_async",
+})
 class _Star:
     __slots__ = ("func",)
-
     def __init__(self, func: Callable[..., Any]) -> None:
         self.func = func
-
     def __call__(self, item: Any) -> Any:
         return self.func(*item) if isinstance(item, tuple) else self.func(item)
-
-
 class _Retry:
     __slots__ = ("delay", "func", "retries")
-
     def __init__(self, func: Callable[..., Any], retries: int, delay: float) -> None:
         self.func = func
         self.retries = retries
         self.delay = delay
-
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         attempt = 0
         while True:
@@ -103,39 +89,27 @@ class _Retry:
                 if self.delay > 0:
                     time.sleep(self.delay * (2**attempt))
                 attempt += 1
-
-
 class _Catch:
     __slots__ = ("func",)
-
     def __init__(self, func: Callable[..., Any]) -> None:
         self.func = func
-
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         try:
             return self.func(*args, **kwargs)
         except Exception as exc:
             return exc
-
-
 class _Indexed:
     __slots__ = ("func",)
-
     def __init__(self, func: Callable[..., Any]) -> None:
         self.func = func
-
     def __call__(self, pair: tuple[int, Any]) -> tuple[int, Any]:
         idx, item = pair
         return idx, self.func(item)
-
-
 def _resolve_workers(workers: int | None, n: int | None) -> int:
     resolved = workers if workers and workers > 0 else (os.cpu_count() or 1)
     if n is not None:
         resolved = min(resolved, max(n, 1))
     return max(resolved, 1)
-
-
 def _resolve_chunksize(chunksize: int | None, n: int | None, workers: int) -> int | None:
     if chunksize is None:
         return None
@@ -144,8 +118,6 @@ def _resolve_chunksize(chunksize: int | None, n: int | None, workers: int) -> in
     if n is None:
         return 1
     return max(1, n // (workers * 4))
-
-
 def _build_call(
     func: Callable[..., Any],
     func_args: Sequence[Any],
@@ -162,8 +134,6 @@ def _build_call(
     if retries > 0:
         call = _Retry(call, retries, retry_delay)
     return call
-
-
 def _pool_kwargs(
     workers: int,
     initializer: Callable[..., Any] | None,
@@ -177,8 +147,6 @@ def _pool_kwargs(
     if maxtasksperchild is not None:
         kwargs["maxtasksperchild"] = maxtasksperchild
     return kwargs
-
-
 def _run_mp_pool(
     method: PoolMethod,
     call: Callable[..., Any],
@@ -242,15 +210,11 @@ def _run_mp_pool(
         for idx, value in enumerate(out):
             on_progress(idx, value)
     return out
-
-
 def _kill_workers(executor: ProcessPoolExecutor) -> None:
     processes = getattr(executor, "_processes", None) or {}
     for proc in list(processes.values()):
         with suppress(Exception):
             proc.terminate()
-
-
 def _run_executor(
     executor_cls: ExecutorType,
     call: Callable[..., Any],
@@ -302,14 +266,12 @@ def _run_executor(
     exhausted = False
     hung = False
     failed = False
-
     def record(idx: int, value: Any, is_error: bool) -> None:
         results[idx] = value
         if is_error:
             errors[idx] = value
         if on_progress is not None:
             on_progress(idx, value)
-
     ex = executor_cls(**kwargs)
     try:
         while True:
@@ -362,8 +324,6 @@ def _run_executor(
     if errors and not return_exceptions:
         raise errors[min(errors)]
     return [results[i] for i in range(submitted)]
-
-
 def _run_serial(
     call: Callable[..., Any],
     items: Iterable[Any],
@@ -387,8 +347,6 @@ def _run_serial(
         if on_progress is not None:
             on_progress(idx, value)
     return out
-
-
 def _run_joblib(
     call: Callable[..., Any],
     items: Iterable[Any],
@@ -407,8 +365,6 @@ def _run_joblib(
         for idx, value in enumerate(out):
             on_progress(idx, value)
     return out
-
-
 def mpf(
     func: Callable[..., Any],
     items: Iterable[Any],
@@ -516,8 +472,6 @@ def mpf(
         on_progress=on_progress,
         fail_fast=fail_fast,
     )
-
-
 def mpf_iter(
     func: Callable[..., Any],
     items: Iterable[Any],

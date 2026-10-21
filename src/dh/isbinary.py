@@ -1,12 +1,10 @@
 from __future__ import annotations
-
+from functools import lru_cache
 import logging
 import math
 import os
-from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
     from pathlib import Path
 logger = logging.getLogger(__name__)
@@ -19,148 +17,146 @@ __all__ = [
     "is_binary",
     "is_binary_string",
 ]
-BINARY_EXTENSIONS: frozenset[str] = frozenset(
-    {
-        "3ds",
-        "blend",
-        "dae",
-        "fbx",
-        "glb",
-        "stl",
-        "usdz",
-        "7z",
-        "bz2",
-        "cab",
-        "gz",
-        "jar",
-        "lz",
-        "lz4",
-        "lzma",
-        "rar",
-        "tar",
-        "xz",
-        "z",
-        "zip",
-        "zst",
-        "aac",
-        "aif",
-        "aiff",
-        "alac",
-        "ape",
-        "flac",
-        "m4a",
-        "mid",
-        "midi",
-        "mp3",
-        "ogg",
-        "opus",
-        "wav",
-        "wma",
-        "dwg",
-        "dwf",
-        "dxb",
-        "step",
-        "stp",
-        "class",
-        "dll",
-        "o",
-        "pyc",
-        "pyo",
-        "so",
-        "wasm",
-        "accdb",
-        "db",
-        "dbf",
-        "mdb",
-        "sqlite",
-        "sqlite3",
-        "dmg",
-        "img",
-        "iso",
-        "qcow2",
-        "vdi",
-        "vhd",
-        "vmdk",
-        "doc",
-        "docx",
-        "epub",
-        "mobi",
-        "odt",
-        "pages",
-        "pdf",
-        "ppt",
-        "pptx",
-        "xls",
-        "xlsx",
-        "com",
-        "exe",
-        "msi",
-        "bin",
-        "fw",
-        "rom",
-        "eot",
-        "otf",
-        "ttc",
-        "ttf",
-        "woff",
-        "woff2",
-        "gba",
-        "n64",
-        "nds",
-        "nes",
-        "pak",
-        "sav",
-        "sfc",
-        "smc",
-        "shp",
-        "shx",
-        "avif",
-        "bmp",
-        "cr2",
-        "cr3",
-        "dng",
-        "gif",
-        "heic",
-        "heif",
-        "ico",
-        "jfif",
-        "jp2",
-        "jpeg",
-        "jpg",
-        "jxl",
-        "nef",
-        "orf",
-        "png",
-        "psd",
-        "raw",
-        "tif",
-        "tiff",
-        "webp",
-        "xcf",
-        "arrow",
-        "avro",
-        "fit",
-        "fits",
-        "hdf5",
-        "mat",
-        "npy",
-        "npz",
-        "parquet",
-        "pcap",
-        "pcapng",
-        "avi",
-        "flv",
-        "m4v",
-        "mkv",
-        "mov",
-        "mp4",
-        "mpeg",
-        "mpg",
-        "ogv",
-        "webm",
-        "wmv",
-    }
-)
+BINARY_EXTENSIONS: frozenset[str] = frozenset({
+    "3ds",
+    "blend",
+    "dae",
+    "fbx",
+    "glb",
+    "stl",
+    "usdz",
+    "7z",
+    "bz2",
+    "cab",
+    "gz",
+    "jar",
+    "lz",
+    "lz4",
+    "lzma",
+    "rar",
+    "tar",
+    "xz",
+    "z",
+    "zip",
+    "zst",
+    "aac",
+    "aif",
+    "aiff",
+    "alac",
+    "ape",
+    "flac",
+    "m4a",
+    "mid",
+    "midi",
+    "mp3",
+    "ogg",
+    "opus",
+    "wav",
+    "wma",
+    "dwg",
+    "dwf",
+    "dxb",
+    "step",
+    "stp",
+    "class",
+    "dll",
+    "o",
+    "pyc",
+    "pyo",
+    "so",
+    "wasm",
+    "accdb",
+    "db",
+    "dbf",
+    "mdb",
+    "sqlite",
+    "sqlite3",
+    "dmg",
+    "img",
+    "iso",
+    "qcow2",
+    "vdi",
+    "vhd",
+    "vmdk",
+    "doc",
+    "docx",
+    "epub",
+    "mobi",
+    "odt",
+    "pages",
+    "pdf",
+    "ppt",
+    "pptx",
+    "xls",
+    "xlsx",
+    "com",
+    "exe",
+    "msi",
+    "bin",
+    "fw",
+    "rom",
+    "eot",
+    "otf",
+    "ttc",
+    "ttf",
+    "woff",
+    "woff2",
+    "gba",
+    "n64",
+    "nds",
+    "nes",
+    "pak",
+    "sav",
+    "sfc",
+    "smc",
+    "shp",
+    "shx",
+    "avif",
+    "bmp",
+    "cr2",
+    "cr3",
+    "dng",
+    "gif",
+    "heic",
+    "heif",
+    "ico",
+    "jfif",
+    "jp2",
+    "jpeg",
+    "jpg",
+    "jxl",
+    "nef",
+    "orf",
+    "png",
+    "psd",
+    "raw",
+    "tif",
+    "tiff",
+    "webp",
+    "xcf",
+    "arrow",
+    "avro",
+    "fit",
+    "fits",
+    "hdf5",
+    "mat",
+    "npy",
+    "npz",
+    "parquet",
+    "pcap",
+    "pcapng",
+    "avi",
+    "flv",
+    "m4v",
+    "mkv",
+    "mov",
+    "mp4",
+    "mpeg",
+    "mpg",
+    "ogv",
+    "webm",
+    "wmv",
+})
 BINARY_SIGNATURES: tuple[bytes, ...] = tuple(
     sorted(
         (
@@ -230,12 +226,8 @@ BINARY_SIGNATURES: tuple[bytes, ...] = tuple(
 )
 CHUNK_SIZE = 512
 _CONTROL_BYTES: frozenset[int] = frozenset(range(32)) - {9, 10, 13}
-
-
 def _has_known_binary_signature(chunk: bytes) -> bool:
     return any(chunk.startswith(sig) for sig in BINARY_SIGNATURES)
-
-
 def has_binary_extension(filename: str | bytes | Path) -> bool:
     if isinstance(filename, bytes):
         filename = os.fsdecode(filename)
@@ -247,13 +239,9 @@ def has_binary_extension(filename: str | bytes | Path) -> bool:
     if dot < slash:
         return False
     return name[dot + 1 :].lower() in BINARY_EXTENSIONS
-
-
 def get_starting_chunk(filename: str | bytes | Path, length: int = CHUNK_SIZE) -> bytes:
     with open(filename, "rb") as f:
         return f.read(length)
-
-
 _DECODE_TRY = (
     "utf-16-le",
     "utf-16-be",
@@ -265,16 +253,12 @@ _DECODE_TRY = (
     "euc-jp",
     "euc-kr",
 )
-
-
 def _try_decode(chunk: bytes, encoding: str) -> float:
     try:
         chunk.decode(encoding)
         return 1.0
     except (UnicodeDecodeError, ValueError, LookupError):
         return 0.0
-
-
 def _compute_features(chunk: bytes) -> list[float]:
     n = len(chunk)
     if n == 0:
@@ -374,8 +358,6 @@ def _compute_features(chunk: bytes) -> list[float]:
         try_euc_kr,
         has_magic_signature,
     ]
-
-
 def _tree(f: list[float]) -> bool:
     if f[1] <= 0.000977:
         if f[17] <= 0.000977:
@@ -538,24 +520,18 @@ def _tree(f: list[float]) -> bool:
     if f[20] <= 0.500000:
         return True
     return True
-
-
 def is_binary_string(bytes_to_check: bytes) -> bool:
     if not bytes_to_check:
         return False
     if _has_known_binary_signature(bytes_to_check):
         return True
     return _tree(_compute_features(bytes_to_check))
-
-
 def _file_cache_key(filename: str | bytes | Path) -> tuple:
     try:
         st = os.stat(filename)
         return (os.fspath(filename), st.st_mtime_ns, st.st_size)
     except OSError:
         return (os.fspath(filename), None, None)
-
-
 @lru_cache(maxsize=1024)
 def _is_binary_cached(key: tuple, check_extensions: bool) -> bool:
     filename = key[0]
@@ -566,14 +542,10 @@ def _is_binary_cached(key: tuple, check_extensions: bool) -> bool:
     except OSError:
         return False
     return is_binary_string(chunk)
-
-
 def is_binary(filename: str | bytes | Path, *, check_extensions: bool = True) -> bool:
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug("is_binary: %r (check_extensions=%r)", filename, check_extensions)
     key = _file_cache_key(filename)
     return _is_binary_cached(key, check_extensions)
-
-
 def _clear_cache() -> None:
     _is_binary_cached.cache_clear()

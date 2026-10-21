@@ -1,8 +1,8 @@
 from __future__ import annotations
 from collections.abc import Callable, Iterable, Iterator
-from multiprocessing import Pool, get_context
+from multiprocessing import get_context
 from pathlib import Path
-from typing import Any, List
+from typing import Any
 
 
 MAX_WORKERS = 8

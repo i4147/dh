@@ -1,11 +1,9 @@
 from __future__ import annotations
-from io import StringIO
 import os
 from pathlib import Path
 import sys
 import tempfile
-import time
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -27,12 +25,10 @@ from dh import (
     _ExtensionAnalyzer,
     _FileAgeCalculator,
     _FileCollector,
-    _FileProcessor,
     _FileReader,
     _FileSizeFormatter,
     _PathWalker,
     _PythonFileChecker,
-    _PythonFileFinder,
     _SizeByExtensionCalculator,
     _TextFileDeterminer,
     _TimeFormatter,
@@ -46,11 +42,9 @@ from dh import (
     get_files,
     get_files_iter_config,
     get_files_scandir,
-    get_filez,
     get_installed_packages,
     get_installed_pkgs,
     get_mime_type,
-    get_nobinary,
     get_pyfiles,
     get_random_filename,
     get_removed_lines,

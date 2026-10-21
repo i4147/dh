@@ -1,18 +1,14 @@
 from __future__ import annotations
-
-import time
 from collections.abc import Iterable, Iterator
 from multiprocessing.pool import AsyncResult
+import time
 from typing import Any, TypeVar
-
 MAX_WORKERS = 8
 POLL_INTERVAL_SECONDS = 0.01
 T = TypeVar("T")
 type AsyncResults = Iterable[AsyncResult[Any]]
 FIRST_COMPLETED = "FIRST_COMPLETED"
 ALL_COMPLETED = "ALL_COMPLETED"
-
-
 def _deadline(timeout: float | None) -> float | None:
     if timeout is None:
         return None
@@ -20,14 +16,10 @@ def _deadline(timeout: float | None) -> float | None:
         msg = "timeout must be non-negative"
         raise TimeoutError(msg)
     return time.monotonic() + timeout
-
-
 def _check_timeout(deadline: float | None) -> None:
     if deadline is not None and time.monotonic() >= deadline:
         msg = "timed out waiting for multiprocessing results"
         raise TimeoutError(msg)
-
-
 def as_completed(results: AsyncResults, timeout: float | None = None) -> Iterator[AsyncResult[Any]]:
     pending = set(results)
     deadline = _deadline(timeout)
@@ -40,8 +32,6 @@ def as_completed(results: AsyncResults, timeout: float | None = None) -> Iterato
             continue
         _check_timeout(deadline)
         time.sleep(POLL_INTERVAL_SECONDS)
-
-
 def wait(
     results: AsyncResults,
     timeout: float | None = None,

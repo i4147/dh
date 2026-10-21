@@ -1,56 +1,151 @@
 from __future__ import annotations
-
-import sys
 from pathlib import Path
-
-from .archiveutils import (ArchiveInPlaceError, ArchiveProcessor,
-                           UnsupportedFormatError, process_archive)
-from .const import (ANSI_BOLD, ANSI_RESET, AREXT, AUDEXT, BIN_EXT, BLACK,
-                    BLINK, BLUE, BOLD, BOOKEXT, CHUNK_SIZE, CODEXT, CONSEALED,
-                    CONTEXT_METHOD, CSS_COLORS, CYAN, DOC_TH, DOC_TH1, DOC_TH2,
-                    DOCEXT, EMULATED, EXT2MIME, FONTEXT, GREEN, GREY,
-                    GREYBLACK, GREYWHITE, IMGEXT, LBLUE, LCYAN, LGREEN,
-                    LMAGENTA, LRED, LYELLOW, MAGENTA, MAX_WORKERS, MIME2EXT,
-                    PKG_MAPPING, PY_KEYWORDS, RED, RESET, REVERSE, SDCARD,
-                    SHEBANG_MAP, SKIP_DIRS, STDLIB, THRESHOLD, TXT_EXT,
-                    UNDERLINE, VIDEXT, WHITE, YELLOW, ZERO_DOT_THREE, black,
-                    blink, blue, bold, consealed, cyan, green, grey, greyblack,
-                    greywhite, lblue, lcyan, lgreen, lmagenta, lred, lyellow,
-                    magenta, red, reset, reverse, underline, white, yellow)
+import sys
+# from .archiveutils import ArchiveInPlaceError, ArchiveProcessor, UnsupportedFormatError, process_archive
+from .const import (
+    ANSI_BOLD,
+    ANSI_RESET,
+    AREXT,
+    AUDEXT,
+    BIN_EXT,
+    BLACK,
+    BLINK,
+    BLUE,
+    BOLD,
+    BOOKEXT,
+    CHUNK_SIZE,
+    CODEXT,
+    CONSEALED,
+    CONTEXT_METHOD,
+    CSS_COLORS,
+    CYAN,
+    DOC_TH,
+    DOC_TH1,
+    DOC_TH2,
+    DOCEXT,
+    EMULATED,
+    EXT2MIME,
+    FONTEXT,
+    GREEN,
+    GREY,
+    GREYBLACK,
+    GREYWHITE,
+    IMGEXT,
+    LBLUE,
+    LCYAN,
+    LGREEN,
+    LMAGENTA,
+    LRED,
+    LYELLOW,
+    MAGENTA,
+    MAX_WORKERS,
+    MIME2EXT,
+    PKG_MAPPING,
+    PY_KEYWORDS,
+    RED,
+    RESET,
+    REVERSE,
+    SDCARD,
+    SHEBANG_MAP,
+    SKIP_DIRS,
+    STDLIB,
+    THRESHOLD,
+    TXT_EXT,
+    UNDERLINE,
+    VIDEXT,
+    WHITE,
+    YELLOW,
+    ZERO_DOT_THREE,
+    black,
+    blink,
+    blue,
+    bold,
+    consealed,
+    cyan,
+    green,
+    grey,
+    greyblack,
+    greywhite,
+    lblue,
+    lcyan,
+    lgreen,
+    lmagenta,
+    lred,
+    lyellow,
+    magenta,
+    red,
+    reset,
+    reverse,
+    underline,
+    white,
+    yellow,
+)
 from .cprint import colored, cprint
-from .fileutils import (FileWalkerConfig, ReportGenerator, ReportItem,
-                        append_text, atomic_write, copy_dir, format_time, fsz,
-                        get_fast, get_file_age, get_files4, get_files_iter,
-                        get_files_iter_config, get_files_pathlib,
-                        get_files_scandir, get_filez, get_installed_packages,
-                        get_installed_pkgs, get_mime_type, get_pyfiles_iter,
-                        get_random_filename, get_removed_lines, getfiles, gext,
-                        gsz, gsze, is_empty, is_image, is_python_file,
-                        is_text_file, is_within, main_func, move_dir,
-                        normalize_filename, normalize_path, process_files,
-                        read_lines, read_lines_mmap, remove_blank_lines,
-                        restore_bak, reverse_dict, rrs, runcmd, safe_delete,
-                        should_skip, unique_path, walk_files, walk_paths,
-                        walker, walkfiles, worker, write_txt_file)
+from .fileutils import (
+    FileWalkerConfig,
+    ReportGenerator,  # atomic_write,
+    ReportItem,
+    append_text,
+    copy_dir,
+    format_time,
+    fsz,
+    get_file_age,
+    get_files4,
+    get_files_iter,
+    get_files_iter_config,
+    get_files_pathlib,
+    get_files_scandir,
+    get_filez,
+    get_installed_packages,
+    get_installed_pkgs,
+    get_mime_type,
+    get_pyfiles_iter,
+    get_random_filename,
+    get_removed_lines,
+    getfiles,
+    gext,
+    gsz,
+    gsze,
+    is_empty,
+    is_image,
+    is_python_file,
+    is_text_file,
+    is_within,
+    main_func,
+    move_dir,
+    normalize_filename,
+    normalize_path,
+    process_files,
+    read_lines,
+    read_lines_mmap,
+    remove_blank_lines,
+    restore_bak,
+    reverse_dict,
+    rrs,
+    runcmd,
+    safe_delete,
+    should_skip,
+    unique_path,
+    walk_files,
+    walk_paths,
+    walker,
+    walkfiles,
+    worker,
+    write_txt_file,
+)
 from .isbinary import is_binary
-from .jobutils import (DEFAULT_CHUNKSIZE, DEFAULT_EXECUTOR_CHUNKSIZE,
-                       MAX_WORKERS, PoolMethod, mpf)
+from .jobutils import DEFAULT_CHUNKSIZE, DEFAULT_EXECUTOR_CHUNKSIZE, PoolMethod, mpf, mpf_iter
 from .pmap import run_parallel
-from .pool_helper import (ALL_COMPLETED, FIRST_COMPLETED,
-                          POLL_INTERVAL_SECONDS, as_completed, wait)
-from .utils import (WORD_PATTERN, get_sha256, has_doc, is_valid_url, slugify,
-                    tokenize_text)
-
+from .pool_helper import as_completed, wait
+from .utils import WORD_PATTERN, get_sha256, has_doc, is_valid_url, slugify, tokenize_text
 __all__ = [
     "walkerFileWalkerConfig",
     "ReportGenerator",
     "ReportItem",
     "append_text",
-    "atomic_write",
     "copy_dir",
     "format_time",
     "fsz",
-    "get_fast",
     "get_file_age",
     "get_files4",
     "get_files_iter",
@@ -173,11 +268,11 @@ __all__ += [
 ]
 __all__ += ["colored", "cprint"]
 __all__ += [
-    "DEFAULT_CHUNKSIZE",
-    "DEFAULT_EXECUTOR_CHUNKSIZE",
-    "MAX_WORKERS",
     "PoolMethod",
     "mpf",
+    "mpf_iter",
+    "DEFAULT_CHUNKSIZE",
+    "DEFAULT_EXECUTOR_CHUNKSIZEa",
 ]
 __all__ += [
     "ALL_COMPLETED",
@@ -186,12 +281,12 @@ __all__ += [
     "as_completed",
     "wait",
 ]
-__all__ += [
-    "ArchiveInPlaceError",
-    "ArchiveProcessor",
-    "UnsupportedFormatError",
-    "process_archive",
-]
+# __all__ += [
+#    "ArchiveInPlaceError",
+#    "ArchiveProcessor",
+#    "UnsupportedFormatError",
+#    "process_archive",
+# ]
 __all__ += [
     "WORD_PATTERN",
     "get_sha256",
@@ -203,10 +298,11 @@ __all__ += [
 __all__ += [
     "run_parallel",
 ]
+from .atomicio import atomic_write
 from .codeutils import ASTStripper, CSTStripper, StripFileResult, TSStripper
 from .pathutils import get_dirs, get_files, get_nobinary, get_pyfiles
-
 __all__ += [
+    "atomic_write",
     "TSStripper",
     "CSTStripper",
     "ASTStripper",

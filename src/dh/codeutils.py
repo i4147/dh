@@ -1,23 +1,23 @@
 from __future__ import annotations
-
+from abc import ABC, abstractmethod
 import ast
 import codecs
+from dataclasses import dataclass
 import io
 import os
+from pathlib import Path
 import re
 import shutil
 import tempfile
 import textwrap
 import tokenize
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Callable, Sequence
-
 try:
+    from tree_sitter import (
+        Language as _Language,
+        Parser as _Parser,
+    )
     import tree_sitter_python as _tsp
-    from tree_sitter import Language as _Language
-    from tree_sitter import Parser as _Parser
 except ImportError:  # pragma: no cover
     _tsp = _Language = _Parser = None
 try:
@@ -41,8 +41,6 @@ _BLOCK_PREFIX = {
     "except": "try:\n pass\n",
     "finally": "try:\n pass\n",
 }
-
-
 @dataclass
 class StripFileResult:
     path: Path
@@ -50,11 +48,8 @@ class StripFileResult:
     valid: bool
     error: str | None = None
     bytes_reduced: int = 0
-
-
 class _BaseStripper(ABC):
     name = ""
-
     def __init__(
         self,
         strip_comments: bool = True,
@@ -73,10 +68,8 @@ class _BaseStripper(ABC):
         self.validate = validate
         self.preserve_commented_code = preserve_commented_code
         self._setup()
-
     def _setup(self) -> None:
         pass
-
     @abstractmethod
     def _strip_unchecked(self, source: str) -> str: ...
     def strip(self, source: str) -> str:
@@ -87,7 +80,6 @@ class _BaseStripper(ABC):
         if self.validate and not self._is_valid(result):
             return source
         return result
-
     def strip_file(
         self,
         path: str | os.PathLike[str],
@@ -95,11 +87,9 @@ class _BaseStripper(ABC):
         encoding: str | None = None,
     ) -> StripFileResult:
         p = Path(path)
-
         def fail(exc: BaseException | str) -> StripFileResult:
             msg = exc if isinstance(exc, str) else f"{type(exc).__name__}: {exc}"
             return StripFileResult(path=p, modified=False, valid=False, error=msg)
-
         try:
             raw = p.read_bytes()
             enc = encoding or tokenize.detect_encoding(io.BytesIO(raw).readline)[0]
@@ -121,7 +111,6 @@ class _BaseStripper(ABC):
         except Exception as e:
             return fail(e)
         return StripFileResult(path=p, modified=True, valid=True, bytes_reduced=len(raw) - len(new_raw))
-
     def _commented_code(self, source: str) -> frozenset[str]:
         if not (self.strip_comments and self.preserve_commented_code):
             return frozenset()
@@ -152,7 +141,6 @@ class _BaseStripper(ABC):
                 else:
                     i += 1
         return frozenset(found)
-
     @staticmethod
     def _looks_like_code(text: str) -> bool:
         body = text.strip("\n").rstrip()
@@ -172,16 +160,13 @@ class _BaseStripper(ABC):
             return False
         if prefix:
             return True
-
         def is_code(stmt: ast.stmt) -> bool:
             if isinstance(stmt, ast.Expr):
                 return isinstance(stmt.value, (ast.Call, ast.Await, ast.Yield, ast.YieldFrom))
             if isinstance(stmt, ast.AnnAssign):
                 return stmt.value is not None
             return True
-
         return any(is_code(s) for s in tree.body)
-
     @staticmethod
     def _parse_error(source: str) -> str | None:
         try:
@@ -189,11 +174,9 @@ class _BaseStripper(ABC):
         except (SyntaxError, ValueError, RecursionError) as e:
             return f"{type(e).__name__}: {e}"
         return None
-
     @classmethod
     def _is_valid(cls, source: str) -> bool:
         return cls._parse_error(source) is None
-
     @staticmethod
     def _atomic_write(path: Path, data: bytes) -> None:
         target = path.resolve()
@@ -212,8 +195,6 @@ class _BaseStripper(ABC):
         except BaseException:
             tmp.unlink(missing_ok=True)
             raise
-
-
 class _ByteEditStripper(_BaseStripper):
     @abstractmethod
     def _collect_edits(self, src: bytes, code: frozenset[str]) -> list[_Edit]: ...
@@ -223,16 +204,13 @@ class _ByteEditStripper(_BaseStripper):
         src = source.encode("utf-8")
         edits = self._merge(self._collect_edits(src, self._commented_code(source)))
         return self._apply(src, edits).decode("utf-8")
-
     @staticmethod
     def _line_start(src: bytes, pos: int) -> int:
         return max(src.rfind(b"\n", 0, pos), src.rfind(b"\r", 0, pos)) + 1
-
     @staticmethod
     def _line_end(src: bytes, pos: int) -> int:
         m = _NL.search(src, pos)
         return m.end() if m else len(src)
-
     def _keeps_comment(self, src: bytes, start: int, end: int) -> bool:
         text = src[start:end].decode("utf-8", "replace")
         if self.preserve_shebangs and start == 0 and text.startswith("#!"):
@@ -240,7 +218,6 @@ class _ByteEditStripper(_BaseStripper):
         if self.preserve_directives and _DIRECTIVE_RE.match(text):
             return True
         return bool(_COOKIE_RE.match(text)) and len(_NL.findall(src, 0, start)) < 2
-
     def _comment_edit(self, src: bytes, start: int, end: int, code: frozenset[str]) -> _Edit | None:
         if self._keeps_comment(src, start, end):
             return None
@@ -253,7 +230,6 @@ class _ByteEditStripper(_BaseStripper):
         while i > ls and src[i - 1] in (0x20, 0x09, 0x0C):
             i -= 1
         return (i, end, b"")
-
     def _docstring_edit(self, src: bytes, start: int, end: int, *, replace_with_pass: bool) -> _Edit:
         if replace_with_pass:
             return (start, end, b"pass")
@@ -276,7 +252,6 @@ class _ByteEditStripper(_BaseStripper):
                 if self.strip_comments and not self._keeps_comment(src, cpos, cend):
                     return (ls, le, b"")
         return (start, end, b"")
-
     @staticmethod
     def _merge(edits: list[_Edit]) -> list[_Edit]:
         out: list[_Edit] = []
@@ -287,7 +262,6 @@ class _ByteEditStripper(_BaseStripper):
             else:
                 out.append((s, e, r))
         return out
-
     @staticmethod
     def _apply(src: bytes, edits: list[_Edit]) -> bytes:
         parts: list[bytes] = []
@@ -298,21 +272,16 @@ class _ByteEditStripper(_BaseStripper):
             cursor = e
         parts.append(src[cursor:])
         return b"".join(parts)
-
-
 class ASTStripper(_ByteEditStripper):
     name = "ast"
-
     def _collect_edits(self, src: bytes, code: frozenset[str]) -> list[_Edit]:
         text = src.decode("utf-8")
         char_starts, byte_starts = self._line_tables(text)
         edits: list[_Edit] = []
         if self.strip_comments:
-
             def to_byte(row: int, col: int) -> int:
                 cs = char_starts[row - 1]
                 return byte_starts[row - 1] + len(text[cs : cs + col].encode("utf-8"))
-
             readline = io.StringIO(text, newline="").readline
             for tok in tokenize.generate_tokens(readline):
                 if tok.type == tokenize.COMMENT:
@@ -338,7 +307,6 @@ class ASTStripper(_ByteEditStripper):
                 sole = len(node.body) == 1 and not is_module
                 edits.append(self._docstring_edit(src, start, end, replace_with_pass=sole))
         return edits
-
     @staticmethod
     def _line_tables(text: str) -> tuple[list[int], list[int]]:
         chars, bytes_ = [0], [0]
@@ -349,11 +317,8 @@ class ASTStripper(_ByteEditStripper):
             chars.append(pos)
             bytes_.append(nbytes)
         return chars, bytes_
-
-
 class TSStripper(_ByteEditStripper):
     name = "tree-sitter"
-
     def _setup(self) -> None:
         if _tsp is None or _Parser is None:
             raise ImportError("TSStripper needs `tree-sitter` and `tree-sitter-python`")
@@ -366,7 +331,6 @@ class TSStripper(_ByteEditStripper):
                 self._parser.language = lang
             except (AttributeError, ValueError):
                 self._parser.set_language(lang)
-
     def _collect_edits(self, src: bytes, code: frozenset[str]) -> list[_Edit]:
         root = self._parser.parse(src).root_node
         if root.has_error and not self.validate:
@@ -392,7 +356,6 @@ class TSStripper(_ByteEditStripper):
                         self._docstring_of(body, src, edits, is_module=False)
             stack.extend(node.named_children)
         return edits
-
     def _docstring_of(self, container, src: bytes, edits: list[_Edit], *, is_module: bool) -> None:
         if container.type in ("module", "block"):
             stmts = [c for c in container.named_children if c.type != "comment"]
@@ -403,7 +366,6 @@ class TSStripper(_ByteEditStripper):
         sole = len(stmts) == 1 and not is_module
         first = stmts[0]
         edits.append(self._docstring_edit(src, first.start_byte, first.end_byte, replace_with_pass=sole))
-
     @staticmethod
     def _is_docstring(stmt, src: bytes) -> bool:
         if stmt.type != "expression_statement" or len(stmt.named_children) != 1:
@@ -420,16 +382,11 @@ class TSStripper(_ByteEditStripper):
             if any(ch in b"bft" for ch in prefix):
                 return False
         return bool(parts)
-
-
 _CSTBase = cst.CSTTransformer if cst is not None else object
-
-
 class _DocstringRemover(_CSTBase):
     def __init__(self, strip_module: bool) -> None:
         super().__init__()
         self._strip_module = strip_module
-
     @classmethod
     def _is_str(cls, node) -> bool:
         if isinstance(node, cst.SimpleString):
@@ -437,11 +394,9 @@ class _DocstringRemover(_CSTBase):
         if isinstance(node, cst.ConcatenatedString):
             return cls._is_str(node.left) and cls._is_str(node.right)
         return False
-
     @classmethod
     def _is_doc(cls, small) -> bool:
         return isinstance(small, cst.Expr) and cls._is_str(small.value)
-
     def _lines(self, stmts: Sequence, *, is_module: bool) -> list | None:
         first = stmts[0] if stmts else None
         if not isinstance(first, cst.SimpleStatementLine) or not first.body or not self._is_doc(first.body[0]):
@@ -455,12 +410,10 @@ class _DocstringRemover(_CSTBase):
         carried = [ln for ln in first.leading_lines if ln.comment is not None]
         head = rest[0].with_changes(leading_lines=[*carried, *rest[0].leading_lines])
         return [head, *rest[1:]]
-
     def _suite(self, small: Sequence) -> list | None:
         if not small or not self._is_doc(small[0]):
             return None
         return list(small[1:]) or [cst.Pass()]
-
     def _def(self, updated):
         body = updated.body
         if isinstance(body, cst.IndentedBlock):
@@ -470,46 +423,35 @@ class _DocstringRemover(_CSTBase):
         else:
             return updated
         return updated if new is None else updated.with_changes(body=body.with_changes(body=new))
-
     def leave_FunctionDef(self, original, updated):
         return self._def(updated)
-
     def leave_ClassDef(self, original, updated):
         return self._def(updated)
-
     def leave_Module(self, original, updated):
         if not self._strip_module:
             return updated
         new = self._lines(updated.body, is_module=True)
         return updated if new is None else updated.with_changes(body=new)
-
-
 class _CommentRemover(_CSTBase):
     def __init__(self, keep: Callable[[str], bool], code: frozenset[str]) -> None:
         super().__init__()
         self._keep = keep
         self._code = code
-
     def leave_EmptyLine(self, original, updated):
         if original.comment is None:
             return updated
         if self._keep(original.comment.value) or original.comment.value.rstrip() in self._code:
             return updated
         return cst.RemoveFromParent()
-
     def leave_TrailingWhitespace(self, original, updated):
         if original.comment is None or self._keep(original.comment.value):
             return updated
         return updated.with_changes(comment=None, whitespace=cst.SimpleWhitespace(""))
-
-
 class CSTStripper(_BaseStripper):
     name = "libcst"
-
     def _setup(self) -> None:
         if cst is None:
             raise ImportError("CSTStripper needs `libcst`")
-
     def _keep_predicate(self, source: str) -> Callable[[str], bool]:
         protected: set[str] = set()
         for i, line in enumerate(source.split("\n", 2)[:2]):
@@ -518,13 +460,10 @@ class CSTStripper(_BaseStripper):
                 protected.add(s)
             elif _COOKIE_RE.match(s):
                 protected.add(s)
-
         def keep(value: str) -> bool:
             v = value.rstrip()
             return v in protected or (self.preserve_directives and bool(_DIRECTIVE_RE.match(v)))
-
         return keep
-
     def _strip_unchecked(self, source: str) -> str:
         if not (self.strip_comments or self.strip_docstrings):
             return source
