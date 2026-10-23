@@ -12,10 +12,11 @@ import multiprocessing
 import multiprocessing.dummy
 import time
 from typing import Any, Literal
+
 try:
     from concurrent.futures import InterpreterPoolExecutor
-except ImportError:  # Python < 3.14
-    InterpreterPoolExecutor = None  # type: ignore[misc,assignment]
+except ImportError:
+    InterpreterPoolExecutor = None
 PoolMethod = Literal[
     "map",
     "map_async",
@@ -47,11 +48,16 @@ _MP_METHODS: frozenset[str] = frozenset({
     "apply_async",
 })
 _TUPLE_ARG_METHODS: frozenset[str] = frozenset({"starmap", "starmap_async", "apply_async"})
+
+
 def _chunksize(n_items: int, workers: int) -> int:
-    """max(1, min(500, ceil(n / (workers * 4))))."""
     return max(1, min(500, math.ceil(n_items / (workers * 4))))
+
+
 def _apply_star(fn: Any, args: tuple[Any, ...] | list[Any]) -> Any:
     return fn(*args)
+
+
 def _validate(backend: str, method: str, items: list[Any]) -> None:
     if backend not in _VALID_BACKENDS:
         msg = f"backend must be one of {sorted(_VALID_BACKENDS)}, got {backend!r}"
@@ -65,6 +71,8 @@ def _validate(backend: str, method: str, items: list[Any]) -> None:
         if not isinstance(item, (tuple, list)):
             msg = f"items[{index}] must be a tuple/list when method={method!r}; got {type(item).__name__}"
             raise TypeError(msg)
+
+
 def _drain_imap(iterator: Any, timeout: float | None) -> list[Any]:
     pull = getattr(iterator, "next", None)
     if pull is None:
@@ -76,14 +84,20 @@ def _drain_imap(iterator: Any, timeout: float | None) -> list[Any]:
             append(pull() if timeout is None else pull(timeout))
         except StopIteration:
             return results
+
+
 def _shutdown_pool(pool: Any, *, terminate: bool) -> None:
     if terminate:
         pool.terminate()
     else:
         pool.close()
     pool.join()
+
+
 def _in_flight(workers: int) -> int:
     return max(1, workers * 4)
+
+
 def _run_mp(
     fn: Any,
     items: list[Any],
@@ -129,6 +143,8 @@ def _run_mp(
         raise
     finally:
         _shutdown_pool(pool, terminate=failed)
+
+
 def _take_results(
     futures: list[Future[Any]],
     timeout: float | None,
@@ -146,6 +162,8 @@ def _take_results(
         msg = f"{len(pending)} of {len(futures)} tasks did not complete"
         raise FuturesTimeout(msg)
     return [item.result() for item in futures]
+
+
 def _run_futures(
     fn: Any,
     items: list[Any],
@@ -199,6 +217,8 @@ def _run_futures(
             executor.shutdown(wait=not failed, cancel_futures=failed)
         except TypeError:
             executor.shutdown(wait=not failed)
+
+
 def _run_joblib(
     fn: Any,
     items: list[Any],
@@ -227,6 +247,8 @@ def _run_joblib(
         kwargs["timeout"] = timeout
     with Parallel(**kwargs) as parallel:
         return list(parallel(jobs))
+
+
 def run_parallel(
     fn: Any,
     items: Any,
@@ -265,4 +287,6 @@ def run_parallel(
         return _run_joblib(fn, items, method, workers, chunksize, timeout)
     msg = f"unhandled backend: {backend!r}"
     raise AssertionError(msg)
+
+
 __all__ = ["Backend", "PoolMethod", "run_parallel"]

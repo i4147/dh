@@ -1,7 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
 import sys
-# from .archiveutils import ArchiveInPlaceError, ArchiveProcessor, UnsupportedFormatError, process_archive
 from .const import (
     ANSI_BOLD,
     ANSI_RESET,
@@ -83,7 +82,7 @@ from .const import (
 from .cprint import colored, cprint
 from .fileutils import (
     FileWalkerConfig,
-    ReportGenerator,  # atomic_write,
+    ReportGenerator,
     ReportItem,
     append_text,
     copy_dir,
@@ -138,6 +137,7 @@ from .jobutils import DEFAULT_CHUNKSIZE, DEFAULT_EXECUTOR_CHUNKSIZE, PoolMethod,
 from .pmap import run_parallel
 from .pool_helper import as_completed, wait
 from .utils import WORD_PATTERN, get_sha256, has_doc, is_valid_url, slugify, tokenize_text
+
 __all__ = [
     "walkerFileWalkerConfig",
     "ReportGenerator",
@@ -281,12 +281,6 @@ __all__ += [
     "as_completed",
     "wait",
 ]
-# __all__ += [
-#    "ArchiveInPlaceError",
-#    "ArchiveProcessor",
-#    "UnsupportedFormatError",
-#    "process_archive",
-# ]
 __all__ += [
     "WORD_PATTERN",
     "get_sha256",
@@ -301,6 +295,7 @@ __all__ += [
 from .atomicio import atomic_write
 from .codeutils import ASTStripper, CSTStripper, StripFileResult, TSStripper
 from .pathutils import get_dirs, get_files, get_nobinary, get_pyfiles
+
 __all__ += [
     "atomic_write",
     "TSStripper",

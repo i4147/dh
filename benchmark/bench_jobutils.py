@@ -11,26 +11,17 @@ import statistics
 import sys
 import time
 from typing import Any
-
 from jobutils import PoolMethod, mpf
-
-
 def cpu_task(n: int) -> int:
     data = b"x" * 64
     for _ in range(n):
         data = hashlib.sha256(data).digest()
     return data[0]
-
-
 def io_task(seconds: float) -> float:
     time.sleep(seconds)
     return seconds
-
-
 def tiny_task(x: int) -> int:
     return x + 1
-
-
 @dataclass(frozen=True)
 class Scenario:
     name: str
@@ -38,8 +29,6 @@ class Scenario:
     make_items: Callable[[int], list[Any]]
     default_items: int
     methods: tuple[str, ...]
-
-
 @dataclass
 class Result:
     scenario: str
@@ -53,8 +42,6 @@ class Result:
     stdev_s: float
     items_per_s: float
     speedup: float | None = None
-
-
 SCENARIOS: dict[str, Scenario] = {
     "cpu": Scenario(
         "cpu",
@@ -78,16 +65,12 @@ SCENARIOS: dict[str, Scenario] = {
         ("serial", "map", "imap_unordered", "process_pool", "thread_pool", "joblib"),
     ),
 }
-
-
 def joblib_available() -> bool:
     try:
-        import joblib  # noqa: F401
+        import joblib
     except ImportError:
         return False
     return True
-
-
 def time_call(fn: Callable[[], Any], repeat: int, warmup: int) -> list[float]:
     for _ in range(warmup):
         fn()
@@ -97,8 +80,6 @@ def time_call(fn: Callable[[], Any], repeat: int, warmup: int) -> list[float]:
         fn()
         samples.append(time.perf_counter() - t0)
     return samples
-
-
 def summarize(
     scenario: str, method: str, workers: int, chunksize: int | None, items: int, samples: list[float]
 ) -> Result:
@@ -115,29 +96,21 @@ def summarize(
         stdev_s=statistics.stdev(samples) if len(samples) > 1 else 0.0,
         items_per_s=items / median if median > 0 else float("inf"),
     )
-
-
 def bench_mpf(
     scenario: Scenario, method: str, items: list[Any], workers: int, chunksize: int | None, repeat: int, warmup: int
 ) -> Result:
     def run() -> Any:
         return mpf(scenario.func, items, method, workers=workers, chunksize=chunksize)
-
     return summarize(scenario.name, method, workers, chunksize, len(items), time_call(run, repeat, warmup))
-
-
 def bench_raw_pool(
     scenario: Scenario, items: list[Any], workers: int, chunksize: int | None, repeat: int, warmup: int
 ) -> Result:
     def run() -> Any:
         with mp.get_context().Pool(workers) as pool:
             return list(pool.imap_unordered(scenario.func, items, chunksize or 1))
-
     return summarize(
         scenario.name, "raw_imap_unordered", workers, chunksize, len(items), time_call(run, repeat, warmup)
     )
-
-
 def verify_correct(scenario: Scenario, items: list[Any], methods: list[str], workers: int) -> None:
     expected = [scenario.func(x) for x in items[: min(len(items), 16)]]
     probe = items[: min(len(items), 16)]
@@ -145,16 +118,12 @@ def verify_correct(scenario: Scenario, items: list[Any], methods: list[str], wor
         got = mpf(scenario.func, probe, m, workers=min(workers, 2))
         if sorted(map(repr, got)) != sorted(map(repr, expected)):
             raise AssertionError(f"{scenario.name}/{m} produced wrong results")
-
-
 def add_speedups(results: list[Result]) -> None:
     baselines = {r.scenario: r.median_s for r in results if r.method == "serial"}
     for r in results:
         base = baselines.get(r.scenario)
         if base and r.median_s > 0:
             r.speedup = base / r.median_s
-
-
 def format_table(results: list[Result]) -> str:
     header = ("scenario", "method", "workers", "chunk", "items", "median s", "min s", "stdev s", "items/s", "speedup")
     rows = [header]
@@ -178,8 +147,6 @@ def format_table(results: list[Result]) -> str:
         if n == 0:
             lines.append("  ".join("-" * w for w in widths))
     return "\n".join(lines)
-
-
 def run_methods(args: argparse.Namespace) -> list[Result]:
     results: list[Result] = []
     has_joblib = joblib_available()
@@ -201,8 +168,6 @@ def run_methods(args: argparse.Namespace) -> list[Result]:
             results.append(res)
             print(f"  {res.method:<16} {res.median_s:.4f}s", file=sys.stderr)
     return results
-
-
 def run_chunk_sweep(args: argparse.Namespace) -> list[Result]:
     results: list[Result] = []
     scenario = SCENARIOS[args.sweep_scenario]
@@ -215,8 +180,6 @@ def run_chunk_sweep(args: argparse.Namespace) -> list[Result]:
         results.append(res)
         print(f"  chunk={chunk:<6} {res.median_s:.4f}s", file=sys.stderr)
     return results
-
-
 def run_worker_scaling(args: argparse.Namespace) -> list[Result]:
     results: list[Result] = []
     scenario = SCENARIOS[args.scaling_scenario]
@@ -229,8 +192,6 @@ def run_worker_scaling(args: argparse.Namespace) -> list[Result]:
         results.append(res)
         print(f"  workers={w:<4} {res.median_s:.4f}s", file=sys.stderr)
     return results
-
-
 def run_feature_overhead(args: argparse.Namespace) -> list[Result]:
     results: list[Result] = []
     scenario = SCENARIOS["tiny"]
@@ -245,10 +206,8 @@ def run_feature_overhead(args: argparse.Namespace) -> list[Result]:
     }
     print(f"[feature overhead: imap_unordered/{scenario.name}] {n} items", file=sys.stderr)
     for label, extra in variants.items():
-
         def run(extra: dict[str, Any] = extra) -> Any:
             return mpf(scenario.func, items, "imap_unordered", workers=args.workers, chunksize=args.chunksize, **extra)
-
         res = summarize("overhead", label, args.workers, args.chunksize, n, time_call(run, args.repeat, args.warmup))
         results.append(res)
         print(f"  {label:<18} {res.median_s:.4f}s", file=sys.stderr)
@@ -256,8 +215,6 @@ def run_feature_overhead(args: argparse.Namespace) -> list[Result]:
     for r in results:
         r.speedup = base / r.median_s if r.median_s > 0 else None
     return results
-
-
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Benchmark jobutils.mpf backends")
     p.add_argument("--scenarios", nargs="+", choices=sorted(SCENARIOS), default=["cpu", "io", "tiny"])
@@ -281,8 +238,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     if args.methods:
         args.methods = [PoolMethod.parse(m).value for m in args.methods]
     return args
-
-
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     print(
@@ -315,7 +270,5 @@ def main(argv: list[str] | None = None) -> int:
         with open(args.json, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
     return 0
-
-
 if __name__ == "__main__":
     raise SystemExit(main())

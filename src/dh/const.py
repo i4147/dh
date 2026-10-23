@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 SHEBANG_MAP: dict[str, str] = {
     "python": ".py",
     "python2": ".py",
@@ -4568,6 +4569,9 @@ CHUNK_SIZE: int = 32768
 ZERO_DOT_THREE: float = 0.3
 SKIP_DIRS: Final[frozenset[str]] = frozenset({
     ".ropeproject",
+    "mypy",
+    "pylint",
+    "radin",
     ".git",
     "stanza",
     "pip",

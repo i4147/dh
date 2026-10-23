@@ -7,7 +7,6 @@ import statistics
 import sys
 import time
 from typing import Any
-
 from dh import (
     MAX_WORKERS,
     mpf,
@@ -23,24 +22,18 @@ from dh import (
     mpf_starmap,
     mpf_tpe,
 )
-
-
 def hash_file(path: Path) -> tuple[str, str]:
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return str(path), h.hexdigest()
-
-
 def hash_file_maybe_fail(path: Path) -> tuple[str, str | None]:
     try:
         _, digest = hash_file(path)
         return (digest, None)
     except Exception as e:
         return ("", f"{type(e).__name__}: {e}")
-
-
 def _run(name: str, fn: Callable[[], Any], files: list[Path]) -> dict[str, Any]:
     print(f"\n=== {name} ===")
     print(f"files={len(files)}")
@@ -57,8 +50,6 @@ def _run(name: str, fn: Callable[[], Any], files: list[Path]) -> dict[str, Any]:
     throughput = (len(files) / elapsed) if elapsed > 0 else float("inf")
     print(f"  elapsed={elapsed:.3f}s  results={n_results}  throughput={throughput:.1f} files/s")
     return {"name": name, "elapsed": elapsed, "ok": ok, "n_results": n_results}
-
-
 def benchmark(folder: Path, workers: int, runs: int, pattern: str) -> None:
     files = sorted(p for p in folder.rglob(pattern) if p.is_file())
     if not files:
@@ -111,17 +102,12 @@ def benchmark(folder: Path, workers: int, runs: int, pattern: str) -> None:
             suffix = f"   x{baseline / best:.2f}"
         print(f"{name:<15}{best:>9.3f}s{med:>9.3f}s{worst:>9.3f}s{len(ts):>8}{suffix}")
     print("=" * 72)
-
-
 def _has_joblib() -> bool:
     try:
-        import joblib  # noqa: F401
-
+        import joblib
         return True
     except ImportError:
         return False
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Benchmark dh parallel helpers on file hashing.")
     parser.add_argument("folder", type=Path, help="Folder to scan for files")
@@ -139,7 +125,5 @@ def main() -> None:
         print(f"Not a directory: {args.folder}", file=sys.stderr)
         sys.exit(1)
     benchmark(args.folder, args.workers, args.runs, args.pattern)
-
-
 if __name__ == "__main__":
     main()

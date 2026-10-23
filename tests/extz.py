@@ -1,8 +1,5 @@
 import sys
-
 from dh import BIN_EXT, TXT_EXT
-
-
 def main():
     extz = []
     for k in BIN_EXT:
@@ -13,7 +10,5 @@ def main():
         for j in extz:
             f.write(j)
             f.write("\n")
-
-
 if __name__ == "__main__":
     sys.exit(main())

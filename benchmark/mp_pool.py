@@ -4,8 +4,6 @@ from collections.abc import Callable, Sequence
 from functools import partial
 from multiprocessing.pool import AsyncResult, Pool
 from typing import Any, Final, Literal, TypeVar
-
-
 __all__ = [
     "POOL_METHODS",
     "POOL_WORKERS",
@@ -22,12 +20,8 @@ POOL_METHODS: Final[tuple[str, ...]] = (
 )
 PoolMethod = Literal["map", "starmap", "imap_unordered", "apply_async"]
 T = TypeVar("T")
-
-
 def _star_unpack[T](func: Callable[..., T], item: Sequence[Any]) -> T:
     return func(*item)
-
-
 def run_pool[T](
     func: Callable[..., T],
     items: Sequence[Any],
@@ -57,8 +51,6 @@ def run_pool[T](
                 results = [pool.apply_async(func, (item,)) for item in items]
             return [r.get() for r in results]
     raise ValueError(f"Unsupported pool method: {method!r}")
-
-
 def add_pool_method_arg(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--pool-method",

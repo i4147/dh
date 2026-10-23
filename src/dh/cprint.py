@@ -8,6 +8,7 @@ from typing import Any
 from rich.console import Console
 from rich.style import Style
 from rich.text import Text
+
 ATTRIBUTES: dict[str, int] = {
     "bold": 1,
     "dark": 2,
@@ -106,6 +107,8 @@ _RICH_ATTRIBUTES: dict[str, str] = {
     "strike": "strike",
 }
 ColorSpec = str | tuple[int, int, int]
+
+
 @cache
 def can_colorize(*, no_color: bool | None = None, force_color: bool | None = None) -> bool:
     if no_color is not None and no_color:
@@ -126,6 +129,8 @@ def can_colorize(*, no_color: bool | None = None, force_color: bool | None = Non
         return os.isatty(sys.stdout.fileno())
     except OSError:
         return sys.stdout.isatty()
+
+
 @cache
 def _terminal_color_system() -> str:
     probe = Console(force_terminal=False)
@@ -133,6 +138,8 @@ def _terminal_color_system() -> str:
     if detected:
         return detected
     return "truecolor"
+
+
 def _color_token(color: ColorSpec, *, background: bool) -> str:
     if isinstance(color, str):
         table = _RICH_HIGHLIGHTS if background else _RICH_COLORS
@@ -145,6 +152,8 @@ def _color_token(color: ColorSpec, *, background: bool) -> str:
     if background:
         return f"on rgb({red},{green},{blue})"
     return f"rgb({red},{green},{blue})"
+
+
 def _build_style(
     color: ColorSpec | None,
     on_color: ColorSpec | None,
@@ -164,6 +173,8 @@ def _build_style(
     if not parts:
         return None
     return Style.parse(" ".join(parts))
+
+
 def _render(text: str, style: Style) -> str:
     buffer = StringIO()
     console = Console(
@@ -177,6 +188,8 @@ def _render(text: str, style: Style) -> str:
     )
     console.print(Text(text, style=style), end="")
     return buffer.getvalue()
+
+
 def colored(
     text: object,
     color: ColorSpec | None = None,
@@ -193,6 +206,8 @@ def colored(
     if style is None:
         return result
     return _render(result, style)
+
+
 def cprint(
     text: object,
     color: ColorSpec | None = None,
@@ -214,6 +229,8 @@ def cprint(
         ),
         **kwargs,
     )
+
+
 __all__ = [
     "ATTRIBUTES",
     "COLORS",

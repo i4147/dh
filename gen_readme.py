@@ -1,8 +1,6 @@
 from pathlib import Path
 import subprocess
 import tempfile
-
-
 readme_markdown = ""
 with tempfile.TemporaryDirectory() as tmpdir:
     tmp_path = Path(tmpdir)

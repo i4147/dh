@@ -9,14 +9,11 @@ import statistics
 import sys
 import time
 from typing import Any
-
 from dh import (
     MAX_WORKERS,
     ParallelSummary,
     mpf,
 )
-
-
 @dataclass
 class BenchmarkResult:
     function_name: str
@@ -25,7 +22,6 @@ class BenchmarkResult:
     success_rate: float
     results: list[Any] = field(default_factory=list)
     summary: ParallelSummary | None = None
-
     def to_dict(self) -> dict:
         return {
             "function": self.function_name,
@@ -34,8 +30,6 @@ class BenchmarkResult:
             "success_rate": round(self.success_rate, 2),
             "files_processed": len(self.results) if self.results else 0,
         }
-
-
 def calculate_sha256(file_path: Path | str) -> tuple[str, str | None]:
     try:
         file_path = Path(file_path)
@@ -48,8 +42,6 @@ def calculate_sha256(file_path: Path | str) -> tuple[str, str | None]:
         return sha256_hash.hexdigest(), None
     except Exception as e:
         return "", f"Error: {type(e).__name__}: {e}"
-
-
 def calculate_sha256_simple(file_path: Path | str) -> str:
     file_path = Path(file_path)
     sha256_hash = hashlib.sha256()
@@ -57,8 +49,6 @@ def calculate_sha256_simple(file_path: Path | str) -> str:
         for byte_block in iter(lambda: f.read(8192), b""):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
-
-
 def calculate_sha256_with_args(file_path: Path | str, buffer_size: int = 8192) -> str:
     file_path = Path(file_path)
     sha256_hash = hashlib.sha256()
@@ -66,8 +56,6 @@ def calculate_sha256_with_args(file_path: Path | str, buffer_size: int = 8192) -
         for byte_block in iter(lambda: f.read(buffer_size), b""):
             sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
-
-
 def get_files_from_directory(directory: str | Path, extensions: list[str] | None = None) -> list[Path]:
     directory = Path(directory)
     if not directory.exists():
@@ -81,8 +69,6 @@ def get_files_from_directory(directory: str | Path, extensions: list[str] | None
         if file_path.is_file() and (extensions is None or file_path.suffix.lower() in extensions):
             files.append(file_path)
     return sorted(files)
-
-
 def benchmark_function(
     func: Callable, name: str, files: list[Path], workers: int = MAX_WORKERS, **kwargs
 ) -> BenchmarkResult:
@@ -133,8 +119,6 @@ def benchmark_function(
         return BenchmarkResult(
             function_name=name, total_time=total_time, throughput=0, success_rate=0, results=[], summary=None
         )
-
-
 def run_benchmarks(directory: str | Path, workers: int = MAX_WORKERS, repeat: int = 3):
     print(f"Starting benchmarks...")
     print(f"Directory: {directory}")
@@ -193,8 +177,6 @@ def run_benchmarks(directory: str | Path, workers: int = MAX_WORKERS, repeat: in
         json.dump([r.to_dict() for r in sorted_results], f, indent=2)
     print(f"\nResults saved to: {output_file}")
     return sorted_results
-
-
 def run_quick_test(directory: str | Path, workers: int = 4):
     print("Running quick test...")
     files = get_files_from_directory(directory)
@@ -223,14 +205,11 @@ def run_quick_test(directory: str | Path, workers: int = 4):
             print(f"✓ {name:<20} - {elapsed:.3f}s - {success:.0f}% success")
         except Exception as e:
             print(f"✗ {name:<20} - FAILED: {type(e).__name__}: {e}")
-
-
 def create_test_files(directory: str | Path, num_files: int = 100, file_size_kb: int = 100):
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     print(f"Creating {num_files} test files of {file_size_kb}KB in {directory}...")
     import random
-
     random.seed(42)
     for i in range(num_files):
         size = int(file_size_kb * 1024 * random.uniform(0.5, 2.0))
@@ -244,8 +223,6 @@ def create_test_files(directory: str | Path, num_files: int = 100, file_size_kb:
                 remaining -= write_size
     print(f"Created {num_files} files in {directory}")
     return directory
-
-
 def main():
     if len(sys.argv) < 2:
         print("Usage: python benchmark_dh.py <directory> [workers] [--create-test-files]")
@@ -284,7 +261,5 @@ def main():
         print("\nTip: For I/O-bound tasks (like file hashing), ThreadPoolExecutor might be faster.")
         print("For CPU-bound tasks, ProcessPoolExecutor is usually better.")
         print("The optimal choice depends on your specific workload.")
-
-
 if __name__ == "__main__":
     main()

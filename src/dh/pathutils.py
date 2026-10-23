@@ -4,7 +4,10 @@ from typing import Iterator, Union
 from fastwalk import walk_dirs, walk_files
 from .fileutils import should_skip
 from .isbinary import is_binary
+
 PathLike = Union[str, Path]
+
+
 def _iter_entries(
     path: PathLike,
 ) -> Iterator:
@@ -13,6 +16,8 @@ def _iter_entries(
         if should_skip(filepath):
             continue
         yield filepath
+
+
 def get_files(
     path: PathLike,
     ext: list[str] | None = None,
@@ -22,6 +27,8 @@ def get_files(
         if exts is not None and entry.suffix.lower() not in exts:
             continue
         yield entry
+
+
 def get_pyfiles(
     path: PathLike,
 ) -> Iterator[Path]:
@@ -36,12 +43,16 @@ def get_pyfiles(
                 continue
             if head.startswith(b"#!") and b"python" in head:
                 yield entry
+
+
 def get_nobinary(
     path: PathLike,
 ) -> Iterator[Path]:
-    for entry in _iter_entrie(path):
+    for entry in _iter_entries(path):
         if not is_binary(entry):
             yield entry
+
+
 def get_dirs(
     path: PathLike,
 ) -> Iterator[Path]:
