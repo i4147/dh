@@ -153,9 +153,6 @@ from .utils import WORD_PATTERN, get_sha256, has_doc, is_valid_url, slugify, tok
 
 
 __all__ = [
-    "is_binary",
-    "is_git_repo",
-    "walkerFileWalkerConfig",
     "ReportGenerator",
     "ReportItem",
     "append_text",
@@ -179,7 +176,9 @@ __all__ = [
     "gext",
     "gsz",
     "gsze",
+    "is_binary",
     "is_empty",
+    "is_git_repo",
     "is_image",
     "is_python_file",
     "is_text_file",
@@ -201,6 +200,7 @@ __all__ = [
     "unique_path",
     "walk_files",
     "walk_paths",
+    "walkerFileWalkerConfig",
     "walkfiles",
     "worker",
     "write_txt_file",
@@ -250,8 +250,8 @@ __all__ += [
     "SDCARD",
     "SHEBANG_MAP",
     "STDLIB",
-    "THRESHOLD",
     "TEXT_EXTENSIONS",
+    "THRESHOLD",
     "UNDERLINE",
     "VIDEO_EXTENSIONS",
     "WHITE",
@@ -283,17 +283,17 @@ __all__ += [
 ]
 __all__ += ["colored", "cprint"]
 __all__ += [
-    "mpf",
-    "failures",
-    "values",
+    "EXECUTOR_METHODS",
+    "STAR_METHODS",
+    "UNPICKLED_METHODS",
     "Method",
     "MethodUnavailableError",
     "MpfError",
     "Outcome",
     "TaskError",
-    "EXECUTOR_METHODS",
-    "STAR_METHODS",
-    "UNPICKLED_METHODS",
+    "failures",
+    "mpf",
+    "values",
 ]
 # __all__ += [
 #    "PoolMethod",
@@ -322,9 +322,9 @@ from .pathutils import get_dirs, get_files, get_filez, get_nobinary, get_pyfiles
 
 
 __all__ += [
+    "get_dirs",
     "get_files",
     "get_filez",
-    "get_pyfiles",
     "get_nobinary",
-    "get_dirs",
+    "get_pyfiles",
 ]

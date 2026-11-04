@@ -1,4 +1,5 @@
 import ast
+from collections.abc import Iterator
 from hashlib import sha256
 from io import StringIO
 from pathlib import Path
@@ -9,8 +10,6 @@ import unicodedata
 from urllib.parse import urlsplit
 
 
-if TYPE_CHECKING:
-    from collections.abc import Iterator
 PROTOCOLS = {"http", "https"}
 pattern: re.Pattern[str] = re.compile(
     r"""(?:
@@ -111,3 +110,37 @@ def cube_rgb(n: int):
     g = levels[(n % 36) // 6]
     b = levels[n % 6]
     return (r, g, b)
+
+
+_ANSI_RE = re.compile(
+    r"\x1B"
+    r"(?:"
+    r"\[[0-?]*[ -/]*[@-~]"  # CSI:  \x1b[...m, \x1b[K, \x1b[2J, …
+    r"|\][^\x07\x1B]*(?:\x07|\x1B\\)"  # OSC:  \x1b]0;title\x07
+    r"|[PX^_][^\x1B]*\x1B\\"  # DCS / SOS / PM / APC
+    r"|[@-Z\\-_]"  # single-char escapes
+    r")"
+)
+
+_CTRL_RE = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
+_BACKSPACE_RE = re.compile(r"[^\n]\x08")
+
+
+def clean_terminal_transcript(text: str) -> str:
+    """Strip ANSI escapes, control chars, and \\r / backspace artifacts."""
+    text = _ANSI_RE.sub("", text)
+
+    prev = None
+    while prev != text:
+        prev = text
+        text = _BACKSPACE_RE.sub("", text)
+    text = text.replace("\x08", "")
+
+    text = text.replace("\r\n", "\n")
+    text = "\n".join(line.rsplit("\r", 1)[-1] for line in text.split("\n"))
+
+    text = _CTRL_RE.sub("", text)
+
+    text = "\n".join(ln.rstrip() for ln in text.split("\n"))
+    text = re.sub(r"\n{3,}", "\n\n", text).strip() + "\n"
+    return text

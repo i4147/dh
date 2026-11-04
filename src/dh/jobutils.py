@@ -76,7 +76,8 @@ class Method(StrEnum):
             return cls(key)
         except ValueError:
             choices = ", ".join(member.value for member in cls)
-            raise ValueError(f"unknown method {value!r}; choose from: {choices}") from None
+            msg = f"unknown method {value!r}; choose from: {choices}"
+            raise ValueError(msg) from None
 
 
 STAR_METHODS: frozenset[Method] = frozenset({Method.STARMAP, Method.STARMAP_ASYNC})
@@ -101,7 +102,7 @@ type AnyOutcome = Outcome[Any, Any]
 
 
 def values[T, R](outcomes: Iterable[Outcome[T, R]]) -> list[R]:
-    return [cast(R, outcome.value) for outcome in outcomes if outcome.ok]
+    return [cast("R", outcome.value) for outcome in outcomes if outcome.ok]
 
 
 def failures[T, R](outcomes: Iterable[Outcome[T, R]]) -> list[Outcome[T, R]]:
@@ -150,7 +151,8 @@ def _cpu_count() -> int:
 def _resolve_workers(method: Method, requested: int | None, total: int) -> int:
     if requested is not None:
         if requested < 1:
-            raise ValueError("workers must be >= 1")
+            msg = "workers must be >= 1"
+            raise ValueError(msg)
         return min(requested, total)
     cpus = _cpu_count()
     default = min(32, cpus + 4) if method is Method.THREAD else cpus
@@ -160,7 +162,8 @@ def _resolve_workers(method: Method, requested: int | None, total: int) -> int:
 def _resolve_chunksize(method: Method, requested: int | None, total: int, workers: int) -> int:
     if requested is not None:
         if requested < 1:
-            raise ValueError("chunksize must be >= 1")
+            msg = "chunksize must be >= 1"
+            raise ValueError(msg)
         return requested
     if method in {Method.THREAD, Method.APPLY_ASYNC}:
         return 1
@@ -169,25 +172,29 @@ def _resolve_chunksize(method: Method, requested: int | None, total: int, worker
 
 def _check_available(method: Method) -> None:
     if method is Method.INTERPRETER and not hasattr(cf, "InterpreterPoolExecutor"):
-        raise MethodUnavailableError("InterpreterPoolExecutor requires Python 3.14+")
+        msg = "InterpreterPoolExecutor requires Python 3.14+"
+        raise MethodUnavailableError(msg)
     if method is Method.JOBLIB and importlib.util.find_spec("joblib") is None:
-        raise MethodUnavailableError("joblib is not installed (pip install 'joblib>=1.4')")
+        msg = "joblib is not installed (pip install 'joblib>=1.4')"
+        raise MethodUnavailableError(msg)
 
 
 def _check_picklable(task: _Task, method: Method) -> None:
     try:
         pickle.dumps(task)
     except Exception as exc:
-        raise TypeError(
+        msg = (
             f"{method.value}: {task.func!r} cannot be pickled ({exc}); "
             "use a module-level function, or the 'thread' / 'joblib' method"
-        ) from exc
+        )
+        raise TypeError(msg) from exc
 
 
 def _check_star_items(items: Sequence[Any]) -> None:
     for position, item in enumerate(items):
         if not isinstance(item, tuple | list):
-            raise TypeError(f"starmap methods need tuple/list items, got {type(item).__name__} at position {position}")
+            msg = f"starmap methods need tuple/list items, got {type(item).__name__} at position {position}"
+            raise TypeError(msg)
 
 
 def _run_joblib(task: _Task, packed: Sequence[Packed], workers: int, backend: str | None) -> Iterator[AnyOutcome]:
@@ -208,9 +215,10 @@ def _make_executor(method: Method, workers: int, mp_context: StartMethod | None)
         case Method.THREAD:
             return cf.ThreadPoolExecutor(max_workers=workers, thread_name_prefix="mpf")
         case Method.INTERPRETER:
-            factory = getattr(cf, "InterpreterPoolExecutor")
+            factory = cf.InterpreterPoolExecutor
             return factory(max_workers=workers)
-    raise AssertionError(f"not an executor method: {method}")
+    msg = f"not an executor method: {method}"
+    raise AssertionError(msg)
 
 
 def _abort_executor(executor: cf.Executor) -> None:
@@ -284,7 +292,8 @@ def _dispatch_pool(
         case Method.APPLY_ASYNC:
             yield from _apply_async(pool, task, packed)
         case _:
-            raise AssertionError(f"not a pool method: {method}")
+            msg = f"not a pool method: {method}"
+            raise AssertionError(msg)
 
 
 def _run_pool(
@@ -413,9 +422,11 @@ def mpf[T, R](
 ) -> list[Outcome[T, R]]:
     chosen = Method.parse(method)
     if progress not in (None, "tqdm", "rich"):
-        raise ValueError(f"progress must be None, 'tqdm' or 'rich', got {progress!r}")
+        msg = f"progress must be None, 'tqdm' or 'rich', got {progress!r}"
+        raise ValueError(msg)
     if on_error not in ("collect", "raise"):
-        raise ValueError(f"on_error must be 'collect' or 'raise', got {on_error!r}")
+        msg = f"on_error must be 'collect' or 'raise', got {on_error!r}"
+        raise ValueError(msg)
     work = list(items)
     total = len(work)
     if total == 0:
@@ -451,7 +462,8 @@ def mpf[T, R](
     except Exception as exc:
         logger.error("{} aborted: {}: {}", chosen.value, type(exc).__name__, exc)
         if on_error == "raise":
-            raise MpfError(f"{chosen.value} aborted: {exc}") from exc
+            msg = f"{chosen.value} aborted: {exc}"
+            raise MpfError(msg) from exc
         for index, item in packed:
             if index not in seen:
                 seen[index] = Outcome(index, item, error=f"not completed: {type(exc).__name__}: {exc}")
@@ -469,4 +481,4 @@ def mpf[T, R](
         count,
         size,
     )
-    return cast(list[Outcome[T, R]], results)
+    return cast("list[Outcome[T, R]]", results)

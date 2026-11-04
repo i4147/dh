@@ -1,5 +1,6 @@
 import codecs
 from collections import defaultdict
+from collections.abc import Callable, Collection, Generator, Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 import functools
@@ -23,8 +24,6 @@ from .const import (
 )
 
 
-if TYPE_CHECKING:
-    from collections.abc import Callable, Collection, Generator, Iterator, Sequence
 ANSI_RE: re.Pattern[str] = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 FENCE_RE: re.Pattern[str] = re.compile(r"^\s*```.*$", re.MULTILINE)
 SHELL_RE: re.Pattern[str] = re.compile(r"^\s*(?:\$|>|>>>)\s.*$", re.MULTILINE)
@@ -90,9 +89,11 @@ class _PathOps:
     @staticmethod
     def require_dir(path: Path) -> None:
         if not path.exists():
-            raise FileNotFoundError(f"Path does not exist: {path}")
+            msg = f"Path does not exist: {path}"
+            raise FileNotFoundError(msg)
         if not path.is_dir():
-            raise NotADirectoryError(f"Path is not a directory: {path}")
+            msg = f"Path is not a directory: {path}"
+            raise NotADirectoryError(msg)
 
     @staticmethod
     def gext(path: str | Path) -> str:
@@ -443,21 +444,25 @@ class _FileOps:
         try:
             st = path.stat()
         except FileNotFoundError:
-            raise FileNotFoundError(f"File not found: {path}") from None
+            msg = f"File not found: {path}"
+            raise FileNotFoundError(msg) from None
         except OSError as e:
-            raise RuntimeError(f"Error checking file {path}: {e}") from e
+            msg = f"Error checking file {path}: {e}"
+            raise RuntimeError(msg) from e
         if not stat.S_ISREG(st.st_mode):
-            raise ValueError(f"Path is not a file: {path}")
+            msg = f"Path is not a file: {path}"
+            raise ValueError(msg)
         suffix = path.suffix
         if suffix in BINARY_EXTENSIONS:
             return False
-        if suffix in TEXT_ECTENSIONS:
+        if suffix in TEXT_EXTENSIONS:
             return True
         try:
             with path.open("rb") as f:
                 chunk = f.read(CHUNK_SIZE)
         except OSError as e:
-            raise RuntimeError(f"Error checking file {path}: {e}") from e
+            msg = f"Error checking file {path}: {e}"
+            raise RuntimeError(msg) from e
         return not _FileOps._check_binary_chunk(chunk)
 
     @staticmethod
@@ -660,9 +665,11 @@ class _DirOps:
             src_path = Path(src).resolve()
             dest_path = Path(dest).resolve()
             if not src_path.exists():
-                raise FileNotFoundError(f"Source path does not exist: {src_path}")
+                msg = f"Source path does not exist: {src_path}"
+                raise FileNotFoundError(msg)
             if not src_path.is_dir():
-                raise NotADirectoryError(f"Source must be a directory: {src_path}")
+                msg = f"Source must be a directory: {src_path}"
+                raise NotADirectoryError(msg)
             return _DirOps.copy_tree(src_path, dest_path / src_path.name)
         except Exception as e:
             print(f"Copy failed: {e}")
@@ -674,9 +681,11 @@ class _DirOps:
             src_path = Path(src).resolve()
             dest_path = Path(dest).resolve()
             if not src_path.exists():
-                raise FileNotFoundError(f"Source path does not exist: {src_path}")
+                msg = f"Source path does not exist: {src_path}"
+                raise FileNotFoundError(msg)
             if not src_path.is_dir():
-                raise NotADirectoryError(f"Source must be a directory: {src_path}")
+                msg = f"Source must be a directory: {src_path}"
+                raise NotADirectoryError(msg)
             if dest_path.is_relative_to(src_path):
                 print(f"Warning: Destination {dest_path} is inside source {src_path}")
                 return False
@@ -710,11 +719,14 @@ class _ProcRunner:
         import subprocess
 
         if not cmd:
-            raise ValueError("cmd must be a non-empty sequence of strings")
+            msg = "cmd must be a non-empty sequence of strings"
+            raise ValueError(msg)
         if not cmd[0]:
-            raise ValueError("cmd[0] must be a non-empty string")
+            msg = "cmd[0] must be a non-empty string"
+            raise ValueError(msg)
         if any(not isinstance(arg, str) for arg in cmd):
-            raise TypeError("All command arguments must be strings")
+            msg = "All command arguments must be strings"
+            raise TypeError(msg)
         command: list[str] = list(cmd)
 
         def decode_output(data: bytes | str | None) -> str:
@@ -807,7 +819,7 @@ class _Format:
         return f"{sign}{value:.2f} TiB"
 
     @staticmethod
-    def fsz(n: int | float) -> str:
+    def fsz(n: float) -> str:
         sign = "-" if n < 0 else ""
         value = int(abs(n))
         if value == 0:
@@ -986,9 +998,9 @@ class ReportGenerator:
         out.append(f"{line}\n")
         print("\n".join(out))
 
-    def export_to_file(self, filepath: Path, format: str = "text") -> None:
+    def export_to_file(self, filepath: Path, file_format: str = "text") -> None:
         filepath = Path(filepath)
-        if format == "text":
+        if file_format == "text":
             out = [f"{self.title}\n{'=' * self.width}"]
             for item in self.items:
                 suffix = f" - {item.message}" if item.message else ""
@@ -996,7 +1008,7 @@ class ReportGenerator:
             out.append("\nSummary:")
             out.extend(f"  {key}: {value}" for key, value in self.stats.items())
             filepath.write_text("\n".join(out) + "\n", encoding="utf-8")
-        elif format == "csv":
+        elif file_format == "csv":
             import csv
 
             with filepath.open("w", newline="", encoding="utf-8") as f:
@@ -1072,7 +1084,7 @@ def format_bytes(n: int) -> str:
     return _Format.format_bytes(n)
 
 
-def fsz(n: int | float) -> str:
+def fsz(n: float) -> str:
     return _Format.fsz(n)
 
 
@@ -1137,7 +1149,8 @@ def get_files_scandir(path: str | Path, include_hidden: bool = True, ext: list[s
 def get_files_iter(directory: str | Path, ext: list[str] | None = None) -> Iterator[Path]:
     directory = Path(directory)
     if not directory.is_dir():
-        raise NotADirectoryError(f"Path is not a directory: {directory}")
+        msg = f"Path is not a directory: {directory}"
+        raise NotADirectoryError(msg)
     exts = set(ext) if ext else None
     return (p.resolve() for p in _FileWalker.iter_files(directory, exts, prune=False))
 

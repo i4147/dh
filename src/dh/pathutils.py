@@ -7,7 +7,7 @@ from .const import SKIP_DIRS
 from .fileutils import is_binary
 
 
-PathLike = Union[str, Path]
+PathLike = str | Path
 
 
 def get_dirs(
@@ -25,7 +25,7 @@ def _is_python_file(file_path: str) -> bool:
         return True
     if p.suffix == "":
         try:
-            with open(file_path, "rb") as fh:
+            with file_path.open("rb") as fh:
                 first_line = fh.readline(128).decode("utf-8", errors="ignore").lower()
             return first_line.startswith("#!") and "python" in first_line
         except OSError:

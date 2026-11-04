@@ -148,7 +148,8 @@ def _color_token(color: ColorSpec, *, background: bool) -> str:
             return table[color]
         except KeyError as exc:
             kind = "highlight" if background else "color"
-            raise KeyError(f"unknown {kind} {color!r}") from exc
+            msg = f"unknown {kind} {color!r}"
+            raise KeyError(msg) from exc
     red, green, blue = color
     if background:
         return f"on rgb({red},{green},{blue})"
@@ -170,7 +171,8 @@ def _build_style(
             try:
                 parts.append(_RICH_ATTRIBUTES[attr])
             except KeyError as exc:
-                raise KeyError(f"unknown attribute {attr!r}") from exc
+                msg = f"unknown attribute {attr!r}"
+                raise KeyError(msg) from exc
     if not parts:
         return None
     return Style.parse(" ".join(parts))
