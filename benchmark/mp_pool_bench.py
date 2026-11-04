@@ -1,4 +1,3 @@
-from __future__ import annotations
 import argparse
 from collections.abc import Callable, Sequence
 from pathlib import Path

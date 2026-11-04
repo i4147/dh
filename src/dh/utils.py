@@ -1,12 +1,11 @@
-from __future__ import annotations
 import ast
+import re
+import tokenize
+import unicodedata
 from hashlib import sha256
 from io import StringIO
 from pathlib import Path
-import re
-import tokenize
 from typing import TYPE_CHECKING
-import unicodedata
 from urllib.parse import urlsplit
 
 if TYPE_CHECKING:
@@ -102,3 +101,13 @@ def tokenize_text(text: str) -> list[str]:
         subwords: list[str] = WORD_PATTERN.findall(identifier)
         tokens.extend(subwords or [identifier])
     return tokens
+
+
+def cube_rgb(n:int):
+    n -= 16
+    levels = [0, 95, 135, 175, 215, 255]
+    r = levels[n // 36]
+    g = levels[(n % 36) // 6]
+    b = levels[n % 6]
+    return (r, g, b)
+

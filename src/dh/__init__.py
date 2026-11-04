@@ -1,19 +1,19 @@
-from __future__ import annotations
-from pathlib import Path
 import sys
+from pathlib import Path
+
 from .const import (
     ANSI_BOLD,
     ANSI_RESET,
-    AREXT,
-    AUDEXT,
-    BIN_EXT,
+    ARCHIVE_EXTENSIONS,
+    AUDIO_EXTENSIONS,
+    BINARY_EXTENSIONS,
     BLACK,
     BLINK,
     BLUE,
     BOLD,
-    BOOKEXT,
+    BOOK_EXTENSIONS,
     CHUNK_SIZE,
-    CODEXT,
+    CODE_EXTENSIONS,
     CONSEALED,
     CONTEXT_METHOD,
     CSS_COLORS,
@@ -21,15 +21,15 @@ from .const import (
     DOC_TH,
     DOC_TH1,
     DOC_TH2,
-    DOCEXT,
+    DOC_EXTENSIONS,
     EMULATED,
     EXT2MIME,
-    FONTEXT,
+    FONT_EXTENSIONS,
     GREEN,
     GREY,
     GREYBLACK,
     GREYWHITE,
-    IMGEXT,
+    IMAGE_EXTENSIONS,
     LBLUE,
     LCYAN,
     LGREEN,
@@ -49,9 +49,9 @@ from .const import (
     SKIP_DIRS,
     STDLIB,
     THRESHOLD,
-    TXT_EXT,
+    TEXT_EXTENSIONS,
     UNDERLINE,
-    VIDEXT,
+    VIDEO_EXTENSIONS,
     WHITE,
     YELLOW,
     ZERO_DOT_THREE,
@@ -106,6 +106,7 @@ from .fileutils import (
     gsz,
     gsze,
     is_empty,
+    is_git_repo,
     is_image,
     is_python_file,
     is_text_file,
@@ -133,12 +134,25 @@ from .fileutils import (
     write_txt_file,
 )
 from .isbinary import is_binary
-from .jobutils import DEFAULT_CHUNKSIZE, DEFAULT_EXECUTOR_CHUNKSIZE, PoolMethod, mpf, mpf_iter
-from .pmap import run_parallel
-from .pool_helper import as_completed, wait
+from .jobutils import (
+    EXECUTOR_METHODS,
+    STAR_METHODS,
+    UNPICKLED_METHODS,
+    Method,
+    MethodUnavailableError,
+    MpfError,
+    Outcome,
+    TaskError,
+    failures,
+    mpf,
+    values,
+)
+
+# DEFAULT_CHUNKSIZE, DEFAULT_EXECUTOR_CHUNKSIZE, PoolMethod, mpf, mpf_iter
 from .utils import WORD_PATTERN, get_sha256, has_doc, is_valid_url, slugify, tokenize_text
 
 __all__ = [
+    "is_git_repo",
     "walkerFileWalkerConfig",
     "ReportGenerator",
     "ReportItem",
@@ -193,31 +207,31 @@ __all__ = [
 __all__ += [
     "ANSI_BOLD",
     "ANSI_RESET",
-    "AREXT",
-    "AUDEXT",
-    "BIN_EXT",
+    "ARCHIVE_EXTENSIONS",
+    "AUDIO_EXTENSIONS",
+    "BINARY_EXTENSIONS",
     "BLACK",
     "BLINK",
     "BLUE",
     "BOLD",
-    "BOOKEXT",
+    "BOOK_EXTENSIONS",
     "CHUNK_SIZE",
-    "CODEXT",
+    "CODE_EXTENSIONS",
     "CONSEALED",
     "CONTEXT_METHOD",
     "CSS_COLORS",
     "CYAN",
-    "DOCEXT",
+    "DOC_EXTENSIONS",
     "DOC_TH1",
     "DOC_TH2",
     "EMULATED",
     "EXT2MIME",
-    "FONTEXT",
+    "FONT_EXTENSIONS",
     "GREEN",
     "GREY",
     "GREYBLACK",
     "GREYWHITE",
-    "IMGEXT",
+    "IMAGE_EXTENSIONS",
     "LBLUE",
     "LCYAN",
     "LGREEN",
@@ -236,9 +250,9 @@ __all__ += [
     "SHEBANG_MAP",
     "STDLIB",
     "THRESHOLD",
-    "TXT_EXT",
+    "TEXT_EXTENSIONS",
     "UNDERLINE",
-    "VIDEXT",
+    "VIDEO_EXTENSIONS",
     "WHITE",
     "YELLOW",
     "ZERO_DOT_THREE",
@@ -268,19 +282,32 @@ __all__ += [
 ]
 __all__ += ["colored", "cprint"]
 __all__ += [
-    "PoolMethod",
     "mpf",
-    "mpf_iter",
-    "DEFAULT_CHUNKSIZE",
-    "DEFAULT_EXECUTOR_CHUNKSIZEa",
+    "failures",
+    "values",
+    "Method",
+    "MethodUnavailableError",
+    "MpfError",
+    "Outcome",
+    "TaskError",
+    "EXECUTOR_METHODS",
+    "STAR_METHODS",
+    "UNPICKLED_METHODS",
 ]
-__all__ += [
-    "ALL_COMPLETED",
-    "FIRST_COMPLETED",
-    "POLL_INTERVAL_SECONDS",
-    "as_completed",
-    "wait",
-]
+# __all__ += [
+#    "PoolMethod",
+#    "mpf",
+#    "mpf_iter",
+#    "DEFAULT_CHUNKSIZE",
+#    "DEFAULT_EXECUTOR_CHUNKSIZEa",
+# ]
+# __all__ += [
+#    "ALL_COMPLETED",
+#    "FIRST_COMPLETED",
+#    "POLL_INTERVAL_SECONDS",
+#    "as_completed",
+#    "wait",
+# ]
 __all__ += [
     "WORD_PATTERN",
     "get_sha256",
@@ -289,21 +316,13 @@ __all__ += [
     "slugify",
     "tokenize_text",
 ]
-__all__ += [
-    "run_parallel",
-]
-from .atomicio import atomic_write
-from .codeutils import ASTStripper, CSTStripper, StripFileResult, TSStripper
-from .pathutils import get_dirs, get_files, get_nobinary, get_pyfiles
+
+from .pathutils import get_dirs, get_files, get_nobinary, get_pyfiles, get_filez
 
 __all__ += [
-    "atomic_write",
-    "TSStripper",
-    "CSTStripper",
-    "ASTStripper",
     "get_files",
+    "get_filez",
     "get_pyfiles",
     "get_nobinary",
     "get_dirs",
-    "StripFileResult",
 ]

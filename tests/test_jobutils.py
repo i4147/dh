@@ -1,4 +1,3 @@
-from __future__ import annotations
 from concurrent.futures import TimeoutError as FutureTimeoutError
 import time
 from unittest.mock import MagicMock

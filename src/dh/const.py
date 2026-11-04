@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 SHEBANG_MAP: dict[str, str] = {
     "python": ".py",
     "python2": ".py",
@@ -213,7 +211,7 @@ SHEBANG_MAP: dict[str, str] = {
     "planet": ".plt",
     "snow": ".snow",
 }
-BIN_EXT: frozenset = frozenset({
+BINARY_EXTENSIONS: frozenset = frozenset({
     ".3ds",
     ".3g2",
     ".3ga",
@@ -846,7 +844,7 @@ BIN_EXT: frozenset = frozenset({
     ".zip",
     ".zst",
 })
-TXT_EXT: frozenset = frozenset({
+TEXT_EXTENSIONS: frozenset = frozenset({
     ".AUTHORS",
     ".CHANGELOG",
     ".CONTRIBUTORS",
@@ -1202,7 +1200,7 @@ TXT_EXT: frozenset = frozenset({
     ".yy",
     ".zsh",
 })
-IMGEXT: frozenset = frozenset({
+IMAGE_EXTENSIONS: frozenset = frozenset({
     ".ai",
     ".avif",
     ".bmp",
@@ -3750,8 +3748,8 @@ PY_KEYWORDS: frozenset = frozenset({
     "yield",
     "zip",
 })
-AREXT: frozenset = frozenset({".bz2", ".bzip2", ".gz", ".gzip", ".lz", ".rar", ".tar", ".xz", ".zip"})
-AUDEXT: frozenset = frozenset({
+ARCHIVE_EXTENSIONS: frozenset = frozenset({".bz2", ".bzip2", ".gz", ".gzip", ".lz", ".rar", ".tar", ".xz", ".zip"})
+AUDIO_EXTENSIONS: frozenset = frozenset({
     ".aiff",
     ".amr",
     ".flac",
@@ -3764,8 +3762,8 @@ AUDEXT: frozenset = frozenset({
     ".wav",
     ".wma",
 })
-BOOKEXT: frozenset = frozenset({".azw3", ".chm", ".djv", ".djvu", ".epub", ".fb2", ".mobi", ".pdf"})
-DOCEXT: frozenset = frozenset({
+BOOK_EXTENSIONS: frozenset = frozenset({".azw3", ".chm", ".djv", ".djvu", ".epub", ".fb2", ".mobi", ".pdf"})
+DOC_EXTENSIONS: frozenset = frozenset({
     ".accdb",
     ".doc",
     ".docm",
@@ -3795,7 +3793,7 @@ DOCEXT: frozenset = frozenset({
     ".xltx",
     ".xps",
 })
-FONTEXT: frozenset = frozenset({
+FONT_EXTENSIONS: frozenset = frozenset({
     ".bdf",
     ".bin",
     ".cid",
@@ -3817,7 +3815,7 @@ FONTEXT: frozenset = frozenset({
     ".woff",
     ".woff2",
 })
-VIDEXT: frozenset = frozenset({
+VIDEO_EXTENSIONS: frozenset = frozenset({
     ".3gp",
     ".avi",
     ".flv",
@@ -3831,7 +3829,7 @@ VIDEXT: frozenset = frozenset({
     ".webm",
     ".wmv",
 })
-CODEXT: frozenset = frozenset({
+CODE_EXTENSIONS: frozenset = frozenset({
     ".asm",
     ".awk",
     ".bas",
@@ -4570,16 +4568,8 @@ ZERO_DOT_THREE: float = 0.3
 SKIP_DIRS: Final[frozenset[str]] = frozenset({
     ".ropeproject",
     "mypy",
-    "pylint",
-    "radin",
     ".git",
-    "stanza",
     "pip",
-    "twisted",
-    "meson_python",
-    "absl_py",
-    "setuptools",
-    "lazy",
     "numpy",
     "pandas",
     "scipy",
@@ -4589,10 +4579,10 @@ SKIP_DIRS: Final[frozenset[str]] = frozenset({
     ".idea",
     ".vscode",
     ".github",
-    "packaging",
     ".mypy_cache",
     ".pytest_cache",
     ".ruff_cache",
+    "cython",
 })
 THRESHOLD: int = 2_097_152
 SDCARD: str = "/sdcard"

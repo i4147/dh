@@ -1,4 +1,3 @@
-from __future__ import annotations
 import codecs
 import functools
 import os
@@ -11,7 +10,17 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, overload
-from .const import BIN_EXT, CHUNK_SIZE, EMULATED, IMGEXT, SDCARD, SKIP_DIRS, THRESHOLD, TXT_EXT
+
+from .const import (
+    BINARY_EXTENSIONS,
+    CHUNK_SIZE,
+    EMULATED,
+    IMAGE_EXTENSIONS,
+    SDCARD,
+    SKIP_DIRS,
+    THRESHOLD,
+    TEXT_EXTENSIONS,
+)
 from .isbinary import is_binary
 
 if TYPE_CHECKING:
@@ -440,9 +449,9 @@ class _FileOps:
         if not stat.S_ISREG(st.st_mode):
             raise ValueError(f"Path is not a file: {path}")
         suffix = path.suffix
-        if suffix in BIN_EXT:
+        if suffix in BINARY_EXTENSIONS:
             return False
-        if suffix in TXT_EXT:
+        if suffix in TEXT_ECTENSIONS:
             return True
         try:
             with path.open("rb") as f:
@@ -1364,3 +1373,11 @@ def walker(
     skip_dirs: Collection[str] = SKIP_DIRS,
 ) -> Iterator[Path]:
     return _FileWalker.walker(path, recursive, exts, skip_dirs)
+
+
+def is_git_repo(path: str | Path) -> bool:
+    try:
+        target_dir = Path(path).expanduser().resolve()
+        return target_dir.is_dir() and (target_dir / ".git").is_dir()
+    except (PermissionError, OSError) as e:
+        return False
