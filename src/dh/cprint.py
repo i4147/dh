@@ -1,9 +1,11 @@
+"""Rich-backed terminal coloring helpers."""
+
 from collections.abc import Iterable
 from functools import cache
 from io import StringIO
 import os
 import sys
-from typing import Any
+from typing import Any, Literal, cast
 
 from rich.console import Console
 from rich.style import Style
@@ -112,6 +114,7 @@ ColorSpec = str | tuple[int, int, int]
 
 @cache
 def can_colorize(*, no_color: bool | None = None, force_color: bool | None = None) -> bool:
+    """Decide whether terminal colors are enabled by overrides and environment."""
     if no_color is not None and no_color:
         return False
     if force_color is not None and force_color:
@@ -133,11 +136,11 @@ def can_colorize(*, no_color: bool | None = None, force_color: bool | None = Non
 
 
 @cache
-def _terminal_color_system() -> str:
+def _terminal_color_system() -> Literal["standard", "256", "truecolor", "windows"]:
     probe = Console(force_terminal=False)
     detected = probe.color_system
     if detected:
-        return detected
+        return cast(Literal["standard", "256", "truecolor", "windows"], detected)
     return "truecolor"
 
 
@@ -202,6 +205,7 @@ def colored(
     no_color: bool | None = None,
     force_color: bool | None = None,
 ) -> str:
+    """Render text with optional foreground, background, and attribute styles."""
     result = str(text)
     if not can_colorize(no_color=no_color, force_color=force_color):
         return result
@@ -221,6 +225,7 @@ def cprint(
     force_color: bool | None = None,
     **kwargs: Any,
 ) -> None:
+    """Print styled text, forwarding additional keyword arguments to print."""
     print(
         colored(
             text,

@@ -1,0 +1,547 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>API reference - dh utilities</title>
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        
+        <link rel="icon" href="favicon.svg">
+        
+        
+        <link rel="shortcut icon" href="favicon.png">
+        
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        
+        <link rel="stylesheet" href="css/print.css" media="print">
+        
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="index.html"><strong aria-hidden="true">1.</strong> Getting started</a></li><li class="chapter-item expanded "><a href="traversal.html"><strong aria-hidden="true">2.</strong> Filesystem traversal</a></li><li class="chapter-item expanded "><a href="commands.html"><strong aria-hidden="true">3.</strong> Commands and terminal text</a></li><li class="chapter-item expanded "><a href="textutils.html"><strong aria-hidden="true">4.</strong> Text utilities</a></li><li class="chapter-item expanded "><a href="utilities.html"><strong aria-hidden="true">5.</strong> Other utilities</a></li><li class="chapter-item expanded "><a href="constants.html"><strong aria-hidden="true">6.</strong> Constants and file classification</a></li><li class="chapter-item expanded "><a href="development.html"><strong aria-hidden="true">7.</strong> Development</a></li><li class="chapter-item expanded "><a href="api.html" class="active"><strong aria-hidden="true">8.</strong> API reference</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">dh utilities</h1>
+
+                    <div class="right-buttons">
+                        
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#api-reference" id="api-reference">API reference</a></h1>
+<p>Generated by <code>tools/build_api_docs.py</code>.</p>
+<h2><a class="header" href="#dhfileutils" id="dhfileutils">dh.fileutils</a></h2>
+<h3><a class="header" href="#append_text" id="append_text">append_text</a></h3>
+<pre><code class="language-python">append_text(path: str | pathlib.Path, content: str, encoding: str = 'utf-8') -&gt; bool
+</code></pre>
+<p>Append encoded text to a file; return whether the write succeeded.</p>
+<h3><a class="header" href="#copy_dir" id="copy_dir">copy_dir</a></h3>
+<pre><code class="language-python">copy_dir(src: str, dest: str) -&gt; bool
+</code></pre>
+<p>Copy a directory into a destination parent; return success.</p>
+<h3><a class="header" href="#format_bytes" id="format_bytes">format_bytes</a></h3>
+<pre><code class="language-python">format_bytes(n: int) -&gt; str
+</code></pre>
+<p>Format an integer byte count using binary units.</p>
+<h3><a class="header" href="#format_time" id="format_time">format_time</a></h3>
+<pre><code class="language-python">format_time(t: float) -&gt; str
+</code></pre>
+<p>Format a duration in seconds using human-readable units.</p>
+<h3><a class="header" href="#fsz" id="fsz">fsz</a></h3>
+<pre><code class="language-python">fsz(n: float) -&gt; str
+</code></pre>
+<p>Format a byte count as a compact human-readable size.</p>
+<h3><a class="header" href="#get_dirs" id="get_dirs">get_dirs</a></h3>
+<pre><code class="language-python">get_dirs(path: str | pathlib.Path) -&gt; collections.abc.Iterator[pathlib.Path]
+</code></pre>
+<p>Iterate directories, including the root, using the shared walker.</p>
+<h3><a class="header" href="#get_file_age" id="get_file_age">get_file_age</a></h3>
+<pre><code class="language-python">get_file_age(path: str | pathlib.Path, str_mode: bool = False) -&gt; float | str
+</code></pre>
+<p>Return creation-time age in seconds or a human-readable string.</p>
+<h3><a class="header" href="#get_files" id="get_files">get_files</a></h3>
+<pre><code class="language-python">get_files(path: str | pathlib.Path, ext: list[str] | None = None, nobinary: bool = False, pyfiles: bool = False, skip_dirs: set[str] | None = None, dirs_only: bool = False) -&gt; list[pathlib.Path]
+</code></pre>
+<p>Return sorted paths; see get_filez for filtering and root semantics.</p>
+<h3><a class="header" href="#get_files4" id="get_files4">get_files4</a></h3>
+<pre><code class="language-python">get_files4(path: str | pathlib.Path, include_hidden: bool = True, ext: list[str] | None = None) -&gt; list[pathlib.Path]
+</code></pre>
+<p>Compatibility wrapper for get_files_scandir.</p>
+<h3><a class="header" href="#get_files_iter" id="get_files_iter">get_files_iter</a></h3>
+<pre><code class="language-python">get_files_iter(directory: str | pathlib.Path, ext: list[str] | None = None) -&gt; collections.abc.Iterator[pathlib.Path]
+</code></pre>
+<p>Iterate resolved file paths without pruning default skip directories.</p>
+<h3><a class="header" href="#get_files_iter_config" id="get_files_iter_config">get_files_iter_config</a></h3>
+<pre><code class="language-python">get_files_iter_config(path: pathlib.Path | str, config: dh.fileutils.FileWalkerConfig | None = None, file_filter: collections.abc.Callable[[pathlib.Path], bool] | None = None) -&gt; collections.abc.Iterator[pathlib.Path]
+</code></pre>
+<p>Yield files satisfying traversal configuration and an optional predicate.</p>
+<h3><a class="header" href="#get_files_pathlib" id="get_files_pathlib">get_files_pathlib</a></h3>
+<pre><code class="language-python">get_files_pathlib(path: pathlib.Path, include_hidden: bool = True, ext: list[str] | None = None) -&gt; list[pathlib.Path]
+</code></pre>
+<p>Return sorted files with case-insensitive extension filtering.</p>
+<h3><a class="header" href="#get_files_scandir" id="get_files_scandir">get_files_scandir</a></h3>
+<pre><code class="language-python">get_files_scandir(path: str | pathlib.Path, include_hidden: bool = True, ext: list[str] | None = None) -&gt; list[pathlib.Path]
+</code></pre>
+<p>Return sorted files using scandir traversal and optional suffix filters.</p>
+<h3><a class="header" href="#get_filez" id="get_filez">get_filez</a></h3>
+<pre><code class="language-python">get_filez(path: str | pathlib.Path, ext: list[str] | None = None, nobinary: bool = False, pyfiles: bool = False, skip_dirs: set[str] | None = None, dirs_only: bool = False) -&gt; collections.abc.Generator[pathlib.Path, None, None]
+</code></pre>
+<p>Yield paths using the shared scandir walker and combined filters.</p>
+<p>Extensions accept leading dots and are case-insensitive. None or an empty
+list disables extension filtering. Directory mode ignores file filters.
+The root directory itself is included in directory mode.
+Symlinks and hidden children are not followed. Traversal errors propagate.</p>
+<h3><a class="header" href="#get_installed_packages" id="get_installed_packages">get_installed_packages</a></h3>
+<pre><code class="language-python">get_installed_packages() -&gt; dict[str, str]
+</code></pre>
+<p>Return cached installed distribution names mapped to versions.</p>
+<h3><a class="header" href="#get_installed_pkgs" id="get_installed_pkgs">get_installed_pkgs</a></h3>
+<pre><code class="language-python">get_installed_pkgs() -&gt; list[str]
+</code></pre>
+<p>Return cached normalized installed distribution names.</p>
+<h3><a class="header" href="#get_mime_type" id="get_mime_type">get_mime_type</a></h3>
+<pre><code class="language-python">get_mime_type(path: str | pathlib.Path) -&gt; str | None
+</code></pre>
+<p>Guess the MIME type from a filename, or return None.</p>
+<h3><a class="header" href="#get_nobinary" id="get_nobinary">get_nobinary</a></h3>
+<pre><code class="language-python">get_nobinary(path: str | pathlib.Path) -&gt; list[pathlib.Path]
+</code></pre>
+<p>Return nonbinary files using the shared traversal filters.</p>
+<h3><a class="header" href="#get_pyfiles" id="get_pyfiles">get_pyfiles</a></h3>
+<pre><code class="language-python">get_pyfiles(path: str | pathlib.Path) -&gt; list[pathlib.Path]
+</code></pre>
+<p>Return Python source files and extensionless Python shebang scripts.</p>
+<h3><a class="header" href="#get_pyfiles_iter" id="get_pyfiles_iter">get_pyfiles_iter</a></h3>
+<pre><code class="language-python">get_pyfiles_iter(root: pathlib.Path) -&gt; collections.abc.Generator[pathlib.Path, None, None]
+</code></pre>
+<p>Yield Python files while excluding Git metadata and bytecode caches.</p>
+<h3><a class="header" href="#get_random_filename" id="get_random_filename">get_random_filename</a></h3>
+<pre><code class="language-python">get_random_filename(length: int = 10) -&gt; str
+</code></pre>
+<p>Generate a random lowercase filename stem of the requested length.</p>
+<h3><a class="header" href="#get_removed_lines" id="get_removed_lines">get_removed_lines</a></h3>
+<pre><code class="language-python">get_removed_lines(txt1: str, txt2: str) -&gt; list[str]
+</code></pre>
+<p>Return unique nonempty lines in the first text but not the second.</p>
+<h3><a class="header" href="#getfiles" id="getfiles">getfiles</a></h3>
+<pre><code class="language-python">getfiles(root_dir: str | pathlib.Path, ext: list[str] | None = None) -&gt; list[pathlib.Path]
+</code></pre>
+<p>Return sorted files using the legacy scandir traversal.</p>
+<h3><a class="header" href="#gext" id="gext">gext</a></h3>
+<pre><code class="language-python">gext(path: str | pathlib.Path) -&gt; str
+</code></pre>
+<p>Return the filename extension, preserving recognized compound suffixes.</p>
+<h3><a class="header" href="#gsz" id="gsz">gsz</a></h3>
+<pre><code class="language-python">gsz(path: str | pathlib.Path | list[str | pathlib.Path]) -&gt; float
+</code></pre>
+<p>Return the total byte size of a path or list of paths.</p>
+<h3><a class="header" href="#gsze" id="gsze">gsze</a></h3>
+<pre><code class="language-python">gsze(root_dir: str | pathlib.Path = '.', ext: list[str] | None = None) -&gt; int
+</code></pre>
+<p>Return the total byte size of files matching extension filters.</p>
+<h3><a class="header" href="#is_binary" id="is_binary">is_binary</a></h3>
+<pre><code class="language-python">is_binary(path: str | pathlib.Path) -&gt; bool
+</code></pre>
+<p>Return the inverse of the text-file classifier.</p>
+<h3><a class="header" href="#is_empty" id="is_empty">is_empty</a></h3>
+<pre><code class="language-python">is_empty(path: str | pathlib.Path) -&gt; bool
+</code></pre>
+<p>Check whether a path names an empty directory.</p>
+<h3><a class="header" href="#is_git_repo" id="is_git_repo">is_git_repo</a></h3>
+<pre><code class="language-python">is_git_repo(path: str | pathlib.Path) -&gt; bool
+</code></pre>
+<p>Check for a .git directory in the resolved target directory.</p>
+<h3><a class="header" href="#is_image" id="is_image">is_image</a></h3>
+<pre><code class="language-python">is_image(path: str | pathlib.Path) -&gt; bool
+</code></pre>
+<p>Check whether an existing file has a recognized image extension.</p>
+<h3><a class="header" href="#is_python_file" id="is_python_file">is_python_file</a></h3>
+<pre><code class="language-python">is_python_file(path: str | pathlib.Path) -&gt; bool
+</code></pre>
+<p>Recognize nonempty Python source, shebang scripts, or parseable extensionless text.</p>
+<h3><a class="header" href="#is_text_file" id="is_text_file">is_text_file</a></h3>
+<pre><code class="language-python">is_text_file(path: str | pathlib.Path) -&gt; bool
+</code></pre>
+<p>Classify a file as text using extension hints and sampled content.</p>
+<h3><a class="header" href="#is_within" id="is_within">is_within</a></h3>
+<pre><code class="language-python">is_within(child_path: str | pathlib.Path, parent_path: str | pathlib.Path) -&gt; bool
+</code></pre>
+<p>Check whether the resolved child path is inside the parent path.</p>
+<h3><a class="header" href="#main_func" id="main_func">main_func</a></h3>
+<pre><code class="language-python">main_func(inputs: str | pathlib.Path | list[str | pathlib.Path], process_fn: collections.abc.Callable[[pathlib.Path], typing.Any], ext: list[str] | None = None, max_workers: int = 8, prefetch: int = 128, verbose: bool = True) -&gt; None
+</code></pre>
+<p>Process input files concurrently and optionally print a progress summary.</p>
+<h3><a class="header" href="#move_dir" id="move_dir">move_dir</a></h3>
+<pre><code class="language-python">move_dir(src: str, dest: str) -&gt; bool
+</code></pre>
+<p>Move a directory into a destination parent; return success.</p>
+<h3><a class="header" href="#normalize_filename" id="normalize_filename">normalize_filename</a></h3>
+<pre><code class="language-python">normalize_filename(path: str | pathlib.Path) -&gt; str
+</code></pre>
+<p>Replace control characters and filesystem-unsafe filename characters.</p>
+<h3><a class="header" href="#normalize_path" id="normalize_path">normalize_path</a></h3>
+<pre><code class="language-python">normalize_path(path: str | pathlib.Path) -&gt; pathlib.Path
+</code></pre>
+<p>Resolve a path and translate the configured emulated-storage prefix.</p>
+<h3><a class="header" href="#process_files" id="process_files">process_files</a></h3>
+<pre><code class="language-python">process_files(file_iter: collections.abc.Iterator[pathlib.Path], process_fn: collections.abc.Callable[[pathlib.Path], typing.Any], max_workers: int = 4, prefetch: int = 128) -&gt; collections.abc.Iterator[tuple[pathlib.Path, typing.Any]]
+</code></pre>
+<p>Process file batches in a spawn-based process pool and yield results.</p>
+<h3><a class="header" href="#read_lines" id="read_lines">read_lines</a></h3>
+<pre><code class="language-python">read_lines(path: str | pathlib.Path, ke: bool = True) -&gt; list[str]
+</code></pre>
+<p>Read UTF-8 lines, replacing malformed bytes; optionally retain line endings.</p>
+<h3><a class="header" href="#read_lines_mmap" id="read_lines_mmap">read_lines_mmap</a></h3>
+<pre><code class="language-python">read_lines_mmap(path: pathlib.Path, keep_ends: bool = True) -&gt; list[str]
+</code></pre>
+<p>Read UTF-8 lines through a read-only memory map.</p>
+<h3><a class="header" href="#remove_blank_lines" id="remove_blank_lines">remove_blank_lines</a></h3>
+<pre><code class="language-python">remove_blank_lines(text: str) -&gt; str
+</code></pre>
+<p>Collapse consecutive blank lines while preserving other line endings.</p>
+<h3><a class="header" href="#restore_bak" id="restore_bak">restore_bak</a></h3>
+<pre><code class="language-python">restore_bak(path: str | pathlib.Path) -&gt; bool
+</code></pre>
+<p>Restore a file from its adjacent .bak backup when present.</p>
+<h3><a class="header" href="#reverse_dict" id="reverse_dict">reverse_dict</a></h3>
+<pre><code class="language-python">reverse_dict(input_dict: dict[typing.Any, typing.Any]) -&gt; dict[typing.Any, typing.Any]
+</code></pre>
+<p>Invert a dictionary; duplicate values are grouped into lists.</p>
+<h3><a class="header" href="#rrs" id="rrs">rrs</a></h3>
+<pre><code class="language-python">rrs(path: str | pathlib.Path, before: int, after: int) -&gt; None
+</code></pre>
+<p>Print the before-and-after size change for a processed file.</p>
+<h3><a class="header" href="#runcmd" id="runcmd">runcmd</a></h3>
+<pre><code class="language-python">runcmd(cmd: collections.abc.Sequence[str], show_output: bool = True, timeout: float | None = None) -&gt; tuple[int, str, str]
+</code></pre>
+<p>Run an argument vector without a shell and return (code, stdout, stderr).</p>
+<p>Returned and displayed streams are cleaned with clean_terminal_transcript.
+Empty streams remain empty; nonempty streams end with a newline. Codes 127,
+126, and 124 indicate missing executable, permission failure, and timeout.
+Timeout results preserve partial output. Invalid arguments raise immediately.</p>
+<h3><a class="header" href="#safe_delete" id="safe_delete">safe_delete</a></h3>
+<pre><code class="language-python">safe_delete(path: pathlib.Path, max_retries: int = 3) -&gt; bool
+</code></pre>
+<p>Delete a file or tree, retrying transient filesystem failures.</p>
+<h3><a class="header" href="#should_skip" id="should_skip">should_skip</a></h3>
+<pre><code class="language-python">should_skip(path: str | pathlib.Path) -&gt; bool
+</code></pre>
+<p>Check a path against the configured directory exclusions.</p>
+<h3><a class="header" href="#unique_path" id="unique_path">unique_path</a></h3>
+<pre><code class="language-python">unique_path(path: pathlib.Path | str) -&gt; pathlib.Path
+</code></pre>
+<p>Return an unused path by appending a numeric suffix when necessary.</p>
+<h3><a class="header" href="#walk_files" id="walk_files">walk_files</a></h3>
+<pre><code class="language-python">walk_files(path: str | pathlib.Path, ext: list[str] | None = None) -&gt; list[pathlib.Path]
+</code></pre>
+<p>Return legacy scandir traversal results as a list.</p>
+<h3><a class="header" href="#walk_paths" id="walk_paths">walk_paths</a></h3>
+<pre><code class="language-python">walk_paths(inputs: str | pathlib.Path | list[str | pathlib.Path], ext: list[str] | None = None) -&gt; collections.abc.Iterator[pathlib.Path]
+</code></pre>
+<p>Expand input paths and glob expressions into matching files.</p>
+<h3><a class="header" href="#walker" id="walker">walker</a></h3>
+<pre><code class="language-python">walker(path: str | pathlib.Path, recursive: bool = True, exts: list[str] | None = None, skip_dirs: collections.abc.Collection[str] = frozenset({'dist', '.nox', '.venv', '.mypy_cache', '__pycache__', '.idea', '.tox', '.cache', 'build', '.ropeproject', '.git', 'node_modules', '.ruff_cache', '.pytest_cache', '.hg', '.svn', 'venv', '.vscode'})) -&gt; collections.abc.Iterator[pathlib.Path]
+</code></pre>
+<p>Iterate matching files with optional recursion and directory exclusions.</p>
+<h3><a class="header" href="#walkfiles" id="walkfiles">walkfiles</a></h3>
+<pre><code class="language-python">walkfiles(path: str | pathlib.Path, ext: list[str] | None = None) -&gt; collections.abc.Iterator[pathlib.Path]
+</code></pre>
+<p>Iterate legacy scandir traversal results.</p>
+<h3><a class="header" href="#worker" id="worker">worker</a></h3>
+<pre><code class="language-python">worker(file_path: pathlib.Path, process_fn: collections.abc.Callable[[pathlib.Path], typing.Any]) -&gt; tuple[pathlib.Path, typing.Any]
+</code></pre>
+<p>Apply a processor to one path, converting exceptions into ERROR strings.</p>
+<h3><a class="header" href="#write_txt_file" id="write_txt_file">write_txt_file</a></h3>
+<pre><code class="language-python">write_txt_file(path: str | pathlib.Path, data: str, overwrite: bool = False) -&gt; bool
+</code></pre>
+<p>Write UTF-8 text, refusing existing paths unless overwrite is enabled.</p>
+<h2><a class="header" href="#dhutils" id="dhutils">dh.utils</a></h2>
+<h3><a class="header" href="#clean_terminal_transcript" id="clean_terminal_transcript">clean_terminal_transcript</a></h3>
+<pre><code class="language-python">clean_terminal_transcript(text: str) -&gt; str
+</code></pre>
+<p>Strip ANSI escapes, control chars, and \r / backspace artifacts.</p>
+<h3><a class="header" href="#cube_rgb" id="cube_rgb">cube_rgb</a></h3>
+<pre><code class="language-python">cube_rgb(n: int) -&gt; tuple[int, int, int]
+</code></pre>
+<p>Convert an xterm color-cube index from 16 through 231 into RGB.</p>
+<h3><a class="header" href="#get_sha256" id="get_sha256">get_sha256</a></h3>
+<pre><code class="language-python">get_sha256(path: str | pathlib.Path, chunk_size: int = 524288) -&gt; str
+</code></pre>
+<p>Stream a file into SHA-256 and return its hexadecimal digest.</p>
+<h3><a class="header" href="#has_doc" id="has_doc">has_doc</a></h3>
+<pre><code class="language-python">has_doc(code: str) -&gt; bool
+</code></pre>
+<p>Check Python source for comments or documentation strings.</p>
+<h3><a class="header" href="#is_valid_url" id="is_valid_url">is_valid_url</a></h3>
+<pre><code class="language-python">is_valid_url(url: str | None) -&gt; bool
+</code></pre>
+<p>Validate an HTTP or HTTPS URL with a plausible hostname.</p>
+<h3><a class="header" href="#slugify" id="slugify">slugify</a></h3>
+<pre><code class="language-python">slugify(string: str) -&gt; str
+</code></pre>
+<p>Normalize Unicode text into a lowercase, hyphen-separated ASCII slug.</p>
+<h3><a class="header" href="#tokenize_text" id="tokenize_text">tokenize_text</a></h3>
+<pre><code class="language-python">tokenize_text(text: str) -&gt; list[str]
+</code></pre>
+<p>Split identifiers into words, acronyms, and numeric tokens.</p>
+<h2><a class="header" href="#dhtextutils" id="dhtextutils">dh.textutils</a></h2>
+<h3><a class="header" href="#count_words" id="count_words">count_words</a></h3>
+<pre><code class="language-python">count_words(text: str) -&gt; int
+</code></pre>
+<p>Count Unicode letter/number words, keeping internal apostrophes together.</p>
+<p>Underscores, hyphens, and punctuation separate words. Numbers count as
+words. This is a lexical heuristic, not language-specific segmentation
+(e.g. an unspaced Chinese sentence is a single token).</p>
+<h3><a class="header" href="#levenshtein" id="levenshtein">levenshtein</a></h3>
+<pre><code class="language-python">levenshtein(left: str, right: str) -&gt; int
+</code></pre>
+<p>Return unit-cost insertion/deletion/substitution distance between strings.</p>
+<p>Comparisons are case-sensitive and operate on Unicode code points, not
+grapheme clusters. No normalization is implicit. Uses O(min(m, n)) memory
+and O(m*n) time; transpositions count as two edits.</p>
+<h3><a class="header" href="#text_distance" id="text_distance">text_distance</a></h3>
+<pre><code class="language-python">text_distance(left: str, right: str) -&gt; float
+</code></pre>
+<p>Return Levenshtein distance divided by the longer string length.</p>
+<p>The result lies in [0, 1]: zero means identical and one means maximally
+different. Two empty strings have distance zero. Case and Unicode behavior
+are the same as levenshtein; this is a distance, not a similarity score.</p>
+<h3><a class="header" href="#to_camel" id="to_camel">to_camel</a></h3>
+<pre><code class="language-python">to_camel(text: str, *, upper_first: bool = False) -&gt; str
+</code></pre>
+<p>Convert words or identifiers to lowerCamelCase, or PascalCase if requested.</p>
+<p>Uses to_snake boundary rules and normalizes acronyms (HTTPServer becomes
+httpServer). Empty or punctuation-only input returns an empty string.</p>
+<h3><a class="header" href="#to_snake" id="to_snake">to_snake</a></h3>
+<pre><code class="language-python">to_snake(text: str) -&gt; str
+</code></pre>
+<p>Convert words or identifiers to lowercase snake_case.</p>
+<p>Handles acronyms (HTTPServer -&gt; http_server), Unicode case boundaries,
+punctuation separators, and digit runs (version2 -&gt; version_2). Empty or
+punctuation-only input returns an empty string. No identifier validity is
+guaranteed (e.g. a leading number is retained).</p>
+<h3><a class="header" href="#word_frequencies" id="word_frequencies">word_frequencies</a></h3>
+<pre><code class="language-python">word_frequencies(text: str, *, case_sensitive: bool = False) -&gt; collections.Counter[str]
+</code></pre>
+<p>Count words using count_words tokenization and optional case sensitivity.</p>
+<p>By default Unicode casefold merges case variants. Tokens use NFC Unicode
+normalization and curly apostrophes are canonicalized to straight ones.
+Return a Counter, supporting most_common() and zero for missing words.</p>
+<h2><a class="header" href="#dhcprint" id="dhcprint">dh.cprint</a></h2>
+<h3><a class="header" href="#colored" id="colored">colored</a></h3>
+<pre><code class="language-python">colored(text: object, color: str | tuple[int, int, int] | None = None, on_color: str | tuple[int, int, int] | None = None, attrs: collections.abc.Iterable[str] | None = None, *, no_color: bool | None = None, force_color: bool | None = None) -&gt; str
+</code></pre>
+<p>Render text with optional foreground, background, and attribute styles.</p>
+<h3><a class="header" href="#cprint" id="cprint">cprint</a></h3>
+<pre><code class="language-python">cprint(text: object, color: str | tuple[int, int, int] | None = None, on_color: str | tuple[int, int, int] | None = None, attrs: collections.abc.Iterable[str] | None = None, *, no_color: bool | None = None, force_color: bool | None = None, **kwargs: Any) -&gt; None
+</code></pre>
+<p>Print styled text, forwarding additional keyword arguments to print.</p>
+<h2><a class="header" href="#dhjobutils" id="dhjobutils">dh.jobutils</a></h2>
+<h3><a class="header" href="#failures" id="failures">failures</a></h3>
+<pre><code class="language-python">failures(outcomes: 'Iterable[Outcome[T, R]]') -&gt; 'list[Outcome[T, R]]'
+</code></pre>
+<p>Collect failed outcomes while preserving their input order.</p>
+<h3><a class="header" href="#mpf" id="mpf">mpf</a></h3>
+<pre><code class="language-python">mpf(func: 'Callable[..., R]', items: 'Iterable[T]', method: 'Method | str' = &lt;Method.IMAP_UNORDERED: 'imap_unordered'&gt;, *, workers: 'int | None' = None, chunksize: 'int | None' = None, progress: 'ProgressKind | None' = None, ordered: 'bool' = True, on_error: 'ErrorMode' = 'collect', mp_context: 'StartMethod | None' = None, backend: 'str | None' = None, description: 'str' = 'Processing') -&gt; 'list[Outcome[T, R]]'
+</code></pre>
+<p>Execute tasks with the selected backend and collect typed success or failure outcomes.</p>
+<h3><a class="header" href="#values" id="values">values</a></h3>
+<pre><code class="language-python">values(outcomes: 'Iterable[Outcome[T, R]]') -&gt; 'list[R]'
+</code></pre>
+<p>Collect successful result values, discarding failures.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="development.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="development.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>

@@ -1,0 +1,12 @@
+[book]
+title = "dh utilities"
+authors = ["Isaac Onagh"]
+language = "en"
+multilingual = false
+src = "src"
+
+[build]
+build-dir = "html"
+
+[output.html]
+default-theme = "light"
