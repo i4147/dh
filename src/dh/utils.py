@@ -1,12 +1,13 @@
 import ast
-import re
-import tokenize
-import unicodedata
 from hashlib import sha256
 from io import StringIO
 from pathlib import Path
+import re
+import tokenize
 from typing import TYPE_CHECKING
+import unicodedata
 from urllib.parse import urlsplit
+
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

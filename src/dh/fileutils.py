@@ -1,14 +1,14 @@
 import codecs
+from collections import defaultdict
+from dataclasses import dataclass, field
+from datetime import datetime
 import functools
 import os
+from pathlib import Path
 import re
 import stat
 import sys
 import time
-from collections import defaultdict
-from dataclasses import dataclass, field
-from datetime import datetime
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, overload
 
 from .const import (
@@ -18,9 +18,10 @@ from .const import (
     IMAGE_EXTENSIONS,
     SDCARD,
     SKIP_DIRS,
-    THRESHOLD,
     TEXT_EXTENSIONS,
+    THRESHOLD,
 )
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Generator, Iterator, Sequence

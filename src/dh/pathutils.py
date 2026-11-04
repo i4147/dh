@@ -4,7 +4,8 @@ from typing import Generator, Iterator, List, Union
 from fastwalk import walk_dirs, walk_files
 
 from .const import SKIP_DIRS
-from .isbinary import is_binary
+from .fileutils import is_binary
+
 
 PathLike = Union[str, Path]
 
@@ -34,7 +35,7 @@ def _is_python_file(file_path: str) -> bool:
 
 def get_files(
     path: str | Path,
-    ext: List[str] | None = None,
+    ext: list[str] | None = None,
     nobinary: bool = False,
     pyfiles: bool = False,
     skip_dirs: set[str] | None = None,
@@ -42,7 +43,7 @@ def get_files(
     out = []
     if skip_dirs is None:
         skip_dirs = SKIP_DIRS
-    overrides: List[str] | None = None
+    overrides: list[str] | None = None
     if ext and not pyfiles:
         overrides = [f"*.{e.lstrip('.')}" for e in ext]
     for file_path in walk_files(path):
@@ -56,14 +57,14 @@ def get_files(
 
 def get_filez(
     path: str | Path,
-    ext: List[str] | None = None,
+    ext: list[str] | None = None,
     nobinary: bool = False,
     pyfiles: bool = False,
     skip_dirs: set[str] | None = None,
 ) -> Generator[Path]:
     if skip_dirs is None:
         skip_dirs = SKIP_DIRS
-    overrides: List[str] | None = None
+    overrides: list[str] | None = None
     if ext and not pyfiles:
         overrides = [f"*.{e.lstrip('.')}" for e in ext]
     for file_path in walk_files(path):

@@ -1,22 +1,23 @@
+from collections.abc import Callable, Iterable, Iterator, Sequence
 import concurrent.futures as cf
 import contextlib
+from dataclasses import dataclass
+from enum import StrEnum
+from functools import partial
 import importlib.util
 import math
 import multiprocessing as mp
+from multiprocessing.pool import Pool as MpPool
 import os
 import pickle
 import queue
 import signal
 import time
 import traceback
-from collections.abc import Callable, Iterable, Iterator, Sequence
-from dataclasses import dataclass
-from enum import StrEnum
-from functools import partial
-from multiprocessing.pool import Pool as MpPool
 from typing import Any, Literal, Protocol, cast
 
 from loguru import logger
+
 
 __all__ = [
     "Method",

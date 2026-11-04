@@ -1,5 +1,5 @@
-import sys
 from pathlib import Path
+import sys
 
 from .const import (
     ANSI_BOLD,
@@ -18,10 +18,10 @@ from .const import (
     CONTEXT_METHOD,
     CSS_COLORS,
     CYAN,
+    DOC_EXTENSIONS,
     DOC_TH,
     DOC_TH1,
     DOC_TH2,
-    DOC_EXTENSIONS,
     EMULATED,
     EXT2MIME,
     FONT_EXTENSIONS,
@@ -48,8 +48,8 @@ from .const import (
     SHEBANG_MAP,
     SKIP_DIRS,
     STDLIB,
-    THRESHOLD,
     TEXT_EXTENSIONS,
+    THRESHOLD,
     UNDERLINE,
     VIDEO_EXTENSIONS,
     WHITE,
@@ -88,7 +88,6 @@ from .fileutils import (
     copy_dir,
     format_time,
     fsz,
-    is_binary,
     get_file_age,
     get_files4,
     get_files_iter,
@@ -106,6 +105,7 @@ from .fileutils import (
     gext,
     gsz,
     gsze,
+    is_binary,
     is_empty,
     is_git_repo,
     is_image,
@@ -150,6 +150,7 @@ from .jobutils import (
 
 # DEFAULT_CHUNKSIZE, DEFAULT_EXECUTOR_CHUNKSIZE, PoolMethod, mpf, mpf_iter
 from .utils import WORD_PATTERN, get_sha256, has_doc, is_valid_url, slugify, tokenize_text
+
 
 __all__ = [
     "is_binary",
@@ -317,7 +318,8 @@ __all__ += [
     "tokenize_text",
 ]
 
-from .pathutils import get_dirs, get_files, get_nobinary, get_pyfiles, get_filez
+from .pathutils import get_dirs, get_files, get_filez, get_nobinary, get_pyfiles
+
 
 __all__ += [
     "get_files",

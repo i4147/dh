@@ -1,13 +1,14 @@
-import os
-import sys
 from collections.abc import Iterable
 from functools import cache
 from io import StringIO
+import os
+import sys
 from typing import Any
 
 from rich.console import Console
 from rich.style import Style
 from rich.text import Text
+
 
 ATTRIBUTES: dict[str, int] = {
     "bold": 1,
