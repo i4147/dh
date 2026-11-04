@@ -1,3 +1,7 @@
+"""Typed task execution across thread, process, and optional backends."""
+
+from __future__ import annotations
+
 from collections.abc import Callable, Iterable, Iterator, Sequence
 import concurrent.futures as cf
 import contextlib
@@ -14,7 +18,7 @@ import queue
 import signal
 import time
 import traceback
-from typing import Any, Literal, Protocol, cast
+from typing import Any, Generic, Generator, Literal, Protocol, TypeAlias, TypeVar, cast
 
 from loguru import logger
 
@@ -29,11 +33,14 @@ __all__ = [
     "mpf",
     "values",
 ]
-type ProgressKind = Literal["tqdm", "rich"]
-type StartMethod = Literal["fork", "forkserver", "spawn"]
-type ErrorMode = Literal["collect", "raise"]
-type Packed = tuple[int, Any]
-type Chunk = Sequence[Packed]
+T = TypeVar("T")
+R = TypeVar("R")
+
+ProgressKind: TypeAlias = Literal["tqdm", "rich"]
+StartMethod: TypeAlias = Literal["fork", "forkserver", "spawn"]
+ErrorMode: TypeAlias = Literal["collect", "raise"]
+Packed: TypeAlias = tuple[int, Any]
+Chunk: TypeAlias = Sequence[Packed]
 
 
 class MpfError(Exception):
@@ -86,7 +93,7 @@ UNPICKLED_METHODS: frozenset[Method] = frozenset({Method.THREAD, Method.JOBLIB})
 
 
 @dataclass(frozen=True, slots=True)
-class Outcome[T, R]:
+class Outcome(Generic[T, R]):
     index: int
     item: T
     value: R | None = None
@@ -98,14 +105,16 @@ class Outcome[T, R]:
         return self.error is None
 
 
-type AnyOutcome = Outcome[Any, Any]
+AnyOutcome: TypeAlias = Outcome[Any, Any]
 
 
-def values[T, R](outcomes: Iterable[Outcome[T, R]]) -> list[R]:
+def values(outcomes: Iterable[Outcome[T, R]]) -> list[R]:
+    """Collect successful result values, discarding failures."""
     return [cast("R", outcome.value) for outcome in outcomes if outcome.ok]
 
 
-def failures[T, R](outcomes: Iterable[Outcome[T, R]]) -> list[Outcome[T, R]]:
+def failures(outcomes: Iterable[Outcome[T, R]]) -> list[Outcome[T, R]]:
+    """Collect failed outcomes while preserving their input order."""
     return [outcome for outcome in outcomes if not outcome.ok]
 
 
@@ -215,7 +224,7 @@ def _make_executor(method: Method, workers: int, mp_context: StartMethod | None)
         case Method.THREAD:
             return cf.ThreadPoolExecutor(max_workers=workers, thread_name_prefix="mpf")
         case Method.INTERPRETER:
-            factory = cf.InterpreterPoolExecutor
+            factory = getattr(cf, "InterpreterPoolExecutor")
             return factory(max_workers=workers)
     msg = f"not an executor method: {method}"
     raise AssertionError(msg)
@@ -324,12 +333,14 @@ def _select_runner(
     chunksize: int,
     mp_context: StartMethod | None,
     backend: str | None,
-) -> Iterator[AnyOutcome]:
+) -> Generator[AnyOutcome, None, None]:
     if method is Method.JOBLIB:
-        return _run_joblib(task, packed, workers, backend)
+        yield from _run_joblib(task, packed, workers, backend)
+        return
     if method in EXECUTOR_METHODS:
-        return _run_executor(method, task, packed, workers, chunksize, mp_context)
-    return _run_pool(method, task, packed, workers, chunksize, mp_context)
+        yield from _run_executor(method, task, packed, workers, chunksize, mp_context)
+        return
+    yield from _run_pool(method, task, packed, workers, chunksize, mp_context)
 
 
 class _Progress(Protocol):
@@ -406,7 +417,7 @@ def _log_failure(outcome: AnyOutcome) -> None:
         logger.debug("traceback for {!r}:\n{}", outcome.item, outcome.traceback)
 
 
-def mpf[T, R](
+def mpf(
     func: Callable[..., R],
     items: Iterable[T],
     method: Method | str = Method.IMAP_UNORDERED,
@@ -420,6 +431,7 @@ def mpf[T, R](
     backend: str | None = None,
     description: str = "Processing",
 ) -> list[Outcome[T, R]]:
+    """Execute tasks with the selected backend and collect typed success or failure outcomes."""
     chosen = Method.parse(method)
     if progress not in (None, "tqdm", "rich"):
         msg = f"progress must be None, 'tqdm' or 'rich', got {progress!r}"

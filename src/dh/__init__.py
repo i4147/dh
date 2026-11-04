@@ -49,6 +49,7 @@ from .const import (
     SKIP_DIRS,
     STDLIB,
     TEXT_EXTENSIONS,
+    TEXT_FILENAMES,
     THRESHOLD,
     UNDERLINE,
     VIDEO_EXTENSIONS,
@@ -200,7 +201,8 @@ __all__ = [
     "unique_path",
     "walk_files",
     "walk_paths",
-    "walkerFileWalkerConfig",
+    "walker",
+    "FileWalkerConfig",
     "walkfiles",
     "worker",
     "write_txt_file",
@@ -251,6 +253,7 @@ __all__ += [
     "SHEBANG_MAP",
     "STDLIB",
     "TEXT_EXTENSIONS",
+    "TEXT_FILENAMES",
     "THRESHOLD",
     "UNDERLINE",
     "VIDEO_EXTENSIONS",
@@ -318,7 +321,7 @@ __all__ += [
     "tokenize_text",
 ]
 
-from .pathutils import get_dirs, get_files, get_filez, get_nobinary, get_pyfiles
+from .fileutils import get_dirs, get_files, get_filez, get_nobinary, get_pyfiles
 
 
 __all__ += [
@@ -327,4 +330,18 @@ __all__ += [
     "get_filez",
     "get_nobinary",
     "get_pyfiles",
+]
+
+from .textutils import (
+    count_words,
+    levenshtein,
+    text_distance,
+    to_camel,
+    to_snake,
+    word_frequencies,
+)
+
+__all__ += [
+    "count_words", "levenshtein", "text_distance", "to_camel", "to_snake",
+    "word_frequencies",
 ]

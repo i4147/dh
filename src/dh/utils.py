@@ -1,3 +1,5 @@
+"""Text normalization, source inspection, URL validation, and hashing."""
+
 import ast
 from collections.abc import Iterator
 from hashlib import sha256
@@ -39,6 +41,7 @@ _HOSTNAME_LABEL_PATTERN: re.Pattern[str] = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9\
 
 
 def get_sha256(path: str | Path, chunk_size: int = 524288) -> str:
+    """Stream a file into SHA-256 and return its hexadecimal digest."""
     path = Path(path)
     h = sha256()
 
@@ -52,6 +55,7 @@ def get_sha256(path: str | Path, chunk_size: int = 524288) -> str:
 
 
 def has_doc(code: str) -> bool:
+    """Check Python source for comments or documentation strings."""
     try:
         tokens: Iterator[tokenize.TokenInfo] = tokenize.generate_tokens(StringIO(code).readline)
         for tok in tokens:
@@ -76,6 +80,9 @@ def has_doc(code: str) -> bool:
 
 
 def is_valid_url(url: str | None) -> bool:
+    """Validate an HTTP or HTTPS URL with a plausible hostname."""
+    if not url:
+        return False
     try:
         parsed_url = urlsplit(url)
     except ValueError:
@@ -86,6 +93,7 @@ def is_valid_url(url: str | None) -> bool:
 
 
 def slugify(string: str) -> str:
+    """Normalize Unicode text into a lowercase, hyphen-separated ASCII slug."""
     normalized: str = unicodedata.normalize("NFKD", string).encode("ascii", "ignore").decode("ascii")
     return re.sub(
         r"[-\s]+",
@@ -95,6 +103,7 @@ def slugify(string: str) -> str:
 
 
 def tokenize_text(text: str) -> list[str]:
+    """Split identifiers into words, acronyms, and numeric tokens."""
     tokens: list[str] = []
     for match in _IDENTIFIER_PATTERN.finditer(text):
         identifier: str = match.group()
@@ -103,7 +112,8 @@ def tokenize_text(text: str) -> list[str]:
     return tokens
 
 
-def cube_rgb(n: int):
+def cube_rgb(n: int) -> tuple[int, int, int]:
+    """Convert an xterm color-cube index from 16 through 231 into RGB."""
     n -= 16
     levels = [0, 95, 135, 175, 215, 255]
     r = levels[n // 36]
