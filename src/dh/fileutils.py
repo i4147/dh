@@ -21,7 +21,6 @@ from .const import (
     THRESHOLD,
     TEXT_EXTENSIONS,
 )
-from .isbinary import is_binary
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Generator, Iterator, Sequence
@@ -471,8 +470,8 @@ class _FileOps:
             return False
         suffix = path.suffix
         if suffix:
-            return suffix == ".py" and not is_binary(path)
-        if is_binary(path):
+            return suffix == ".py" and is_text_file(path)
+        if not is_text_file(path):
             return False
         try:
             data = path.read_bytes()
@@ -1163,7 +1162,7 @@ def get_files4(path: str | Path, include_hidden: bool = True, ext: list[str] | N
 
 
 def get_nobinary(path: str | Path) -> list[Path]:
-    return [f for f in get_files(path) if not is_binary(f)]
+    return [f for f in get_files(path) if is_text_file(f)]
 
 
 def get_pyfiles_iter(root: Path) -> Generator[Path, None, None]:
@@ -1380,4 +1379,8 @@ def is_git_repo(path: str | Path) -> bool:
         target_dir = Path(path).expanduser().resolve()
         return target_dir.is_dir() and (target_dir / ".git").is_dir()
     except (PermissionError, OSError) as e:
-        return False
+        return Fals
+
+
+def is_binary(path: str | Path) -> bool:
+    return not is_text_file(path)

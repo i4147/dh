@@ -103,11 +103,10 @@ def tokenize_text(text: str) -> list[str]:
     return tokens
 
 
-def cube_rgb(n:int):
+def cube_rgb(n: int):
     n -= 16
     levels = [0, 95, 135, 175, 215, 255]
     r = levels[n // 36]
     g = levels[(n % 36) // 6]
     b = levels[n % 6]
     return (r, g, b)
-

@@ -88,6 +88,7 @@ from .fileutils import (
     copy_dir,
     format_time,
     fsz,
+    is_binary,
     get_file_age,
     get_files4,
     get_files_iter,
@@ -133,7 +134,6 @@ from .fileutils import (
     worker,
     write_txt_file,
 )
-from .isbinary import is_binary
 from .jobutils import (
     EXECUTOR_METHODS,
     STAR_METHODS,
@@ -152,6 +152,7 @@ from .jobutils import (
 from .utils import WORD_PATTERN, get_sha256, has_doc, is_valid_url, slugify, tokenize_text
 
 __all__ = [
+    "is_binary",
     "is_git_repo",
     "walkerFileWalkerConfig",
     "ReportGenerator",
@@ -177,7 +178,6 @@ __all__ = [
     "gext",
     "gsz",
     "gsze",
-    "is_binary",
     "is_empty",
     "is_image",
     "is_python_file",
