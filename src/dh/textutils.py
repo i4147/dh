@@ -6,7 +6,11 @@ import re
 import unicodedata
 
 __all__ = [
-    "levenshtein", "text_distance", "count_words", "to_camel", "to_snake",
+    "count_words",
+    "levenshtein",
+    "text_distance",
+    "to_camel",
+    "to_snake",
     "word_frequencies",
 ]
 
@@ -39,8 +43,7 @@ def levenshtein(left: str, right: str) -> int:
     for i, char_left in enumerate(left, 1):
         current = [i]
         for j, char_right in enumerate(right, 1):
-            current.append(min(current[-1] + 1, previous[j] + 1,
-                               previous[j - 1] + (char_left != char_right)))
+            current.append(min(current[-1] + 1, previous[j] + 1, previous[j - 1] + (char_left != char_right)))
         previous = current
     return previous[-1]
 
@@ -74,8 +77,7 @@ def word_frequencies(text: str, *, case_sensitive: bool = False) -> Counter[str]
     Return a Counter, supporting most_common() and zero for missing words.
     """
     return Counter(
-        word.replace("’", "'") if case_sensitive else word.replace("’", "'").casefold()
-        for word in _words(text)
+        word.replace("’", "'") if case_sensitive else word.replace("’", "'").casefold() for word in _words(text)
     )
 
 

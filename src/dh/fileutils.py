@@ -14,20 +14,18 @@ import sys
 import time
 from typing import TYPE_CHECKING, Any, Literal, overload
 
-from .utils import clean_terminal_transcript
-
 from .const import (
-    BINARY_EXTENSIONS,
+    BINARY_EXT,
     CHUNK_SIZE,
     EMULATED,
-    IMAGE_EXTENSIONS,
+    IMAGE_EXT,
     SDCARD,
     SKIP_DIRS,
-    TEXT_EXTENSIONS,
+    TEXT_EXT,
     TEXT_FILENAMES,
     THRESHOLD,
 )
-
+from .utils import clean_terminal_transcript
 
 ANSI_RE: re.Pattern[str] = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 FENCE_RE: re.Pattern[str] = re.compile(r"^\s*```.*$", re.MULTILINE)
@@ -438,7 +436,7 @@ class _FileOps:
         """Check whether an existing file has a recognized image extension."""
         path = Path(path)
         try:
-            return path.suffix.lower() in IMAGE_EXTENSIONS and path.is_file()
+            return path.suffix.lower() in IMAGE_EXT and path.is_file()
         except (OSError, ValueError):
             return False
 
@@ -474,9 +472,9 @@ class _FileOps:
             msg = f"Path is not a file: {path}"
             raise ValueError(msg)
         suffix = path.suffix.lower()
-        if suffix in BINARY_EXTENSIONS:
+        if suffix in BINARY_EXT:
             return False
-        if suffix in TEXT_EXTENSIONS or path.name.lower() in TEXT_FILENAMES:
+        if suffix in TEXT_EXT or path.name.lower() in TEXT_FILENAMES:
             return True
         try:
             with path.open("rb") as f:
@@ -752,7 +750,8 @@ class _ProcRunner:
         import subprocess
 
         if isinstance(cmd, (str, bytes)):
-            raise TypeError("cmd must be an argument sequence, not a string")
+            msg = "cmd must be an argument sequence, not a string"
+            raise TypeError(msg)
         if not cmd:
             msg = "cmd must be a non-empty sequence of strings"
             raise ValueError(msg)
@@ -934,7 +933,7 @@ class _Format:
         return dict(rev)
 
     @staticmethod
-    def rrs(path: str | Path, before: int, after: int) -> None:
+    def rrs(path: str | Path, before: float, after: float) -> None:
         """Print the before-and-after size change for a processed file."""
         p = Path(path)
         saved = before - after
@@ -1521,3 +1520,36 @@ def is_git_repo(path: str | Path) -> bool:
 def is_binary(path: str | Path) -> bool:
     """Return the inverse of the text-file classifier."""
     return not is_text_file(path)
+
+
+def gsz2(path: Path) -> int:
+    try:
+        total = path.lstat().st_size
+    except OSError:
+        return 0
+    if path.is_symlink() or not path.is_dir():
+        return total
+    for dirpath, dirnames, filenames in os.walk(path, followlinks=False):
+        for name in filenames:
+            try:
+                p = Path(dirpath) / name
+                total += p.stat().st_size
+            except OSError:
+                pass
+        for name in dirnames:
+            try:
+                total += os.lstat(Path(dirpath).joinpath(name)).st_size
+            except OSError:
+                pass
+    return total
+
+
+def tree_size_kib(p: Path) -> int:
+    return gsz(p) // 1024
+
+
+def sorted_by_size(paths: list[Path]) -> list[tuple[int, Path]]:
+
+    sized = [(tree_size_kib(p), p) for p in paths]
+    sized.sort(key=lambda t: (t[0], str(t[1])))
+    return sized

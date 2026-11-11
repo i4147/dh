@@ -1,7 +1,5 @@
 """Typed task execution across thread, process, and optional backends."""
 
-from __future__ import annotations
-
 from collections.abc import Callable, Iterable, Iterator, Sequence
 import concurrent.futures as cf
 import contextlib
@@ -11,16 +9,18 @@ from functools import partial
 import importlib.util
 import math
 import multiprocessing as mp
-from multiprocessing.pool import Pool as MpPool
 import os
 import pickle
 import queue
 import signal
 import time
 import traceback
-from typing import Any, Generic, Generator, Literal, Protocol, TypeAlias, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generator, Generic, Literal, Protocol, TypeAlias, TypeVar, cast
 
 from loguru import logger
+
+if TYPE_CHECKING:
+    from multiprocessing.pool import Pool as MpPool
 
 
 __all__ = [
@@ -224,7 +224,7 @@ def _make_executor(method: Method, workers: int, mp_context: StartMethod | None)
         case Method.THREAD:
             return cf.ThreadPoolExecutor(max_workers=workers, thread_name_prefix="mpf")
         case Method.INTERPRETER:
-            factory = getattr(cf, "InterpreterPoolExecutor")
+            factory = cf.InterpreterPoolExecutor
             return factory(max_workers=workers)
     msg = f"not an executor method: {method}"
     raise AssertionError(msg)

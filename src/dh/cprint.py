@@ -11,7 +11,6 @@ from rich.console import Console
 from rich.style import Style
 from rich.text import Text
 
-
 ATTRIBUTES: dict[str, int] = {
     "bold": 1,
     "dark": 2,
@@ -140,7 +139,7 @@ def _terminal_color_system() -> Literal["standard", "256", "truecolor", "windows
     probe = Console(force_terminal=False)
     detected = probe.color_system
     if detected:
-        return cast(Literal["standard", "256", "truecolor", "windows"], detected)
+        return cast("Literal['standard', '256', 'truecolor', 'windows']", detected)
     return "truecolor"
 
 

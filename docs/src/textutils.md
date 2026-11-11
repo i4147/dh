@@ -4,8 +4,12 @@
 
 ```python
 from dh import (
-    levenshtein, text_distance, count_words,
-    to_camel, to_snake, word_frequencies,
+    levenshtein,
+    text_distance,
+    count_words,
+    to_camel,
+    to_snake,
+    word_frequencies,
 )
 
 assert levenshtein("kitten", "sitting") == 3
