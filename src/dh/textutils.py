@@ -5,6 +5,7 @@ from collections.abc import Iterator
 import re
 import unicodedata
 
+
 __all__ = [
     "count_words",
     "levenshtein",

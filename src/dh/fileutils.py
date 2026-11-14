@@ -2,30 +2,23 @@
 
 import codecs
 from collections import defaultdict
-from collections.abc import Callable, Collection, Generator, Iterator, Sequence
+from collections.abc import Callable, Collection, Generator, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 import functools
+import json
 import os
 from pathlib import Path
 import re
 import stat
+import subprocess
 import sys
 import time
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, overload
 
-from .const import (
-    BINARY_EXT,
-    CHUNK_SIZE,
-    EMULATED,
-    IMAGE_EXT,
-    SDCARD,
-    SKIP_DIRS,
-    TEXT_EXT,
-    TEXT_FILENAMES,
-    THRESHOLD,
-)
+from .const import BINARY_EXT, CHUNK_SIZE, EMULATED, IMAGE_EXT, SDCARD, SKIP_DIRS, TEXT_EXT, TEXT_FILENAMES, THRESHOLD
 from .utils import clean_terminal_transcript
+
 
 ANSI_RE: re.Pattern[str] = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 FENCE_RE: re.Pattern[str] = re.compile(r"^\s*```.*$", re.MULTILINE)
@@ -752,88 +745,6 @@ class _DirOps:
             return False
 
 
-class _ProcRunner:
-    @staticmethod
-    def runcmd(
-        cmd: Sequence[str],
-        show_output: bool = True,
-        timeout: float | None = None,
-    ) -> tuple[int, str, str]:
-        """Run an argument vector without a shell and return (code, stdout, stderr).
-
-        Returned and displayed streams are cleaned with clean_terminal_transcript.
-        Empty streams remain empty; nonempty streams end with a newline. Codes 127,
-        126, and 124 indicate missing executable, permission failure, and timeout.
-        Timeout results preserve partial output. Invalid arguments raise immediately."""
-        import subprocess
-
-        if isinstance(cmd, (str, bytes)):
-            msg = "cmd must be an argument sequence, not a string"
-            raise TypeError(msg)
-        if not cmd:
-            msg = "cmd must be a non-empty sequence of strings"
-            raise ValueError(msg)
-        if not cmd[0]:
-            msg = "cmd[0] must be a non-empty string"
-            raise ValueError(msg)
-        if any(not isinstance(arg, str) for arg in cmd):
-            msg = "All command arguments must be strings"
-            raise TypeError(msg)
-        command: list[str] = list(cmd)
-
-        def decode_output(data: bytes | str | None) -> str:
-            if data is None:
-                return ""
-            if isinstance(data, str):
-                return clean_terminal_transcript(data) if data else ""
-            return clean_terminal_transcript(data.decode("utf-8", errors="replace")) if data else ""
-
-        def emit(stdout: str, stderr: str) -> None:
-            if not show_output:
-                return
-            if stdout:
-                sys.stdout.write(stdout)
-                sys.stdout.flush()
-            if stderr:
-                sys.stderr.write(stderr)
-                sys.stderr.flush()
-
-        def fail(code: int, message: str) -> tuple[int, str, str]:
-            message = clean_terminal_transcript(message)
-            emit("", message)
-            return code, "", message
-
-        try:
-            result = subprocess.run(
-                command,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=timeout,
-                check=False,
-                text=False,
-            )
-        except FileNotFoundError:
-            return fail(127, f"Command not found: {command[0]!r}")
-        except PermissionError:
-            return fail(126, f"Permission denied: {command[0]!r}")
-        except subprocess.TimeoutExpired as exc:
-            stdout = decode_output(exc.stdout)
-            stderr = decode_output(exc.stderr)
-            message = f"Command timed out after {timeout}s: {' '.join(command)}"
-            stderr = clean_terminal_transcript(f"{stderr.rstrip()}\n{message}".lstrip())
-            emit(stdout, stderr)
-            return 124, stdout, stderr
-        except OSError as exc:
-            return fail(1, f"OS error running {command[0]!r}: {exc}")
-        except Exception as exc:
-            return fail(1, f"Unexpected error running {command[0]!r}: {exc}")
-        stdout = decode_output(result.stdout)
-        stderr = decode_output(result.stderr)
-        emit(stdout, stderr)
-        return result.returncode, stdout, stderr
-
-
 class _PackageInfo:
     @staticmethod
     def _iter_dists() -> Iterator[tuple[str, str | None]]:
@@ -1231,14 +1142,14 @@ def get_files_scandir(path: str | Path, include_hidden: bool = True, ext: list[s
     return sorted(_FileWalker.iter_files(path, ends=tuple(ext) if ext else None, hidden=include_hidden))
 
 
-def get_files_iter(directory: str | Path, ext: list[str] | None = None) -> Iterator[Path]:
+def get_files_iter(path: str | Path, ext: list[str] | None = None) -> Iterator[Path]:
     """Iterate resolved file paths without pruning default skip directories."""
-    directory = Path(directory)
-    if not directory.is_dir():
-        msg = f"Path is not a directory: {directory}"
+    path = Path(path)
+    if not path.is_dir():
+        msg = f"Path is not a path: {path}"
         raise NotADirectoryError(msg)
     exts = set(ext) if ext else None
-    return (p.resolve() for p in _FileWalker.iter_files(directory, exts, prune=False))
+    return (p.resolve() for p in _FileWalker.iter_files(path, exts, prune=False))
 
 
 def get_filez(
@@ -1549,3 +1460,123 @@ def sorted_by_size(paths: list[Path]) -> list[tuple[int, Path]]:
     sized = [(tree_size_kib(p), p) for p in paths]
     sized.sort(key=lambda t: (t[0], str(t[1])))
     return sized
+
+
+class RunResult(NamedTuple):
+    code: int
+    stdout: str
+    stderr: str
+
+
+class _ProcRunner:
+    @staticmethod
+    def runcmd(
+        cmd: Sequence[str],
+        show_output: bool = True,
+        timeout: float | None = None,
+        stdin: str | bytes | None = None,
+        cwd: str | Path | None = None,
+        env: Mapping[str, str] | None = None,
+    ) -> RunResult:
+        """Run an argument vector without a shell and return (code, stdout, stderr).
+
+        stdin=None inherits no input (DEVNULL) for backward compatibility; pass a
+        str/bytes to feed the child. env is merged over os.environ. Streams are
+        cleaned with clean_terminal_transcript. Codes 127/126/124 indicate
+        missing executable, permission failure, and timeout. Timeout preserves
+        partial output. Invalid arguments raise immediately."""
+        if isinstance(cmd, (str, bytes)):
+            msg = "cmd must be an argument sequence, not a string"
+            raise TypeError(msg)
+        if not cmd:
+            msg = "cmd must be a non-empty sequence of strings"
+            raise ValueError(msg)
+        if not cmd[0]:
+            msg = "cmd[0] must be a non-empty string"
+            raise ValueError(msg)
+        if any(not isinstance(arg, str) for arg in cmd):
+            msg = "All command arguments must be strings"
+            raise TypeError(msg)
+        if timeout is not None and (not isinstance(timeout, (int, float)) or timeout <= 0):
+            msg = "timeout must be a positive number or None"
+            raise ValueError(msg)
+        if stdin is not None and not isinstance(stdin, (str, bytes)):
+            msg = "stdin must be str, bytes, or None"
+            raise TypeError(msg)
+        if env is not None:
+            if not isinstance(env, Mapping):
+                msg = "env must be a mapping of str to str"
+                raise TypeError(msg)
+            for k, v in env.items():
+                if not isinstance(k, str) or not isinstance(v, str):
+                    msg = "env keys and values must be strings"
+                    raise TypeError(msg)
+
+        command: list[str] = list(cmd)
+
+        def decode_output(data: bytes | str | None) -> str:
+            if data is None:
+                return ""
+            if isinstance(data, str):
+                return clean_terminal_transcript(data) if data else ""
+            return clean_terminal_transcript(data.decode("utf-8", errors="replace")) if data else ""
+
+        def emit(stdout: str, stderr: str) -> None:
+            if not show_output:
+                return
+            if stdout:
+                sys.stdout.write(stdout)
+                sys.stdout.flush()
+            if stderr:
+                sys.stderr.write(stderr)
+                sys.stderr.flush()
+
+        def fail(code: int, message: str) -> RunResult:
+            message = clean_terminal_transcript(message)
+            emit("", message)
+            return RunResult(code, "", message)
+
+        run_kwargs: dict[str, Any] = {
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+            "timeout": timeout,
+            "check": False,
+            "text": False,
+            "cwd": cwd,
+        }
+        if env is not None:
+            run_kwargs["env"] = {**os.environ, **env}
+        if stdin is None:
+            run_kwargs["stdin"] = subprocess.DEVNULL
+        else:
+            run_kwargs["input"] = stdin.encode("utf-8") if isinstance(stdin, str) else stdin
+
+        try:
+            result = subprocess.run(command, **run_kwargs)
+        except FileNotFoundError:
+            return fail(127, f"Command not found: {command[0]!r}")
+        except PermissionError:
+            return fail(126, f"Permission denied: {command[0]!r}")
+        except subprocess.TimeoutExpired as exc:
+            stdout = decode_output(exc.stdout)
+            stderr = decode_output(exc.stderr)
+            message = f"Command timed out after {timeout}s: {' '.join(command)}"
+            stderr = clean_terminal_transcript(f"{stderr.rstrip()}\n{message}".lstrip())
+            emit(stdout, stderr)
+            return RunResult(124, stdout, stderr)
+        except OSError as exc:
+            return fail(1, f"OS error running {command[0]!r}: {exc}")
+        except Exception as exc:
+            return fail(1, f"Unexpected error running {command[0]!r}: {exc}")
+
+        stdout = decode_output(result.stdout)
+        stderr = decode_output(result.stderr)
+        emit(stdout, stderr)
+        return RunResult(result.returncode, stdout, stderr)
+
+
+def walk_files(path: str | Path) -> Iterator[Path]:
+    path = Path(path)
+    for root, _dirs, files in path.walk():
+        for name in files:
+            yield root / name

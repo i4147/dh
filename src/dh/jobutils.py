@@ -9,6 +9,7 @@ from functools import partial
 import importlib.util
 import math
 import multiprocessing as mp
+from multiprocessing.pool import Pool as MpPool
 import os
 import pickle
 import queue
@@ -18,9 +19,6 @@ import traceback
 from typing import TYPE_CHECKING, Any, Generator, Generic, Literal, Protocol, TypeAlias, TypeVar, cast
 
 from loguru import logger
-
-if TYPE_CHECKING:
-    from multiprocessing.pool import Pool as MpPool
 
 
 __all__ = [

@@ -5,6 +5,7 @@ import keyword
 import sys
 from typing import Final
 
+
 SHEBANG_MAP: dict[str, str] = {
     "python": ".py",
     "python2": ".py",

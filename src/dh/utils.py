@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 import unicodedata
 from urllib.parse import urlsplit
 
+
 PROTOCOLS = {"http", "https"}
 pattern: re.Pattern[str] = re.compile(
     r"""(?:
