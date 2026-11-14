@@ -79,8 +79,8 @@ _AGE_UNITS: tuple[tuple[str, int], ...] = (
 _GLOB_CHARS: frozenset[str] = frozenset("*?[")
 
 
-def fullpath(x: str|Path) -> str:
-    x=str(x)
+def fullpath(x: str | Path) -> str:
+    x = str(x)
     x = os.path.expandvars(x)
     x = os.path.expanduser(x)
     x = os.path.normpath(x)
@@ -1538,7 +1538,6 @@ def is_git_repo(path: str | Path) -> bool:
 def is_binary(path: str | Path) -> bool:
     """Return the inverse of the text-file classifier."""
     return not is_text_file(path)
-
 
 
 def tree_size_kib(p: Path) -> int:
