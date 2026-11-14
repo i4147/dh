@@ -60,6 +60,7 @@ RED: str = "\x1b[31m"
 RESET: str = "\x1b[0m"
 DIM: str = "\x1b[2m"
 BLUE: str = "\x1b[34m"
+
 _NORMALIZE_RE: re.Pattern[str] = re.compile(r"[-_.]+")
 _COUNTER_RE: re.Pattern[str] = re.compile(r"(?:_\d+)+$")
 _FILENAME_TABLE: dict[int, str] = dict.fromkeys(range(32), "_") | {ord(c): "_" for c in '<>:"/\\|?*'}
@@ -76,6 +77,23 @@ _AGE_UNITS: tuple[tuple[str, int], ...] = (
     ("sec", 1),
 )
 _GLOB_CHARS: frozenset[str] = frozenset("*?[")
+
+
+def fullpath(x: str|Path) -> str:
+    x=str(x)
+    x = os.path.expandvars(x)
+    x = os.path.expanduser(x)
+    x = os.path.normpath(x)
+    x = os.path.abspath(x)
+    return x
+
+
+def _exepath(cmd: str) -> Optional[str]:
+    for p in os.environ["PATH"].split(os.pathsep):
+        fullp = os.path.join(p, cmd)
+        if os.access(fullp, os.X_OK):
+            return fullp
+    return None
 
 
 class _PathOps:
@@ -1521,27 +1539,6 @@ def is_binary(path: str | Path) -> bool:
     """Return the inverse of the text-file classifier."""
     return not is_text_file(path)
 
-
-def gsz2(path: Path) -> int:
-    try:
-        total = path.lstat().st_size
-    except OSError:
-        return 0
-    if path.is_symlink() or not path.is_dir():
-        return total
-    for dirpath, dirnames, filenames in os.walk(path, followlinks=False):
-        for name in filenames:
-            try:
-                p = Path(dirpath) / name
-                total += p.stat().st_size
-            except OSError:
-                pass
-        for name in dirnames:
-            try:
-                total += os.lstat(Path(dirpath).joinpath(name)).st_size
-            except OSError:
-                pass
-    return total
 
 
 def tree_size_kib(p: Path) -> int:

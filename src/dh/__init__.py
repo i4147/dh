@@ -82,6 +82,7 @@ from .const import (
 )
 from .cprint import colored, cprint
 from .fileutils import (
+    fullpath,
     FileWalkerConfig,
     ReportGenerator,
     ReportItem,
@@ -90,7 +91,6 @@ from .fileutils import (
     format_time,
     fsz,
     get_dirs,
-    gsz2,
     sorted_by_size,
     get_file_age,
     get_files,
@@ -159,7 +159,7 @@ from .jobutils import (
 from .utils import WORD_PATTERN, get_sha256, has_doc, is_valid_url, slugify, tokenize_text
 
 __all__ = [
-    "gsz2",
+    "fullpath",
     "sorted_by_size",
     "FileWalkerConfig",
     "ReportGenerator",
