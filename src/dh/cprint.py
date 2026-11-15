@@ -1,11 +1,10 @@
 """Modern cprint: rich-based colored printing with ANSI-256 cube support."""
 
 from __future__ import annotations
-
+from enum import IntEnum
 import io
 import os
 import sys
-from enum import IntEnum
 from typing import IO, Final, TypeAlias
 
 from rich.color import Color
@@ -13,10 +12,11 @@ from rich.console import Console
 from rich.style import Style
 from rich.text import Text
 
+
 __all__ = [
     "Ansi",
-    "Cube",
     "ColorSpec",
+    "Cube",
     "ansi_to_rgb",
     "colored",
     "cprint",
@@ -106,21 +106,24 @@ def cube(r: int, g: int, b: int) -> int:
     """ANSI 256 index for cube coordinate (r, g, b) each in 0..5."""
     for name, v in (("r", r), ("g", g), ("b", b)):
         if not isinstance(v, int) or not 0 <= v <= 5:
-            raise ValueError(f"cube {name} must be int 0..5, got {v!r}")
+            msg = f"cube {name} must be int 0..5, got {v!r}"
+            raise ValueError(msg)
     return _cube_idx(r, g, b)
 
 
 def gray(level: int) -> int:
     """ANSI 256 index for grayscale level 0..23 (232..255)."""
     if not isinstance(level, int) or not 0 <= level < _GRAY_COUNT:
-        raise ValueError(f"gray level must be int 0..23, got {level!r}")
+        msg = f"gray level must be int 0..23, got {level!r}"
+        raise ValueError(msg)
     return _GRAY_BASE + level
 
 
 def ansi_to_rgb(n: int) -> tuple[int, int, int]:
     """RGB triple for an ANSI 256 index."""
     if not isinstance(n, int) or not 0 <= n <= 255:
-        raise ValueError(f"ANSI index must be int 0..255, got {n!r}")
+        msg = f"ANSI index must be int 0..255, got {n!r}"
+        raise ValueError(msg)
     if n < 16:
         return _ANSI_16_RGB[n]
     if n < 232:
@@ -138,7 +141,8 @@ def rgb_to_ansi256(r: int, g: int, b: int) -> int:
     """Closest ANSI 256 index (cube or grayscale) to an RGB triple."""
     for name, v in (("r", r), ("g", g), ("b", b)):
         if not isinstance(v, int) or not 0 <= v <= 255:
-            raise ValueError(f"RGB {name} must be int 0..255, got {v!r}")
+            msg = f"RGB {name} must be int 0..255, got {v!r}"
+            raise ValueError(msg)
     target = (r, g, b)
     best_idx, best_dist = 16, _dist2(ansi_to_rgb(16), target)
     for i in range(6):
@@ -168,18 +172,21 @@ def _resolve_color(spec: ColorSpec) -> Color:
         return Color.from_ansi(int(spec))
     if isinstance(spec, int):
         if not 0 <= spec <= 255:
-            raise ValueError(f"ANSI index must be int 0..255, got {spec!r}")
+            msg = f"ANSI index must be int 0..255, got {spec!r}"
+            raise ValueError(msg)
         return Color.from_ansi(spec)
     if isinstance(spec, tuple):
         if len(spec) != 3 or any(not isinstance(v, int) or not 0 <= v <= 255 for v in spec):
-            raise ValueError(f"RGB tuple must be 3 ints 0..255, got {spec!r}")
+            msg = f"RGB tuple must be 3 ints 0..255, got {spec!r}"
+            raise ValueError(msg)
         return Color.from_rgb(*spec)
     if isinstance(spec, str):
         s = spec.strip().lower()
         if s.startswith("cube(") and s.endswith(")"):
             parts = [int(p.strip()) for p in s[5:-1].split(",")]
             if len(parts) != 3:
-                raise ValueError(f"cube() expects 3 int args, got {spec!r}")
+                msg = f"cube() expects 3 int args, got {spec!r}"
+                raise ValueError(msg)
             return Color.from_ansi(cube(*parts))
         if s.startswith("gray(") and s.endswith(")"):
             return Color.from_ansi(gray(int(s[5:-1].strip())))
@@ -188,13 +195,16 @@ def _resolve_color(spec: ColorSpec) -> Color:
         if s.startswith("rgb(") and s.endswith(")"):
             parts = [int(p.strip()) for p in s[4:-1].split(",")]
             if len(parts) != 3:
-                raise ValueError(f"rgb() expects 3 int args, got {spec!r}")
+                msg = f"rgb() expects 3 int args, got {spec!r}"
+                raise ValueError(msg)
             return Color.from_rgb(*parts)
         parsed = Color.parse(spec)
         if parsed is None:
-            raise ValueError(f"could not parse color: {spec!r}")
+            msg = f"could not parse color: {spec!r}"
+            raise ValueError(msg)
         return parsed
-    raise TypeError(f"unsupported color spec: {type(spec).__name__}")
+    msg = f"unsupported color spec: {type(spec).__name__}"
+    raise TypeError(msg)
 
 
 def _build_style(

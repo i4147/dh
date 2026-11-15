@@ -1580,3 +1580,44 @@ def walk_files(path: str | Path) -> Iterator[Path]:
     for root, _dirs, files in path.walk():
         for name in files:
             yield root / name
+
+
+def gsz2(path: Path) -> int:
+    """Total apparent size, in bytes, of *path* plus everything below it.
+
+    Behaves like ``du -sb``: directory entries and symlinks are counted at their
+    own ``st_size`` (symlinks are never followed), hard-linked files and
+    directories are counted once, and missing/unreadable entries contribute
+    nothing instead of raising.
+    """
+    try:
+        st = os.lstat(path)
+    except OSError:
+        return 0
+
+    total = st.st_size
+    if not stat.S_ISDIR(st.st_mode):
+        return total  # regular file, symlink, fifo, socket, device, ...
+
+    seen = {(st.st_dev, st.st_ino)}  # hard links / bind mounts / loops
+    stack = [os.fspath(path)]
+    while stack:
+        current = stack.pop()
+        try:
+            with os.scandir(current) as entries:
+                for entry in entries:
+                    try:
+                        est = entry.stat(follow_symlinks=False)
+                    except OSError:  # vanished between readdir() and stat()
+                        continue
+                    key = (est.st_dev, est.st_ino)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    total += est.st_size
+                    if stat.S_ISDIR(est.st_mode):
+                        # Queue it; the scandir handle above closes before we open the child.
+                        stack.append(entry.path)
+        except OSError:  # unreadable or vanished directory; its own size is already counted
+            continue
+    return total

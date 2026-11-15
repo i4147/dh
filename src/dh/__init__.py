@@ -82,8 +82,8 @@ from .const import (
 )
 from .cprint import (
     Ansi,
-    Cube,
     ColorSpec,
+    Cube,
     ansi_to_rgb,
     colored,
     cprint,
@@ -122,6 +122,7 @@ from .fileutils import (
     getfiles,
     gext,
     gsz,
+    gsz2,
     gsze,
     is_binary,
     is_empty,
@@ -200,6 +201,7 @@ __all__ = [
     "getfiles",
     "gext",
     "gsz",
+    "gsz2",
     "gsze",
     "is_binary",
     "is_empty",
@@ -310,8 +312,8 @@ __all__ += [
 ]
 __all__ += [
     "Ansi",
-    "Cube",
     "ColorSpec",
+    "Cube",
     "ansi_to_rgb",
     "colored",
     "cprint",
