@@ -42,7 +42,7 @@
 .vscode/
 ENV/
 MANIFEST
-__pycache__/
+**/__pycache__/*
 build/
 coverage.xml
 develop-eggs/
@@ -76,4 +76,4 @@ wheels
 wheels/
 secrets.*
 *.env
-
+**/*.pyc
