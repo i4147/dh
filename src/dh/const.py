@@ -2,7 +2,6 @@
 
 import builtins
 import keyword
-import sys
 from typing import Final
 
 
@@ -3616,8 +3615,204 @@ CODE_EXT: Final[frozenset[str]] = frozenset({
     ".vb",
     ".zig",
 })
-# Top-level standard-library modules for the running Python version.
-STDLIB: Final[frozenset[str]] = sys.stdlib_module_names
+STDLIB: Final[frozenset[str]] = frozenset({
+    "abc",
+    "argparse",
+    "array",
+    "ast",
+    "asyncio",
+    "base64",
+    "bisect",
+    "builtins",
+    "bz2",
+    "calendar",
+    "cmath",
+    "cmd",
+    "code",
+    "codecs",
+    "codeop",
+    "collections",
+    "colorsys",
+    "compileall",
+    "concurrent",
+    "configparser",
+    "contextlib",
+    "contextvars",
+    "copy",
+    "copyreg",
+    "cProfile",
+    "crypt",
+    "csv",
+    "ctypes",
+    "curses",
+    "dataclasses",
+    "datetime",
+    "dbm",
+    "decimal",
+    "difflib",
+    "dis",
+    "distutils",
+    "doctest",
+    "email",
+    "encodings",
+    "ensurepip",
+    "enum",
+    "errno",
+    "faulthandler",
+    "fcntl",
+    "filecmp",
+    "fileinput",
+    "fnmatch",
+    "fractions",
+    "ftplib",
+    "functools",
+    "gc",
+    "getopt",
+    "getpass",
+    "gettext",
+    "glob",
+    "graphlib",
+    "grp",
+    "gzip",
+    "hashlib",
+    "heapq",
+    "hmac",
+    "html",
+    "http",
+    "idlelib",
+    "imaplib",
+    "imghdr",
+    "imp",
+    "importlib",
+    "inspect",
+    "io",
+    "ipaddress",
+    "itertools",
+    "json",
+    "keyword",
+    "lib2to3",
+    "linecache",
+    "locale",
+    "logging",
+    "lzma",
+    "mailbox",
+    "mailcap",
+    "marshal",
+    "math",
+    "mimetypes",
+    "mmap",
+    "modulefinder",
+    "multiprocessing",
+    "netrc",
+    "nis",
+    "nntplib",
+    "numbers",
+    "operator",
+    "optparse",
+    "os",
+    "ossaudiodev",
+    "parser",
+    "pathlib",
+    "pdb",
+    "pickle",
+    "pickletools",
+    "pipes",
+    "pkgutil",
+    "platform",
+    "plistlib",
+    "poplib",
+    "posix",
+    "posixpath",
+    "pprint",
+    "profile",
+    "pstats",
+    "pty",
+    "pwd",
+    "py_compile",
+    "pyclbr",
+    "pydoc",
+    "queue",
+    "quopri",
+    "random",
+    "re",
+    "readline",
+    "reprlib",
+    "resource",
+    "rlcompleter",
+    "runpy",
+    "sched",
+    "secrets",
+    "select",
+    "selectors",
+    "shelve",
+    "shlex",
+    "shutil",
+    "signal",
+    "site",
+    "smtpd",
+    "smtplib",
+    "sndhdr",
+    "socket",
+    "socketserver",
+    "spwd",
+    "sqlite3",
+    "ssl",
+    "stat",
+    "statistics",
+    "string",
+    "stringprep",
+    "struct",
+    "subprocess",
+    "sunau",
+    "symtable",
+    "sys",
+    "sysconfig",
+    "syslog",
+    "tabnanny",
+    "tarfile",
+    "telnetlib",
+    "tempfile",
+    "termios",
+    "test",
+    "textwrap",
+    "threading",
+    "time",
+    "timeit",
+    "tkinter",
+    "token",
+    "tokenize",
+    "trace",
+    "traceback",
+    "tracemalloc",
+    "tty",
+    "turtle",
+    "turtledemo",
+    "types",
+    "typing",
+    "typing_extensions",
+    "unicodedata",
+    "unittest",
+    "urllib",
+    "uu",
+    "uuid",
+    "venv",
+    "warnings",
+    "wave",
+    "weakref",
+    "webbrowser",
+    "winreg",
+    "winsound",
+    "wsgiref",
+    "xdrlib",
+    "xml",
+    "xmlrpc",
+    "zipapp",
+    "zipfile",
+    "zipimport",
+    "zlib",
+    "zoneinfo",
+})
+
 CSS_COLORS: dict[str, tuple[int, int, int]] = {
     "aliceblue": (240, 248, 255),
     "antiquewhite": (250, 235, 215),
@@ -3768,57 +3963,7 @@ CSS_COLORS: dict[str, tuple[int, int, int]] = {
     "yellow": (255, 255, 0),
     "yellowgreen": (154, 205, 50),
 }
-RESET: str = "\x1b[0m"
-reset = RESET
-BOLD: str = "\x1b[1m"
-bold = BOLD
-UNDERLINE: str = "\x1b[4m"
-underline = UNDERLINE
-BLINK: str = "\x1b[5m"
-blink = BLINK
-REVERSE: str = "\x1b[7m"
-reverse = REVERSE
-CONSEALED: str = "\x1b[8m"
-consealed = CONSEALED
-RED: str = "\x1b[1;31m"
-red = RED
-GREEN: str = "\x1b[1;32m"
-green = GREEN
-YELLOW: str = "\x1b[1;33m"
-yellow = YELLOW
-BLUE: str = "\x1b[1;34m"
-blue = BLUE
-MAGENTA: str = "\x1b[1;35m"
-magenta = MAGENTA
-CYAN: str = "\x1b[1;36m"
-cyan = CYAN
-WHITE: str = "\x1b[1;37m"
-white = WHITE
-BLACK: str = "\x1b[1;30m"
-black = BLACK
-LRED: str = "\x1b[1;91m"
-lred = LRED
-LGREEN: str = "\x1b[1;92m"
-lgreen = LGREEN
-LYELLOW: str = "\x1b[1;93m"
-lyellow = LYELLOW
-LBLUE: str = "\x1b[1;94m"
-lblue = LBLUE
-LMAGENTA: str = "\x1b[1;95m"
-lmagenta = LMAGENTA
-LCYAN: str = "\x1b[1;96m"
-lcyan = LCYAN
-GREY: str = "\x1b[38;2;147;147;147m"
-grey = GREY
-GREYWHITE: str = "\x1b[2m"
-greywhite = GREYWHITE
-GREYBLACK: str = "\x1b[1;90m"
-greyblack = GREYBLACK
-ANSI_RESET: str = "\x1b[0m"
-ANSI_BOLD: str = "\x1b[1m"
-CHUNK_SIZE: int = 32768
-ZERO_DOT_THREE: float = 0.3
-# Generated, environment, and tooling directories; never skip package/source names.
+
 SKIP_DIRS: Final[frozenset[str]] = frozenset({
     ".cache",
     ".git",
@@ -3831,19 +3976,108 @@ SKIP_DIRS: Final[frozenset[str]] = frozenset({
     ".ruff_cache",
     ".svn",
     ".tox",
-    ".venv",
     ".vscode",
     "__pycache__",
-    "build",
-    "dist",
-    "node_modules",
-    "venv",
 })
 THRESHOLD: int = 2_097_152
 SDCARD: str = "/sdcard"
 EMULATED: str = "/storage/emulated/0"
 CONTEXT_METHOD: str = "spawn"
-MAX_WORKERS: int = 8
-DOC_TH1: str = '"""'
-DOC_TH2: str = "'''"
-DOC_TH: Final[tuple[str, str]] = (DOC_TH1, DOC_TH2)
+MAX_WORKERS: int = 4
+CHUNK_SIZE: int = 32768
+BUILTIN_NAMES: frozenset[str] = frozenset({
+    "print",
+    "len",
+    "range",
+    "str",
+    "int",
+    "float",
+    "list",
+    "dict",
+    "set",
+    "tuple",
+    "bool",
+    "bytes",
+    "bytearray",
+    "object",
+    "type",
+    "super",
+    "property",
+    "classmethod",
+    "staticmethod",
+    "open",
+    "input",
+    "enumerate",
+    "zip",
+    "map",
+    "filter",
+    "sorted",
+    "reversed",
+    "sum",
+    "min",
+    "max",
+    "all",
+    "any",
+    "abs",
+    "round",
+    "pow",
+    "divmod",
+    "hex",
+    "oct",
+    "bin",
+    "ord",
+    "chr",
+    "ascii",
+    "repr",
+    "format",
+    "hash",
+    "id",
+    "isinstance",
+    "issubclass",
+    "callable",
+    "iter",
+    "next",
+    "compile",
+    "eval",
+    "exec",
+    "globals",
+    "locals",
+    "vars",
+    "dir",
+    "help",
+    "getattr",
+    "setattr",
+    "delattr",
+    "hasattr",
+    "Exception",
+    "BaseException",
+    "ValueError",
+    "TypeError",
+    "RuntimeError",
+    "KeyError",
+    "IndexError",
+    "AttributeError",
+    "NameError",
+    "IOError",
+    "OSError",
+    "ImportError",
+    "ModuleNotFoundError",
+    "StopIteration",
+    "GeneratorExit",
+    "KeyboardInterrupt",
+    "SystemExit",
+    "NotImplemented",
+    "Ellipsis",
+    "None",
+    "True",
+    "False",
+    "__name__",
+    "__doc__",
+    "__package__",
+    "__file__",
+    "__cached__",
+    "__loader__",
+    "__spec__",
+    "self",
+    "cls",
+})

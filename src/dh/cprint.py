@@ -4,7 +4,6 @@ from __future__ import annotations
 from enum import IntEnum
 import io
 import os
-import sys
 from typing import IO, Final, TypeAlias
 
 from rich.color import Color

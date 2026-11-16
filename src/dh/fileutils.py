@@ -6,7 +6,6 @@ from collections.abc import Callable, Collection, Generator, Iterator, Mapping, 
 from dataclasses import dataclass, field
 from datetime import datetime
 import functools
-import json
 import os
 from pathlib import Path
 import re
@@ -14,7 +13,7 @@ import stat
 import subprocess
 import sys
 import time
-from typing import TYPE_CHECKING, Any, Literal, NamedTuple, overload
+from typing import Any, Literal, NamedTuple, overload
 
 from .const import BINARY_EXT, CHUNK_SIZE, EMULATED, IMAGE_EXT, SDCARD, SKIP_DIRS, TEXT_EXT, TEXT_FILENAMES, THRESHOLD
 from .utils import clean_terminal_transcript
@@ -83,7 +82,7 @@ def fullpath(x: str | Path) -> str:
 
 def _exepath(cmd: str) -> Optional[str]:
     for p in os.environ["PATH"].split(os.pathsep):
-        fullp = os.path.join(p, cmd)
+        fullp = Path(p) / cmd
         if os.access(fullp, os.X_OK):
             return fullp
     return None

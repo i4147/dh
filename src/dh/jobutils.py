@@ -16,7 +16,7 @@ import queue
 import signal
 import time
 import traceback
-from typing import TYPE_CHECKING, Any, Generator, Generic, Literal, Protocol, TypeAlias, TypeVar, cast
+from typing import Any, Generator, Generic, Literal, Protocol, TypeAlias, TypeVar, cast
 
 from loguru import logger
 
@@ -25,9 +25,9 @@ __all__ = [
     "Method",
     "MethodUnavailableError",
     "MpfError",
-    "Outcome",
     "TaskError",
     "failures",
+    "Outcome",
     "mpf",
     "values",
 ]
@@ -39,6 +39,22 @@ StartMethod: TypeAlias = Literal["fork", "forkserver", "spawn"]
 ErrorMode: TypeAlias = Literal["collect", "raise"]
 Packed: TypeAlias = tuple[int, Any]
 Chunk: TypeAlias = Sequence[Packed]
+
+
+@dataclass(frozen=True, slots=True)
+class Outcome(Generic[T, R]):
+    index: int
+    item: T
+    value: R | None = None
+    error: str | None = None
+    traceback: str | None = None
+
+    @property
+    def ok(self) -> bool:
+        return self.error is None
+
+
+AnyOutcome: TypeAlias = Outcome[Any, Any]
 
 
 class MpfError(Exception):
@@ -88,22 +104,6 @@ class Method(StrEnum):
 STAR_METHODS: frozenset[Method] = frozenset({Method.STARMAP, Method.STARMAP_ASYNC})
 EXECUTOR_METHODS: frozenset[Method] = frozenset({Method.PROCESS, Method.THREAD, Method.INTERPRETER})
 UNPICKLED_METHODS: frozenset[Method] = frozenset({Method.THREAD, Method.JOBLIB})
-
-
-@dataclass(frozen=True, slots=True)
-class Outcome(Generic[T, R]):
-    index: int
-    item: T
-    value: R | None = None
-    error: str | None = None
-    traceback: str | None = None
-
-    @property
-    def ok(self) -> bool:
-        return self.error is None
-
-
-AnyOutcome: TypeAlias = Outcome[Any, Any]
 
 
 def values(outcomes: Iterable[Outcome[T, R]]) -> list[R]:

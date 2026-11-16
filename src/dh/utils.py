@@ -7,7 +7,6 @@ from io import StringIO
 from pathlib import Path
 import re
 import tokenize
-from typing import TYPE_CHECKING
 import unicodedata
 from urllib.parse import urlsplit
 

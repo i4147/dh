@@ -122,3 +122,45 @@ def to_camel(text: str, *, upper_first: bool = False) -> str:
     first = next(words, "")
     first = first.capitalize() if upper_first else first.lower()
     return first + "".join(word.capitalize() for word in words)
+
+
+def is_real_text(text: str, *, allow_digits: bool = False, min_letters: int = 1) -> bool:
+    """
+    Return True if `text` contains real textual content in *any* language.
+
+    A character counts as "text" if it is a Unicode letter (category L*).
+    Optionally, digits/numbers (category N*) can also count.
+
+    Parameters
+    ----------
+    text : str
+        The input to check.
+    allow_digits : bool
+        If True, numeric characters (e.g. "123", "١٢٣", "Ⅻ") are also
+        considered text.
+    min_letters : int
+        Minimum number of text characters required to return True.
+        Use a value > 1 if you want to reject e.g. a stray single letter.
+
+    Returns
+    -------
+    bool
+        True if real text is present, False if input is only punctuation,
+        whitespace, symbols, emojis, or empty.
+    """
+    import unicodedata
+
+    if not isinstance(text, str):
+        msg = f"expected str, got {type(text).__name__}"
+        raise TypeError(msg)
+
+    count = 0
+    for ch in text:
+        cat = unicodedata.category(ch)
+        if cat[0] == "L":  # Lu, Ll, Lt, Lm, Lo
+            count += 1
+        elif allow_digits and cat[0] == "N":  # Nd, Nl, No
+            count += 1
+        if count >= min_letters:
+            return True
+    return False
