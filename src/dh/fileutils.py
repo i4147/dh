@@ -1,5 +1,3 @@
-"""Filesystem operations, filtered traversal, reporting, and command execution."""
-
 import codecs
 from collections import defaultdict
 from collections.abc import Callable, Collection, Generator, Iterator, Mapping, Sequence
@@ -80,7 +78,7 @@ def fullpath(x: str | Path) -> str:
     return x
 
 
-def _exepath(cmd: str) -> Optional[str]:
+def _exepath(cmd: str) -> Path | None:
     for p in os.environ["PATH"].split(os.pathsep):
         fullp = Path(p) / cmd
         if os.access(fullp, os.X_OK):
@@ -88,793 +86,804 @@ def _exepath(cmd: str) -> Optional[str]:
     return None
 
 
-class _PathOps:
-    @staticmethod
-    def suffix(name: str) -> str:
-        i = name.rfind(".")
-        return name[i:] if 0 < i < len(name) - 1 else ""
-
-    @staticmethod
-    def split_name(name: str) -> tuple[str, str]:
-        i = name.find(".", 1)
-        return (name, "") if i < 0 else (name[:i], name[i:])
-
-    @staticmethod
-    def require_dir(path: Path) -> None:
-        if not path.exists():
-            msg = f"Path does not exist: {path}"
-            raise FileNotFoundError(msg)
-        if not path.is_dir():
-            msg = f"Path is not a directory: {path}"
-            raise NotADirectoryError(msg)
-
-    @staticmethod
-    def gext(path: str | Path) -> str:
-        """Return the filename extension, preserving recognized compound suffixes."""
-        try:
-            suffs = Path(path).suffixes
-        except (OSError, ValueError):
-            return ""
-        if not suffs:
-            return ""
-        if len(suffs) > 1:
-            if suffs[0] in _MULTIPART_PREFIXES:
-                return "".join(suffs)
-            if suffs[-1] in _ARCHIVE_COMPRESSION and suffs[-2] == ".tar":
-                return f".tar{suffs[-1]}"
-            return suffs[-1]
-        return suffs[0]
-
-    @staticmethod
-    def normalize_name(name: str) -> str:
-        return _NORMALIZE_RE.sub("-", name).lower()
-
-    @staticmethod
-    def normalize_filename(path: str | Path) -> str:
-        """Replace control characters and filesystem-unsafe filename characters."""
-        return str(path).translate(_FILENAME_TABLE)
-
-    @staticmethod
-    def normalize_path(path: str | Path) -> Path:
-        """Resolve a path and translate the configured emulated-storage prefix."""
-        try:
-            s = str(path)
-            if EMULATED in s:
-                return Path(s.replace(EMULATED, SDCARD))
-            return Path(path).resolve()
-        except (OSError, ValueError):
-            return Path(path)
-
-    @staticmethod
-    def is_within(child_path: str | Path, parent_path: str | Path) -> bool:
-        """Check whether the resolved child path is inside the parent path."""
-        try:
-            return Path(child_path).resolve().is_relative_to(Path(parent_path).resolve())
-        except (OSError, ValueError):
-            return False
-
-    @staticmethod
-    def clean_fname(path: Path) -> Path:
-        stem, suffix = _PathOps.split_name(path.name)
-        cleaned = _COUNTER_RE.sub("", stem) or stem
-        return path.with_name(cleaned + suffix)
-
-    @staticmethod
-    def unique_path(path: Path | str) -> Path:
-        """Return an unused path by appending a numeric suffix when necessary."""
-        path = _PathOps.clean_fname(Path(path))
-        try:
-            if not path.exists():
-                return path
-        except OSError:
-            return path
-        stem, suffix = _PathOps.split_name(path.name)
-        parent = path.parent
-        counter = 1
-        while True:
-            candidate = parent / f"{stem}_{counter}{suffix}"
-            try:
-                if not candidate.exists():
-                    return candidate
-            except OSError:
-                return candidate
-            counter += 1
-
-    @staticmethod
-    def get_random_filename(length: int = 10) -> str:
-        """Generate a random lowercase filename stem of the requested length."""
-        from secrets import choice
-        from string import ascii_lowercase
-
-        return "".join(choice(ascii_lowercase) for _ in range(length))
-
-    @staticmethod
-    def should_skip(path: str | Path) -> bool:
-        """Check a path against the configured directory exclusions."""
-        path = Path(path)
-        try:
-            return path.is_symlink() or not SKIP_DIRS.isdisjoint(path.parts)
-        except OSError:
-            return False
-
-    @staticmethod
-    def get_mime_type(path: str | Path) -> str | None:
-        """Guess the MIME type from a filename, or return None."""
-        from mimetypes import guess_type
-
-        try:
-            return guess_type(str(path))[0]
-        except (OSError, ValueError):
-            return None
+# ---------------------------------------------------------------------------
+# Path helpers (formerly _PathOps)
+# ---------------------------------------------------------------------------
 
 
-class _FileWalker:
-    @staticmethod
-    def iter_entries(
-        root: Path,
-        *,
-        skip_dirs: Collection[str] = SKIP_DIRS,
-        hidden: bool = False,
-        recursive: bool = True,
-    ) -> Iterator[tuple[Path, bool]]:
-        """Yield (path, is_directory) with one scandir handle open at a time.
-
-        DirEntry caches file-type metadata. An explicit stack avoids recursion
-        limits; exclusions prune subtrees before opening them. Errors propagate
-        to callers, which may retain their legacy best-effort error policies.
-        """
-        mode = root.lstat().st_mode
-        if stat.S_ISLNK(mode):
-            return
-        is_dir = stat.S_ISDIR(mode)
-        if not is_dir and not stat.S_ISREG(mode):
-            return
-        yield root, is_dir
-        if not is_dir:
-            return
-        pending = [root]
-        while pending:
-            current = pending.pop()
-            with os.scandir(current) as entries:
-                for entry in entries:
-                    if (not hidden and entry.name.startswith(".")) or entry.is_symlink():
-                        continue
-                    is_dir = entry.is_dir(follow_symlinks=False)
-                    if is_dir:
-                        if entry.name in skip_dirs:
-                            continue
-                    elif not entry.is_file(follow_symlinks=False):
-                        continue
-                    candidate = Path(entry.path)
-                    yield candidate, is_dir
-                    if is_dir and recursive:
-                        pending.append(candidate)
-
-    @staticmethod
-    def iter_files(
-        root: Path,
-        exts: set[str] | frozenset[str] | None = None,
-        ends: tuple[str, ...] | None = None,
-        hidden: bool = True,
-        lower: bool = False,
-        prune: bool = True,
-    ) -> Iterator[Path]:
-        """Filter the shared scandir engine using legacy extension semantics."""
-        try:
-            for candidate, is_dir in _FileWalker.iter_entries(
-                root, skip_dirs=SKIP_DIRS if prune else (), hidden=hidden
-            ):
-                if is_dir:
-                    continue
-                if exts is not None:
-                    suffix = _PathOps.suffix(candidate.name)
-                    if (suffix.lower() if lower else suffix) not in exts:
-                        continue
-                elif ends is not None and not candidate.name.endswith(ends):
-                    continue
-                yield candidate
-        except OSError:
-            return
-
-    @staticmethod
-    def walk_paths(inputs: str | Path | list[str | Path], ext: list[str] | None = None) -> Iterator[Path]:
-        """Expand input paths and glob expressions into matching files."""
-        if isinstance(inputs, (str, Path)):
-            inputs = [inputs]
-        exts = set(ext) if ext is not None else None
-        for inp in inputs:
-            inp = Path(inp)
-            try:
-                if inp.is_file():
-                    if exts is None or inp.suffix in exts:
-                        yield inp
-                elif inp.is_dir():
-                    yield from _FileWalker.iter_files(inp, exts)
-                else:
-                    parts = inp.parts
-                    idx = next((i for i, part in enumerate(parts) if not _GLOB_CHARS.isdisjoint(part)), -1)
-                    if idx < 0:
-                        continue
-                    base = Path(*parts[:idx]) if idx else Path()
-                    for match in base.glob("/".join(parts[idx:])):
-                        if match.is_file():
-                            if exts is None or match.suffix in exts:
-                                yield match
-                        elif match.is_dir():
-                            yield from _FileWalker.iter_files(match, exts)
-            except (OSError, ValueError):
-                continue
-
-    @staticmethod
-    def walker(
-        path: str | Path,
-        recursive: bool = True,
-        exts: list[str] | None = None,
-        skip_dirs: Collection[str] = SKIP_DIRS,
-    ) -> Iterator[Path]:
-        """Iterate matching files with optional recursion and directory exclusions."""
-        root = Path(path)
-        try:
-            if not root.is_dir():
-                return
-        except OSError:
-            return
-        suffixes: tuple[str, ...] | None = None
-        if exts is not None:
-            suffixes = tuple((e if e.startswith(".") else f".{e}").lower() for e in exts)
-
-        try:
-            for candidate, is_dir in _FileWalker.iter_entries(
-                root, skip_dirs=skip_dirs, hidden=True, recursive=recursive
-            ):
-                if not is_dir and (suffixes is None or candidate.name.lower().endswith(suffixes)):
-                    yield candidate
-        except OSError:
-            return
+def suffix(name: str) -> str:
+    i = name.rfind(".")
+    return name[i:] if 0 < i < len(name) - 1 else ""
 
 
-class _FileOps:
-    @staticmethod
-    def _finish_lines(text: str, keep_ends: bool) -> list[str]:
-        lines = text.splitlines(keepends=keep_ends)
-        if lines and not lines[-1].endswith(("\n", "\r\n", "\r")) and text.endswith("\n"):
-            lines.append("")
-        return lines
+def split_name(name: str) -> tuple[str, str]:
+    i = name.find(".", 1)
+    return (name, "") if i < 0 else (name[:i], name[i:])
 
-    @staticmethod
-    def read_lines(path: str | Path, ke: bool = True) -> list[str]:
-        """Read UTF-8 lines, replacing malformed bytes; optionally retain line endings."""
-        path = Path(path)
-        try:
-            if path.stat().st_size > THRESHOLD:
-                return _FileOps.read_lines_mmap(path, ke)
-            return _FileOps._finish_lines(path.read_bytes().decode("utf-8", errors="replace"), ke)
-        except OSError:
-            return []
 
-    @staticmethod
-    def read_lines_mmap(path: Path, keep_ends: bool = True) -> list[str]:
-        """Read UTF-8 lines through a read-only memory map."""
-        import mmap
+def require_dir(path: Path) -> None:
+    if not path.exists():
+        msg = f"Path does not exist: {path}"
+        raise FileNotFoundError(msg)
+    if not path.is_dir():
+        msg = f"Path is not a directory: {path}"
+        raise NotADirectoryError(msg)
 
-        path = Path(path)
-        try:
-            size = path.stat().st_size
-            if size == 0:
-                return []
-            with path.open("rb") as f, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
-                text = mm[:].decode("utf-8", errors="replace")
-            return _FileOps._finish_lines(text, keep_ends)
-        except OSError:
-            return []
 
-    @staticmethod
-    def write_txt_file(path: str | Path, data: str, overwrite: bool = False) -> bool:
-        """Write UTF-8 text, refusing existing paths unless overwrite is enabled."""
-        if not isinstance(data, str):
-            return False
-        path = Path(path)
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            if not overwrite and path.exists():
-                return False
-            path.write_text(data, encoding="utf-8")
-            return True
-        except (OSError, ValueError):
-            return False
+def gext(path: str | Path) -> str:
+    """Return the filename extension, preserving recognized compound suffixes."""
+    try:
+        suffs = Path(path).suffixes
+    except (OSError, ValueError):
+        return ""
+    if not suffs:
+        return ""
+    if len(suffs) > 1:
+        if suffs[0] in _MULTIPART_PREFIXES:
+            return "".join(suffs)
+        if suffs[-1] in _ARCHIVE_COMPRESSION and suffs[-2] == ".tar":
+            return f".tar{suffs[-1]}"
+        return suffs[-1]
+    return suffs[0]
 
-    @staticmethod
-    def append_text(path: str | Path, content: str, encoding: str = "utf-8") -> bool:
-        """Append encoded text to a file; return whether the write succeeded."""
-        path = Path(path)
-        try:
-            if path.is_symlink() or path.is_dir():
-                return False
-            if not path.exists():
-                path.write_text(content, encoding=encoding)
-                return True
-            with path.open("a", encoding=encoding) as f:
-                f.write("\n" + content)
-            return True
-        except (OSError, ValueError):
-            return False
 
-    @staticmethod
-    def safe_delete(path: Path, max_retries: int = 3) -> bool:
-        """Delete a file or tree, retrying transient filesystem failures."""
-        from shutil import rmtree
+def normalize_name(name: str) -> str:
+    return _NORMALIZE_RE.sub("-", name).lower()
 
-        path = Path(path)
-        for _ in range(max(1, max_retries)):
-            try:
-                if path.is_dir() and not path.is_symlink():
-                    rmtree(path)
-                else:
-                    path.unlink()
-                return True
-            except FileNotFoundError:
-                return False
-            except OSError:
-                continue
+
+def normalize_filename(path: str | Path) -> str:
+    """Replace control characters and filesystem-unsafe filename characters."""
+    return str(path).translate(_FILENAME_TABLE)
+
+
+def normalize_path(path: str | Path) -> Path:
+    """Resolve a path and translate the configured emulated-storage prefix."""
+    try:
+        s = str(path)
+        if EMULATED in s:
+            return Path(s.replace(EMULATED, SDCARD))
+        return Path(path).resolve()
+    except (OSError, ValueError):
+        return Path(path)
+
+
+def is_within(child_path: str | Path, parent_path: str | Path) -> bool:
+    """Check whether the resolved child path is inside the parent path."""
+    try:
+        return Path(child_path).resolve().is_relative_to(Path(parent_path).resolve())
+    except (OSError, ValueError):
         return False
 
-    @staticmethod
-    def restore_bak(path: str | Path) -> bool:
-        """Restore a file from its adjacent .bak backup when present."""
-        path = Path(path)
-        bak = path.with_name(path.name + ".bak")
-        try:
-            bak.replace(path)
-            return True
-        except OSError:
-            return False
 
-    @staticmethod
-    def is_empty(path: str | Path) -> bool:
-        """Check whether a path names an empty directory."""
-        path = Path(path)
-        try:
-            if not path.is_dir():
-                return False
-            with os.scandir(path) as it:
-                return next(it, None) is None
-        except OSError:
-            return False
+def clean_fname(path: Path) -> Path:
+    stem, suffix_ = split_name(path.name)
+    cleaned = _COUNTER_RE.sub("", stem) or stem
+    return path.with_name(cleaned + suffix_)
 
-    @staticmethod
-    def is_image(path: str | Path) -> bool:
-        """Check whether an existing file has a recognized image extension."""
-        path = Path(path)
+
+def unique_path(path: Path | str) -> Path:
+    """Return an unused path by appending a numeric suffix when necessary."""
+    path = clean_fname(Path(path))
+    try:
+        if not path.exists():
+            return path
+    except OSError:
+        return path
+    stem, suffix_ = split_name(path.name)
+    parent = path.parent
+    counter = 1
+    while True:
+        candidate = parent / f"{stem}_{counter}{suffix_}"
         try:
-            return path.suffix.lower() in IMAGE_EXT and path.is_file()
+            if not candidate.exists():
+                return candidate
+        except OSError:
+            return candidate
+        counter += 1
+
+
+def get_random_filename(length: int = 10) -> str:
+    """Generate a random lowercase filename stem of the requested length."""
+    from secrets import choice
+    from string import ascii_lowercase
+
+    return "".join(choice(ascii_lowercase) for _ in range(length))
+
+
+def should_skip(path: str | Path) -> bool:
+    """Check a path against the configured directory exclusions."""
+    path = Path(path)
+    try:
+        return path.is_symlink() or not SKIP_DIRS.isdisjoint(path.parts)
+    except OSError:
+        return False
+
+
+def get_mime_type(path: str | Path) -> str | None:
+    """Guess the MIME type from a filename, or return None."""
+    from mimetypes import guess_type
+
+    try:
+        return guess_type(str(path))[0]
+    except (OSError, ValueError):
+        return None
+
+
+# ---------------------------------------------------------------------------
+# File walking (formerly _FileWalker)
+# ---------------------------------------------------------------------------
+
+
+def iter_entries(
+    root: Path,
+    *,
+    skip_dirs: Collection[str] = SKIP_DIRS,
+    hidden: bool = False,
+    recursive: bool = True,
+) -> Iterator[tuple[Path, bool]]:
+    """Yield (path, is_directory) with one scandir handle open at a time.
+
+    DirEntry caches file-type metadata. An explicit stack avoids recursion
+    limits; exclusions prune subtrees before opening them. Errors propagate
+    to callers, which may retain their legacy best-effort error policies.
+    """
+    mode = root.lstat().st_mode
+    if stat.S_ISLNK(mode):
+        return
+    is_dir = stat.S_ISDIR(mode)
+    if not is_dir and not stat.S_ISREG(mode):
+        return
+    yield root, is_dir
+    if not is_dir:
+        return
+    pending = [root]
+    while pending:
+        current = pending.pop()
+        with os.scandir(current) as entries:
+            for entry in entries:
+                if (not hidden and entry.name.startswith(".")) or entry.is_symlink():
+                    continue
+                is_dir = entry.is_dir(follow_symlinks=False)
+                if is_dir:
+                    if entry.name in skip_dirs:
+                        continue
+                elif not entry.is_file(follow_symlinks=False):
+                    continue
+                candidate = Path(entry.path)
+                yield candidate, is_dir
+                if is_dir and recursive:
+                    pending.append(candidate)
+
+
+def iter_files(
+    root: Path,
+    exts: set[str] | frozenset[str] | None = None,
+    ends: tuple[str, ...] | None = None,
+    hidden: bool = True,
+    lower: bool = False,
+    prune: bool = True,
+) -> Iterator[Path]:
+    """Filter the shared scandir engine using legacy extension semantics."""
+    try:
+        for candidate, is_dir in iter_entries(root, skip_dirs=SKIP_DIRS if prune else (), hidden=hidden):
+            if is_dir:
+                continue
+            if exts is not None:
+                s = suffix(candidate.name)
+                if (s.lower() if lower else s) not in exts:
+                    continue
+            elif ends is not None and not candidate.name.endswith(ends):
+                continue
+            yield candidate
+    except OSError:
+        return
+
+
+def walk_paths(inputs: str | Path | list[str | Path], ext: list[str] | None = None) -> Iterator[Path]:
+    """Expand input paths and glob expressions into matching files."""
+    if isinstance(inputs, (str, Path)):
+        inputs = [inputs]
+    exts = set(ext) if ext is not None else None
+    for inp in inputs:
+        path = Path(inp)
+        try:
+            if path.is_file():
+                if exts is None or path.suffix in exts:
+                    yield path
+            elif path.is_dir():
+                yield from iter_files(path, exts)
+            else:
+                parts = path.parts
+                idx = next((i for i, part in enumerate(parts) if not _GLOB_CHARS.isdisjoint(part)), -1)
+                if idx < 0:
+                    continue
+                base = Path(*parts[:idx]) if idx else Path()
+                for matched in base.glob("/".join(parts[idx:])):
+                    if matched.is_file():
+                        if exts is None or matched.suffix in exts:
+                            yield matched
+                    elif matched.is_dir():
+                        yield from iter_files(matched, exts)
         except (OSError, ValueError):
-            return False
+            continue
 
-    @staticmethod
-    def _check_binary_chunk(chunk: bytes) -> bool:
-        n = len(chunk)
-        if not n:
+
+def walker(
+    path: str | Path,
+    recursive: bool = True,
+    exts: list[str] | None = None,
+    skip_dirs: Collection[str] = SKIP_DIRS,
+) -> Iterator[Path]:
+    """Iterate matching files with optional recursion and directory exclusions."""
+    root = Path(path)
+    try:
+        if not root.is_dir():
+            return
+    except OSError:
+        return
+    suffixes: tuple[str, ...] | None = None
+    if exts is not None:
+        suffixes = tuple((e if e.startswith(".") else f".{e}").lower() for e in exts)
+
+    try:
+        for candidate, is_dir in iter_entries(root, skip_dirs=skip_dirs, hidden=True, recursive=recursive):
+            if not is_dir and (suffixes is None or candidate.name.lower().endswith(suffixes)):
+                yield candidate
+    except OSError:
+        return
+
+
+# ---------------------------------------------------------------------------
+# File operations (formerly _FileOps)
+# ---------------------------------------------------------------------------
+
+
+def _finish_lines(text: str, keep_ends: bool) -> list[str]:
+    lines = text.splitlines(keepends=keep_ends)
+    if lines and not lines[-1].endswith(("\n", "\r\n", "\r")) and text.endswith("\n"):
+        lines.append("")
+    return lines
+
+
+def read_lines(path: str | Path, ke: bool = True) -> list[str]:
+    """Read UTF-8 lines, replacing malformed bytes; optionally retain line endings."""
+    path = Path(path)
+    try:
+        if path.stat().st_size > THRESHOLD:
+            return read_lines_mmap(path, ke)
+        return _finish_lines(path.read_bytes().decode("utf-8", errors="replace"), ke)
+    except OSError:
+        return []
+
+
+def read_lines_mmap(path: Path, keep_ends: bool = True) -> list[str]:
+    """Read UTF-8 lines through a read-only memory map."""
+    import mmap
+
+    path = Path(path)
+    try:
+        size = path.stat().st_size
+        if size == 0:
+            return []
+        with path.open("rb") as f, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+            text = mm[:].decode("utf-8", errors="replace")
+        return _finish_lines(text, keep_ends)
+    except OSError:
+        return []
+
+
+def write_txt_file(path: str | Path, data: str, overwrite: bool = False) -> bool:
+    """Write UTF-8 text, refusing existing paths unless overwrite is enabled."""
+    if not isinstance(data, str):
+        return False
+    path = Path(path)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not overwrite and path.exists():
             return False
-        nulls = chunk.count(0)
-        if nulls / n > (0.1 if n < 100 else 0.05):
+        path.write_text(data, encoding="utf-8")
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def append_text(path: str | Path, content: str, encoding: str = "utf-8") -> bool:
+    """Append encoded text to a file; return whether the write succeeded."""
+    path = Path(path)
+    try:
+        if path.is_symlink() or path.is_dir():
+            return False
+        if not path.exists():
+            path.write_text(content, encoding=encoding)
             return True
-        if not nulls:
-            try:
-                _UTF8_INC().decode(chunk)
-                return False
-            except UnicodeDecodeError:
-                pass
-        return len(chunk.translate(None, _NON_PRINTABLE)) / n < 0.7
+        with path.open("a", encoding=encoding) as f:
+            f.write("\n" + content)
+        return True
+    except (OSError, ValueError):
+        return False
 
-    @staticmethod
-    def is_text_file(path: str | Path) -> bool:
-        """Classify a file as text using extension hints and sampled content."""
-        path = Path(path)
+
+def safe_delete(path: Path, max_retries: int = 3) -> bool:
+    """Delete a file or tree, retrying transient filesystem failures."""
+    from shutil import rmtree
+
+    path = Path(path)
+    for _ in range(max(1, max_retries)):
         try:
-            st = path.stat()
+            if path.is_dir() and not path.is_symlink():
+                rmtree(path)
+            else:
+                path.unlink()
+            return True
         except FileNotFoundError:
-            msg = f"File not found: {path}"
-            raise FileNotFoundError(msg) from None
-        except OSError as e:
-            msg = f"Error checking file {path}: {e}"
-            raise RuntimeError(msg) from e
-        if not stat.S_ISREG(st.st_mode):
-            msg = f"Path is not a file: {path}"
-            raise ValueError(msg)
-        suffix = path.suffix.lower()
-        if suffix in BINARY_EXT:
             return False
-        if suffix in TEXT_EXT or path.name.lower() in TEXT_FILENAMES:
-            return True
-        try:
-            with path.open("rb") as f:
-                chunk = f.read(CHUNK_SIZE)
-        except OSError as e:
-            msg = f"Error checking file {path}: {e}"
-            raise RuntimeError(msg) from e
-        return not _FileOps._check_binary_chunk(chunk)
+        except OSError:
+            continue
+    return False
 
-    @staticmethod
-    def is_python_file(path: str | Path) -> bool:
-        """Recognize nonempty Python source, shebang scripts, or parseable extensionless text."""
-        path = Path(path)
-        try:
-            st = path.stat()
-        except OSError:
-            return False
-        if not stat.S_ISREG(st.st_mode) or st.st_size == 0:
-            return False
-        suffix = path.suffix
-        if suffix:
-            return suffix == ".py" and is_text_file(path)
-        if not is_text_file(path):
-            return False
-        try:
-            data = path.read_bytes()
-        except OSError:
-            return False
-        if data.startswith(b"#!") and b"python" in data[:100]:
-            return True
-        try:
-            from ast import parse
 
-            parse(data.decode("utf-8"))
-            return True
-        except Exception:
+def restore_bak(path: str | Path) -> bool:
+    """Restore a file from its adjacent .bak backup when present."""
+    path = Path(path)
+    bak = path.with_name(path.name + ".bak")
+    try:
+        bak.replace(path)
+        return True
+    except OSError:
+        return False
+
+
+def is_empty(path: str | Path) -> bool:
+    """Check whether a path names an empty directory."""
+    path = Path(path)
+    try:
+        if not path.is_dir():
             return False
+        with os.scandir(path) as it:
+            return next(it, None) is None
+    except OSError:
+        return False
 
-    @staticmethod
-    def get_file_age(path: str | Path, str_mode: bool = False) -> float | str:
-        """Return creation-time age in seconds or a human-readable string."""
-        try:
-            st = Path(path).stat()
-        except OSError:
-            return "0 sec" if str_mode else 0.0
-        if not stat.S_ISREG(st.st_mode):
-            return "0 sec" if str_mode else -1.0
-        age = time.time() - st.st_ctime
-        if not str_mode:
-            return age
-        remaining = int(age)
-        if remaining < 0:
-            return "0 sec"
-        parts: list[str] = []
-        for name, unit in _AGE_UNITS:
-            value, remaining = divmod(remaining, unit)
-            if value:
-                parts.append(f"{value} {name}")
-        return ", ".join(parts) if parts else "0 sec"
 
-    @staticmethod
-    def path_size(p: Path) -> int:
+def is_image(path: str | Path) -> bool:
+    """Check whether an existing file has a recognized image extension."""
+    path = Path(path)
+    try:
+        return path.suffix.lower() in IMAGE_EXT and path.is_file()
+    except (OSError, ValueError):
+        return False
+
+
+def _check_binary_chunk(chunk: bytes) -> bool:
+    n = len(chunk)
+    if not n:
+        return False
+    nulls = chunk.count(0)
+    if nulls / n > (0.1 if n < 100 else 0.05):
+        return True
+    if not nulls:
         try:
-            st = p.lstat()
-        except OSError:
-            return 0
-        if stat.S_ISREG(st.st_mode):
-            return st.st_size
-        try:
-            if p.is_dir() and not p.is_symlink():
-                return _FileOps.dir_size(p)
-        except OSError:
-            return 0
+            _UTF8_INC().decode(chunk)
+            return False
+        except UnicodeDecodeError:
+            pass
+    return len(chunk.translate(None, _NON_PRINTABLE)) / n < 0.7
+
+
+def is_text_file(path: str | Path) -> bool:
+    """Classify a file as text using extension hints and sampled content."""
+    path = Path(path)
+    try:
+        st = path.stat()
+    except FileNotFoundError:
+        msg = f"File not found: {path}"
+        raise FileNotFoundError(msg) from None
+    except OSError as e:
+        msg = f"Error checking file {path}: {e}"
+        raise RuntimeError(msg) from e
+    if not stat.S_ISREG(st.st_mode):
+        msg = f"Path is not a file: {path}"
+        raise ValueError(msg)
+    suffix_ = path.suffix.lower()
+    if suffix_ in BINARY_EXT:
+        return False
+    if suffix_ in TEXT_EXT or path.name.lower() in TEXT_FILENAMES:
+        return True
+    try:
+        with path.open("rb") as f:
+            chunk = f.read(CHUNK_SIZE)
+    except OSError as e:
+        msg = f"Error checking file {path}: {e}"
+        raise RuntimeError(msg) from e
+    return not _check_binary_chunk(chunk)
+
+
+def is_python_file(path: str | Path) -> bool:
+    """Recognize nonempty Python source, shebang scripts, or parseable extensionless text."""
+    path = Path(path)
+    try:
+        st = path.stat()
+    except OSError:
+        return False
+    if not stat.S_ISREG(st.st_mode) or st.st_size == 0:
+        return False
+    suffix_ = path.suffix
+    if suffix_:
+        return suffix_ == ".py" and is_text_file(path)
+    if not is_text_file(path):
+        return False
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return False
+    if data.startswith(b"#!") and b"python" in data[:100]:
+        return True
+    try:
+        from ast import parse
+
+        parse(data.decode("utf-8"))
+        return True
+    except Exception:
+        return False
+
+
+@overload
+def get_file_age(path: str | Path, str_mode: Literal[False] = False) -> float: ...
+@overload
+def get_file_age(path: str | Path, str_mode: Literal[True]) -> str: ...
+
+
+def get_file_age(path: str | Path, str_mode: bool = False) -> float | str:
+    try:
+        st = Path(path).stat()
+    except OSError:
+        return "0 sec" if str_mode else 0.0
+    if not stat.S_ISREG(st.st_mode):
+        return "0 sec" if str_mode else -1.0
+
+    mtime = getattr(st, "st_birthtime", None) or st.st_mtime
+    age = time.time() - mtime
+    if not str_mode:
+        return age
+    remaining = int(age)
+    if remaining < 0:
+        return "0 sec"
+    parts: list[str] = []
+    for name, unit in _AGE_UNITS:
+        value, remaining = divmod(remaining, unit)
+        if value:
+            parts.append(f"{value} {name}")
+    return ", ".join(parts) if parts else "0 sec"
+
+
+def gsz(path: str | Path) -> int:
+    path = Path(path)
+    try:
+        st = path.lstat()
+    except OSError:
         return 0
 
-    @staticmethod
-    def dir_size(path: Path) -> int:
-        total = 0
+    if stat.S_ISREG(st.st_mode):
+        return st.st_size
+    if not stat.S_ISDIR(st.st_mode) or path.is_symlink():
+        return 0
+
+    total = 0
+    stack = [path]
+    while stack:
+        current = stack.pop()
         try:
-            for cur, _, names in os.walk(path, onerror=None, followlinks=False):
-                cur_p = Path(cur)
-                for name in names:
+            with os.scandir(current) as entries:
+                for entry in entries:
                     try:
-                        st = (cur_p / name).lstat()
+                        # Never follow symlinks
+                        if entry.is_symlink():
+                            continue
+                        if entry.is_file(follow_symlinks=False):
+                            total += entry.stat(follow_symlinks=False).st_size
+                        elif entry.is_dir(follow_symlinks=False):
+                            stack.append(Path(entry.path))
                     except OSError:
                         continue
-                    if stat.S_ISREG(st.st_mode):
-                        total += st.st_size
         except OSError:
-            pass
-        return total
+            continue
+    return total
 
-    @staticmethod
-    def gsz(path: str | Path | list[str | Path]) -> float:
-        """Return the total byte size of a path or list of paths."""
+
+def gsz_by_ext(root_dir: str | Path = ".", ext: list[str] | None = None) -> int:
+    """Return the total byte size of files matching extension filters."""
+    exts = {e.lower() for e in ext} if ext is not None else None
+    total = 0
+    try:
+        for cur, _, names in os.walk(root_dir, onerror=None, followlinks=False):
+            cur_p = Path(cur)
+            for n in names:
+                if exts is not None and suffix(n).lower() not in exts:
+                    continue
+                try:
+                    st = (cur_p / n).lstat()
+                except OSError:
+                    continue
+                if stat.S_ISREG(st.st_mode):
+                    total += st.st_size
+    except OSError:
+        pass
+    return total
+
+
+# ---------------------------------------------------------------------------
+# Directory operations (formerly _DirOps)
+# ---------------------------------------------------------------------------
+
+
+def copy_file(args: tuple[Path, Path]) -> tuple[bool, Path, Exception | None]:
+    from shutil import copy2
+
+    src_file, dest_file = args
+    try:
         try:
-            if isinstance(path, list):
-                total = 0
-                for item in path:
-                    if isinstance(item, (str, Path)):
-                        total += _FileOps.path_size(Path(item))
-                return float(total)
-            if isinstance(path, (str, Path)):
-                return float(_FileOps.path_size(Path(path)))
-        except (OSError, TypeError, ValueError):
-            return 0.0
-        return 0.0
-
-    @staticmethod
-    def gsze(root_dir: str | Path = ".", ext: list[str] | None = None) -> int:
-        """Return the total byte size of files matching extension filters."""
-        exts = {e.lower() for e in ext} if ext is not None else None
-        total = 0
-        try:
-            for cur, _, names in os.walk(root_dir, onerror=None, followlinks=False):
-                cur_p = Path(cur)
-                for n in names:
-                    if exts is not None and _PathOps.suffix(n).lower() not in exts:
-                        continue
-                    try:
-                        st = (cur_p / n).lstat()
-                    except OSError:
-                        continue
-                    if stat.S_ISREG(st.st_mode):
-                        total += st.st_size
-        except OSError:
-            pass
-        return total
-
-
-class _DirOps:
-    @staticmethod
-    def copy_file(args: tuple[Path, Path]) -> tuple[bool, Path, Exception | None]:
-        from shutil import copy2
-
-        src_file, dest_file = args
-        try:
-            try:
-                copy2(src_file, dest_file)
-            except FileNotFoundError:
-                dest_file.parent.mkdir(parents=True, exist_ok=True)
-                copy2(src_file, dest_file)
-            return (True, dest_file, None)
-        except Exception as e:
-            return (False, dest_file, e)
-
-    @staticmethod
-    def move_file(args: tuple[Path, Path]) -> tuple[bool, Path, Exception | None]:
-        from shutil import move
-
-        src_file, dest_file = args
-        try:
+            copy2(src_file, dest_file)
+        except FileNotFoundError:
             dest_file.parent.mkdir(parents=True, exist_ok=True)
-            move(str(src_file), str(dest_file))
-            return (True, dest_file, None)
-        except Exception as e:
-            return (False, dest_file, e)
+            copy2(src_file, dest_file)
+        return (True, dest_file, None)
+    except Exception as e:
+        return (False, dest_file, e)
 
-    @staticmethod
-    def collect_tree(src_dir: Path) -> tuple[list[Path], list[Path]]:
-        dirs_out: list[Path] = []
-        files_out: list[Path] = []
+
+def move_file(args: tuple[Path, Path]) -> tuple[bool, Path, Exception | None]:
+    from shutil import move
+
+    src_file, dest_file = args
+    try:
+        dest_file.parent.mkdir(parents=True, exist_ok=True)
+        move(str(src_file), str(dest_file))
+        return (True, dest_file, None)
+    except Exception as e:
+        return (False, dest_file, e)
+
+
+def collect_tree(src_dir: Path) -> tuple[list[Path], list[Path]]:
+    dirs_out: list[Path] = []
+    files_out: list[Path] = []
+    try:
+        if not src_dir.is_dir():
+            return dirs_out, files_out
+        for cur, dirs, names in os.walk(src_dir, onerror=None, followlinks=False):
+            cur_p = Path(cur)
+            dirs_out.extend(cur_p / d for d in dirs)
+            files_out.extend(cur_p / n for n in names)
+    except OSError:
+        pass
+    return dirs_out, files_out
+
+
+def copy_batch(batch: list[tuple[Path, Path]]) -> tuple[bool, Path, Exception | None]:
+    last: tuple[bool, Path, Exception | None] = (True, Path(), None)
+    for task in batch:
+        last = copy_file(task)
+        if not last[0]:
+            return last
+    return last
+
+
+def copy_tree(src: Path, dst: Path, workers: int = 8) -> bool:
+    from concurrent.futures import ThreadPoolExecutor
+
+    try:
+        dst.mkdir(parents=True, exist_ok=True)
+        dirs, files = collect_tree(src)
+        for d in dirs:
+            (dst / d.relative_to(src)).mkdir(parents=True, exist_ok=True)
+        if not files:
+            return True
+        tasks = [(f, dst / f.relative_to(src)) for f in files]
+        n = min(workers, len(tasks))
+        batches = [tasks[i::n] for i in range(n)]
+        with ThreadPoolExecutor(max_workers=n) as executor:
+            ok = True
+            for success, dest_file, error in executor.map(copy_batch, batches):
+                if not success:
+                    print(f"Failed to copy {dest_file}: {error}")
+                    ok = False
+        return ok
+    except OSError as e:
+        print(f"Copy failed: {e}")
+        return False
+
+
+def copy_dir(src: str, dest: str) -> bool:
+    """Copy a directory into a destination parent; return success."""
+    try:
+        src_path = Path(src).resolve()
+        dest_path = Path(dest).resolve()
+        if not src_path.exists():
+            msg = f"Source path does not exist: {src_path}"
+            raise FileNotFoundError(msg)
+        if not src_path.is_dir():
+            msg = f"Source must be a directory: {src_path}"
+            raise NotADirectoryError(msg)
+        return copy_tree(src_path, dest_path / src_path.name)
+    except Exception as e:
+        print(f"Copy failed: {e}")
+        return False
+
+
+def move_dir(src: str, dest: str) -> bool:
+    """Move a directory into a destination parent; return success."""
+    try:
+        src_path = Path(src).resolve()
+        dest_path = Path(dest).resolve()
+        if not src_path.exists():
+            msg = f"Source path does not exist: {src_path}"
+            raise FileNotFoundError(msg)
+        if not src_path.is_dir():
+            msg = f"Source must be a directory: {src_path}"
+            raise NotADirectoryError(msg)
+        if dest_path.is_relative_to(src_path):
+            print(f"Warning: Destination {dest_path} is inside source {src_path}")
+            return False
+        dest_folder = dest_path / src_path.name
+        if dest_folder.exists():
+            if next(dest_folder.iterdir(), None) is not None:
+                print(f"Warning: Destination {dest_folder} already exists and is not empty")
+                return False
+            dest_folder.rmdir()
+        dest_path.mkdir(parents=True, exist_ok=True)
         try:
-            if not src_dir.is_dir():
-                return dirs_out, files_out
-            for cur, dirs, names in os.walk(src_dir, onerror=None, followlinks=False):
-                cur_p = Path(cur)
-                dirs_out.extend(cur_p / d for d in dirs)
-                files_out.extend(cur_p / n for n in names)
+            src_path.rename(dest_folder)
+            return True
         except OSError:
             pass
-        return dirs_out, files_out
-
-    @staticmethod
-    def copy_batch(batch: list[tuple[Path, Path]]) -> tuple[bool, Path, Exception | None]:
-        last: tuple[bool, Path, Exception | None] = (True, Path(), None)
-        for task in batch:
-            last = _DirOps.copy_file(task)
-            if not last[0]:
-                return last
-        return last
-
-    @staticmethod
-    def copy_tree(src: Path, dst: Path, workers: int = 8) -> bool:
-        from concurrent.futures import ThreadPoolExecutor
-
-        try:
-            dst.mkdir(parents=True, exist_ok=True)
-            dirs, files = _DirOps.collect_tree(src)
-            for d in dirs:
-                (dst / d.relative_to(src)).mkdir(parents=True, exist_ok=True)
-            if not files:
-                return True
-            tasks = [(f, dst / f.relative_to(src)) for f in files]
-            n = min(workers, len(tasks))
-            batches = [tasks[i::n] for i in range(n)]
-            with ThreadPoolExecutor(max_workers=n) as executor:
-                ok = True
-                for success, dest_file, error in executor.map(_DirOps.copy_batch, batches):
-                    if not success:
-                        print(f"Failed to copy {dest_file}: {error}")
-                        ok = False
-            return ok
-        except OSError as e:
-            print(f"Copy failed: {e}")
+        if not copy_tree(src_path, dest_folder):
             return False
-
-    @staticmethod
-    def copy_dir(src: str, dest: str) -> bool:
-        """Copy a directory into a destination parent; return success."""
-        try:
-            src_path = Path(src).resolve()
-            dest_path = Path(dest).resolve()
-            if not src_path.exists():
-                msg = f"Source path does not exist: {src_path}"
-                raise FileNotFoundError(msg)
-            if not src_path.is_dir():
-                msg = f"Source must be a directory: {src_path}"
-                raise NotADirectoryError(msg)
-            return _DirOps.copy_tree(src_path, dest_path / src_path.name)
-        except Exception as e:
-            print(f"Copy failed: {e}")
-            return False
-
-    @staticmethod
-    def move_dir(src: str, dest: str) -> bool:
-        """Move a directory into a destination parent; return success."""
-        try:
-            src_path = Path(src).resolve()
-            dest_path = Path(dest).resolve()
-            if not src_path.exists():
-                msg = f"Source path does not exist: {src_path}"
-                raise FileNotFoundError(msg)
-            if not src_path.is_dir():
-                msg = f"Source must be a directory: {src_path}"
-                raise NotADirectoryError(msg)
-            if dest_path.is_relative_to(src_path):
-                print(f"Warning: Destination {dest_path} is inside source {src_path}")
-                return False
-            dest_folder = dest_path / src_path.name
-            if dest_folder.exists():
-                if next(dest_folder.iterdir(), None) is not None:
-                    print(f"Warning: Destination {dest_folder} already exists and is not empty")
-                    return False
-                dest_folder.rmdir()
-            dest_path.mkdir(parents=True, exist_ok=True)
-            try:
-                src_path.rename(dest_folder)
-                return True
-            except OSError:
-                pass
-            if not _DirOps.copy_tree(src_path, dest_folder):
-                return False
-            return _FileOps.safe_delete(src_path)
-        except Exception as e:
-            print(f"Move failed: {e}")
-            return False
+        return safe_delete(src_path)
+    except Exception as e:
+        print(f"Move failed: {e}")
+        return False
 
 
-class _PackageInfo:
-    @staticmethod
-    def _iter_dists() -> Iterator[tuple[str, str | None]]:
-        from importlib import metadata
-
-        for dist in metadata.distributions():
-            meta = dist.metadata
-            name = meta["Name"]
-            if name:
-                yield _PathOps.normalize_name(name), meta["Version"]
-
-    @staticmethod
-    @functools.cache
-    def get_installed_packages() -> dict[str, str]:
-        """Return cached installed distribution names mapped to versions."""
-        packages = {name: version for name, version in _PackageInfo._iter_dists() if version}
-        return dict(sorted(packages.items()))
-
-    @staticmethod
-    @functools.cache
-    def get_installed_pkgs() -> list[str]:
-        """Return cached normalized installed distribution names."""
-        return sorted(name for name, _ in _PackageInfo._iter_dists())
+# ---------------------------------------------------------------------------
+# Package info (formerly _PackageInfo)
+# ---------------------------------------------------------------------------
 
 
-class _Format:
-    @staticmethod
-    def format_bytes(n: int) -> str:
-        """Format an integer byte count using binary units."""
-        sign = "-" if n < 0 else ""
-        value = float(abs(n))
-        for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
-            if value < 1024.0 or unit == "TiB":
-                if unit == "B":
-                    return f"{sign}{int(value)} B"
-                return f"{sign}{value:.2f} {unit}"
-            value /= 1024.0
-        return f"{sign}{value:.2f} TiB"
+def _iter_dists() -> Iterator[tuple[str, str | None]]:
+    from importlib import metadata
 
-    @staticmethod
-    def fsz(n: float) -> str:
-        """Format a byte count as a compact human-readable size."""
-        sign = "-" if n < 0 else ""
-        value = int(abs(n))
-        if value == 0:
-            return "0 B"
-        units = ("B", "KB", "MB", "GB", "TB")
-        i = min((value.bit_length() - 1) // 10, len(units) - 1)
-        if i == 0:
-            return f"{sign} {value} B"
-        return f"{sign} {value / (1 << (10 * i)):.2f} {units[i]}"
+    for dist in metadata.distributions():
+        meta = dist.metadata
+        name = meta["Name"]
+        if name:
+            yield normalize_name(name), meta["Version"]
 
-    @staticmethod
-    def format_time(t: float) -> str:
-        """Format a duration in seconds using human-readable units."""
-        if t <= 0:
-            return "0s"
-        if t < 1:
-            ms = t * 1000
-            return f"{ms * 1000:.0f}µs" if ms < 1 else f"{ms:.2f}ms"
-        if t < 60:
-            return f"{t:.0f}s"
-        if t < 3600:
-            m, s = divmod(int(t), 60)
-            return f"{m}m, {s}s" if s else f"{m}m"
-        if t < 86400:
-            h, rem = divmod(int(t), 3600)
-            m, s = divmod(rem, 60)
-            parts = [f"{h}h"]
-            if m:
-                parts.append(f"{m}m")
-            if s:
-                parts.append(f"{s}s")
-            return ", ".join(parts)
-        if t < 2592000:
-            d, rem = divmod(int(t), 86400)
-            h, rem = divmod(rem, 3600)
-            m = rem // 60
-            parts = [f"{d}d"]
-            if h:
-                parts.append(f"{h}h")
-            if m:
-                parts.append(f"{m}m")
-            return ", ".join(parts)
-        return f"{t / 2592000:.2f} months"
 
-    @staticmethod
-    def remove_blank_lines(text: str) -> str:
-        """Collapse consecutive blank lines while preserving other line endings."""
-        out: list[str] = []
-        prev_blank = False
-        for line in text.splitlines(keepends=True):
-            blank = not line.strip()
-            if blank and prev_blank:
-                continue
-            out.append(line)
-            prev_blank = blank
-        return "".join(out)
+@functools.cache
+def get_installed_packages() -> dict[str, str]:
+    """Return cached installed distribution names mapped to versions."""
+    packages = {name: version for name, version in _iter_dists() if version}
+    return dict(sorted(packages.items()))
 
-    @staticmethod
-    def get_removed_lines(txt1: str, txt2: str) -> list[str]:
-        """Return unique nonempty lines in the first text but not the second."""
-        other = set(txt2.splitlines())
-        return [line for line in dict.fromkeys(txt1.splitlines()) if line and line not in other]
 
-    @staticmethod
-    def reverse_dict(input_dict: dict[Any, Any]) -> dict[Any, Any]:
-        """Invert a dictionary; duplicate values are grouped into lists."""
-        values = list(input_dict.values())
-        if len(set(values)) == len(values):
-            return {v: k for k, v in input_dict.items()}
-        rev: defaultdict[Any, list[Any]] = defaultdict(list)
-        for k, v in input_dict.items():
-            rev[v].append(k)
-        return dict(rev)
+@functools.cache
+def get_installed_pkgs() -> list[str]:
+    """Return cached normalized installed distribution names."""
+    return sorted(name for name, _ in _iter_dists())
 
-    @staticmethod
-    def rrs(path: str | Path, before: float, after: float) -> None:
-        """Print the before-and-after size change for a processed file."""
-        p = Path(path)
-        saved = before - after
-        if not saved:
-            msg = f"{GREEN}NO CHANGE{RESET}"
-        else:
-            ratio = (saved / before * 100) if before else 0.0
-            sign = "+" if saved > 0 else "-"
-            msg = (
-                f"{GREEN}{before}->{after} = {sign} {BLUE}{_Format.fsz(saved)} {RESET} "
-                f"{DIM}|{RESET} {CYAN}{ratio:.1f}{DIM}%{RESET}"
-            )
-        print(f"{BLUE}{p.name} {RESET} {DIM}|{RESET} {msg}\n")
+
+# ---------------------------------------------------------------------------
+# Formatting helpers (formerly _Format)
+# ---------------------------------------------------------------------------
+
+
+def format_bytes(n: int) -> str:
+    """Format an integer byte count using binary units."""
+    sign = "-" if n < 0 else ""
+    value = float(abs(n))
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if value < 1024.0 or unit == "TiB":
+            if unit == "B":
+                return f"{sign}{int(value)} B"
+            return f"{sign}{value:.2f} {unit}"
+        value /= 1024.0
+    return f"{sign}{value:.2f} TiB"
+
+
+def fsz(n: float) -> str:
+    """Format a byte count as a compact human-readable size."""
+    sign = "-" if n < 0 else ""
+    value = int(abs(n))
+    if value == 0:
+        return "0 B"
+    units = ("B", "KB", "MB", "GB", "TB")
+    i = min((value.bit_length() - 1) // 10, len(units) - 1)
+    if i == 0:
+        return f"{sign} {value} B"
+    return f"{sign} {value / (1 << (10 * i)):.2f} {units[i]}"
+
+
+def format_time(t: float) -> str:
+    """Format a duration in seconds using human-readable units."""
+    if t <= 0:
+        return "0s"
+    if t < 1:
+        ms = t * 1000
+        return f"{ms * 1000:.0f}µs" if ms < 1 else f"{ms:.2f}ms"
+    if t < 60:
+        return f"{t:.0f}s"
+    if t < 3600:
+        m, s = divmod(int(t), 60)
+        return f"{m}m, {s}s" if s else f"{m}m"
+    if t < 86400:
+        h, rem = divmod(int(t), 3600)
+        m, s = divmod(rem, 60)
+        parts = [f"{h}h"]
+        if m:
+            parts.append(f"{m}m")
+        if s:
+            parts.append(f"{s}s")
+        return ", ".join(parts)
+    if t < 2592000:
+        d, rem = divmod(int(t), 86400)
+        h, rem = divmod(rem, 3600)
+        m = rem // 60
+        parts = [f"{d}d"]
+        if h:
+            parts.append(f"{h}h")
+        if m:
+            parts.append(f"{m}m")
+        return ", ".join(parts)
+    return f"{t / 2592000:.2f} months"
+
+
+def remove_blank_lines(text: str) -> str:
+    """Collapse consecutive blank lines while preserving other line endings."""
+    out: list[str] = []
+    prev_blank = False
+    for line in text.splitlines(keepends=True):
+        blank = not line.strip()
+        if blank and prev_blank:
+            continue
+        out.append(line)
+        prev_blank = blank
+    return "".join(out)
+
+
+def get_removed_lines(txt1: str, txt2: str) -> list[str]:
+    """Return unique nonempty lines in the first text but not the second."""
+    other = set(txt2.splitlines())
+    return [line for line in dict.fromkeys(txt1.splitlines()) if line and line not in other]
+
+
+def reverse_dict(input_dict: dict[Any, Any]) -> dict[Any, Any]:
+    """Invert a dictionary; duplicate values are grouped into lists."""
+    values = list(input_dict.values())
+    if len(set(values)) == len(values):
+        return {v: k for k, v in input_dict.items()}
+    rev: defaultdict[Any, list[Any]] = defaultdict(list)
+    for k, v in input_dict.items():
+        rev[v].append(k)
+    return dict(rev)
+
+
+def rrs(path: str | Path, before: float, after: float) -> None:
+    """Print the before-and-after size change for a processed file."""
+    p = Path(path)
+    saved = before - after
+    if not saved:
+        msg = f"{GREEN}NO CHANGE{RESET}"
+    else:
+        ratio = (saved / before * 100) if before else 0.0
+        sign = "+" if saved > 0 else "-"
+        msg = (
+            f"{GREEN}{before}->{after} = {sign} {BLUE}{fsz(saved)} {RESET} {DIM}|{RESET} {CYAN}{ratio:.1f}{DIM}%{RESET}"
+        )
+    print(f"{BLUE}{p.name} {RESET} {DIM}|{RESET} {msg}\n")
+
+
+# ---------------------------------------------------------------------------
+# Report types (kept as classes / dataclasses)
+# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -991,154 +1000,16 @@ class ReportGenerator:
                 )
 
 
-def read_lines(path: str | Path, ke: bool = True) -> list[str]:
-    """Read UTF-8 lines, replacing malformed bytes; optionally retain line endings."""
-    return _FileOps.read_lines(path, ke)
-
-
-def read_lines_mmap(path: Path, keep_ends: bool = True) -> list[str]:
-    """Read UTF-8 lines through a read-only memory map."""
-    return _FileOps.read_lines_mmap(path, keep_ends)
-
-
-def gext(path: str | Path) -> str:
-    """Return the filename extension, preserving recognized compound suffixes."""
-    return _PathOps.gext(path)
-
-
-@overload
-def get_file_age(path: str | Path, str_mode: Literal[False] = False) -> float: ...
-@overload
-def get_file_age(path: str | Path, str_mode: Literal[True]) -> str: ...
-def get_file_age(path: str | Path, str_mode: bool = False) -> float | str:
-    """Return creation-time age in seconds or a human-readable string."""
-    return _FileOps.get_file_age(path, str_mode)
-
-
-def get_installed_packages() -> dict[str, str]:
-    """Return cached installed distribution names mapped to versions."""
-    return _PackageInfo.get_installed_packages()
-
-
-def get_installed_pkgs() -> list[str]:
-    """Return cached normalized installed distribution names."""
-    return _PackageInfo.get_installed_pkgs()
-
-
-def get_mime_type(path: str | Path) -> str | None:
-    """Guess the MIME type from a filename, or return None."""
-    return _PathOps.get_mime_type(path)
-
-
-def get_random_filename(length: int = 10) -> str:
-    """Generate a random lowercase filename stem of the requested length."""
-    return _PathOps.get_random_filename(length)
-
-
-def is_image(path: str | Path) -> bool:
-    """Check whether an existing file has a recognized image extension."""
-    return _FileOps.is_image(path)
-
-
-def is_within(child_path: str | Path, parent_path: str | Path) -> bool:
-    """Check whether the resolved child path is inside the parent path."""
-    return _PathOps.is_within(child_path, parent_path)
-
-
-def normalize_filename(path: str | Path) -> str:
-    """Replace control characters and filesystem-unsafe filename characters."""
-    return _PathOps.normalize_filename(path)
-
-
-def normalize_path(path: str | Path) -> Path:
-    """Resolve a path and translate the configured emulated-storage prefix."""
-    return _PathOps.normalize_path(path)
-
-
-def reverse_dict(input_dict: dict[Any, Any]) -> dict[Any, Any]:
-    """Invert a dictionary; duplicate values are grouped into lists."""
-    return _Format.reverse_dict(input_dict)
-
-
-def format_bytes(n: int) -> str:
-    """Format an integer byte count using binary units."""
-    return _Format.format_bytes(n)
-
-
-def fsz(n: float) -> str:
-    """Format a byte count as a compact human-readable size."""
-    return _Format.fsz(n)
-
-
-def safe_delete(path: Path, max_retries: int = 3) -> bool:
-    """Delete a file or tree, retrying transient filesystem failures."""
-    return _FileOps.safe_delete(path, max_retries)
-
-
-def unique_path(path: Path | str) -> Path:
-    """Return an unused path by appending a numeric suffix when necessary."""
-    return _PathOps.unique_path(path)
-
-
-def format_time(t: float) -> str:
-    """Format a duration in seconds using human-readable units."""
-    return _Format.format_time(t)
-
-
-def runcmd(
-    cmd: Sequence[str],
-    show_output: bool = True,
-    timeout: float | None = None,
-) -> tuple[int, str, str]:
-    """Run an argument vector without a shell and return (code, stdout, stderr).
-
-    Returned and displayed streams are cleaned with clean_terminal_transcript.
-    Empty streams remain empty; nonempty streams end with a newline. Codes 127,
-    126, and 124 indicate missing executable, permission failure, and timeout.
-    Timeout results preserve partial output. Invalid arguments raise immediately."""
-    return _ProcRunner.runcmd(cmd, show_output, timeout)
-
-
-def write_txt_file(path: str | Path, data: str, overwrite: bool = False) -> bool:
-    """Write UTF-8 text, refusing existing paths unless overwrite is enabled."""
-    return _FileOps.write_txt_file(path, data, overwrite)
-
-
-def should_skip(path: str | Path) -> bool:
-    """Check a path against the configured directory exclusions."""
-    return _PathOps.should_skip(path)
-
-
-def append_text(path: str | Path, content: str, encoding: str = "utf-8") -> bool:
-    """Append encoded text to a file; return whether the write succeeded."""
-    return _FileOps.append_text(path, content, encoding)
-
-
-def get_removed_lines(txt1: str, txt2: str) -> list[str]:
-    """Return unique nonempty lines in the first text but not the second."""
-    return _Format.get_removed_lines(txt1, txt2)
-
-
-def restore_bak(path: str | Path) -> bool:
-    """Restore a file from its adjacent .bak backup when present."""
-    return _FileOps.restore_bak(path)
-
-
-def rrs(path: str | Path, before: int, after: int) -> None:
-    """Print the before-and-after size change for a processed file."""
-    _Format.rrs(path, before, after)
-
-
-def is_empty(path: str | Path) -> bool:
-    """Check whether a path names an empty directory."""
-    return _FileOps.is_empty(path)
+# ---------------------------------------------------------------------------
+# Higher-level helpers that used the classes
+# ---------------------------------------------------------------------------
 
 
 def get_files_scandir(path: str | Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
     """Return sorted files using scandir traversal and optional suffix filters."""
     path = Path(path)
-    _PathOps.require_dir(path)
-    return sorted(_FileWalker.iter_files(path, ends=tuple(ext) if ext else None, hidden=include_hidden))
+    require_dir(path)
+    return sorted(iter_files(path, ends=tuple(ext) if ext else None, hidden=include_hidden))
 
 
 def get_files_iter(path: str | Path, ext: list[str] | None = None) -> Iterator[Path]:
@@ -1148,7 +1019,7 @@ def get_files_iter(path: str | Path, ext: list[str] | None = None) -> Iterator[P
         msg = f"Path is not a path: {path}"
         raise NotADirectoryError(msg)
     exts = set(ext) if ext else None
-    return (p.resolve() for p in _FileWalker.iter_files(path, exts, prune=False))
+    return (p.resolve() for p in iter_files(path, exts, prune=False))
 
 
 def get_filez(
@@ -1168,8 +1039,8 @@ def get_filez(
     """
     root = Path(path)
     skipped = SKIP_DIRS if skip_dirs is None else skip_dirs
-    suffixes = tuple("." + suffix.lstrip(".").lower() for suffix in ext or [])
-    for candidate, is_dir in _FileWalker.iter_entries(root, skip_dirs=skipped):
+    suffixes = tuple("." + suffix_.lstrip(".").lower() for suffix_ in ext or [])
+    for candidate, is_dir in iter_entries(root, skip_dirs=skipped):
         if dirs_only:
             if is_dir:
                 yield candidate
@@ -1218,16 +1089,14 @@ def get_dirs(path: str | Path) -> Iterator[Path]:
 
 def getfiles(root_dir: str | Path, ext: list[str] | None = None) -> list[Path]:
     """Return sorted files using the legacy scandir traversal."""
-    return sorted(_FileWalker.iter_files(Path(root_dir), set(ext) if ext is not None else None))
+    return sorted(iter_files(Path(root_dir), set(ext) if ext is not None else None))
 
 
 def get_files_pathlib(path: Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
     """Return sorted files with case-insensitive extension filtering."""
     path = Path(path)
-    _PathOps.require_dir(path)
-    return sorted(
-        _FileWalker.iter_files(path, set(ext) if ext is not None else None, hidden=include_hidden, lower=True)
-    )
+    require_dir(path)
+    return sorted(iter_files(path, set(ext) if ext is not None else None, hidden=include_hidden, lower=True))
 
 
 def get_files4(path: str | Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
@@ -1249,29 +1118,14 @@ def get_pyfiles_iter(root: Path) -> Generator[Path, None, None]:
             dirs[:] = [d for d in dirs if d not in skip]
             cur_p = Path(cur)
             for n in names:
-                s = _PathOps.suffix(n)
+                s = suffix(n)
                 if s and s != ".py":
                     continue
                 p = cur_p / n
-                if not p.is_symlink() and _FileOps.is_python_file(p):
+                if not p.is_symlink() and is_python_file(p):
                     yield p
     except OSError:
         return
-
-
-def gsz(path: str | Path | list[str | Path]) -> float:
-    """Return the total byte size of a path or list of paths."""
-    return _FileOps.gsz(path)
-
-
-def copy_dir(src: str, dest: str) -> bool:
-    """Copy a directory into a destination parent; return success."""
-    return _DirOps.copy_dir(src, dest)
-
-
-def move_dir(src: str, dest: str) -> bool:
-    """Move a directory into a destination parent; return success."""
-    return _DirOps.move_dir(src, dest)
 
 
 def get_files_iter_config(
@@ -1337,24 +1191,9 @@ def get_files_iter_config(
         return
 
 
-def remove_blank_lines(text: str) -> str:
-    """Collapse consecutive blank lines while preserving other line endings."""
-    return _Format.remove_blank_lines(text)
-
-
-def is_python_file(path: str | Path) -> bool:
-    """Recognize nonempty Python source, shebang scripts, or parseable extensionless text."""
-    return _FileOps.is_python_file(path)
-
-
 def get_pyfiles(path: str | Path) -> list[Path]:
     """Return Python source files and extensionless Python shebang scripts."""
     return get_files(path, pyfiles=True)
-
-
-def walk_paths(inputs: str | Path | list[str | Path], ext: list[str] | None = None) -> Iterator[Path]:
-    """Expand input paths and glob expressions into matching files."""
-    return _FileWalker.walk_paths(inputs, ext)
 
 
 def worker(file_path: Path, process_fn: Callable[[Path], Any]) -> tuple[Path, Any]:
@@ -1406,34 +1245,14 @@ def main_func(
         print(f"\n{count} files processed, {errors} errors")
 
 
-def is_text_file(path: str | Path) -> bool:
-    """Classify a file as text using extension hints and sampled content."""
-    return _FileOps.is_text_file(path)
-
-
 def walk_files(path: str | Path, ext: list[str] | None = None) -> list[Path]:
     """Return legacy scandir traversal results as a list."""
-    return list(_FileWalker.iter_files(Path(path), set(ext) if ext is not None else None))
+    return list(iter_files(Path(path), set(ext) if ext is not None else None))
 
 
 def walkfiles(path: str | Path, ext: list[str] | None = None) -> Iterator[Path]:
     """Iterate legacy scandir traversal results."""
-    return _FileWalker.iter_files(Path(path), set(ext) if ext is not None else None)
-
-
-def gsze(root_dir: str | Path = ".", ext: list[str] | None = None) -> int:
-    """Return the total byte size of files matching extension filters."""
-    return _FileOps.gsze(root_dir, ext)
-
-
-def walker(
-    path: str | Path,
-    recursive: bool = True,
-    exts: list[str] | None = None,
-    skip_dirs: Collection[str] = SKIP_DIRS,
-) -> Iterator[Path]:
-    """Iterate matching files with optional recursion and directory exclusions."""
-    return _FileWalker.walker(path, recursive, exts, skip_dirs)
+    return iter_files(Path(path), set(ext) if ext is not None else None)
 
 
 def is_git_repo(path: str | Path) -> bool:
@@ -1441,7 +1260,7 @@ def is_git_repo(path: str | Path) -> bool:
     try:
         target_dir = Path(path).expanduser().resolve()
         return target_dir.is_dir() and (target_dir / ".git").is_dir()
-    except (PermissionError, OSError) as e:
+    except (PermissionError, OSError):
         return False
 
 
@@ -1450,15 +1269,19 @@ def is_binary(path: str | Path) -> bool:
     return not is_text_file(path)
 
 
-def tree_size_kib(p: Path) -> int:
+def tree_size_kib(p: Path) -> float:
     return gsz(p) // 1024
 
 
-def sorted_by_size(paths: list[Path]) -> list[tuple[int, Path]]:
-
+def sorted_by_size(paths: list[Path]) -> list[tuple[float, Path]]:
     sized = [(tree_size_kib(p), p) for p in paths]
     sized.sort(key=lambda t: (t[0], str(t[1])))
     return sized
+
+
+# ---------------------------------------------------------------------------
+# Process runner (formerly _ProcRunner)
+# ---------------------------------------------------------------------------
 
 
 class RunResult(NamedTuple):
@@ -1467,156 +1290,107 @@ class RunResult(NamedTuple):
     stderr: str
 
 
-class _ProcRunner:
-    @staticmethod
-    def runcmd(
-        cmd: Sequence[str],
-        show_output: bool = True,
-        timeout: float | None = None,
-        stdin: str | bytes | None = None,
-        cwd: str | Path | None = None,
-        env: Mapping[str, str] | None = None,
-    ) -> RunResult:
-        """Run an argument vector without a shell and return (code, stdout, stderr).
+def runcmd(
+    cmd: Sequence[str],
+    show_output: bool = True,
+    timeout: float | None = None,
+    stdin: str | bytes | None = None,
+    cwd: str | Path | None = None,
+    env: Mapping[str, str] | None = None,
+) -> RunResult:
+    """Run an argument vector without a shell and return (code, stdout, stderr).
 
-        stdin=None inherits no input (DEVNULL) for backward compatibility; pass a
-        str/bytes to feed the child. env is merged over os.environ. Streams are
-        cleaned with clean_terminal_transcript. Codes 127/126/124 indicate
-        missing executable, permission failure, and timeout. Timeout preserves
-        partial output. Invalid arguments raise immediately."""
-        if isinstance(cmd, (str, bytes)):
-            msg = "cmd must be an argument sequence, not a string"
-            raise TypeError(msg)
-        if not cmd:
-            msg = "cmd must be a non-empty sequence of strings"
-            raise ValueError(msg)
-        if not cmd[0]:
-            msg = "cmd[0] must be a non-empty string"
-            raise ValueError(msg)
-        if any(not isinstance(arg, str) for arg in cmd):
-            msg = "All command arguments must be strings"
-            raise TypeError(msg)
-        if timeout is not None and (not isinstance(timeout, (int, float)) or timeout <= 0):
-            msg = "timeout must be a positive number or None"
-            raise ValueError(msg)
-        if stdin is not None and not isinstance(stdin, (str, bytes)):
-            msg = "stdin must be str, bytes, or None"
-            raise TypeError(msg)
-        if env is not None:
-            if not isinstance(env, Mapping):
-                msg = "env must be a mapping of str to str"
-                raise TypeError(msg)
-            for k, v in env.items():
-                if not isinstance(k, str) or not isinstance(v, str):
-                    msg = "env keys and values must be strings"
-                    raise TypeError(msg)
-
-        command: list[str] = list(cmd)
-
-        def decode_output(data: bytes | str | None) -> str:
-            if data is None:
-                return ""
-            if isinstance(data, str):
-                return clean_terminal_transcript(data) if data else ""
-            return clean_terminal_transcript(data.decode("utf-8", errors="replace")) if data else ""
-
-        def emit(stdout: str, stderr: str) -> None:
-            if not show_output:
-                return
-            if stdout:
-                sys.stdout.write(stdout)
-                sys.stdout.flush()
-            if stderr:
-                sys.stderr.write(stderr)
-                sys.stderr.flush()
-
-        def fail(code: int, message: str) -> RunResult:
-            message = clean_terminal_transcript(message)
-            emit("", message)
-            return RunResult(code, "", message)
-
-        run_kwargs: dict[str, Any] = {
-            "stdout": subprocess.PIPE,
-            "stderr": subprocess.PIPE,
-            "timeout": timeout,
-            "check": False,
-            "text": False,
-            "cwd": cwd,
-        }
-        if env is not None:
-            run_kwargs["env"] = {**os.environ, **env}
-        if stdin is None:
-            run_kwargs["stdin"] = subprocess.DEVNULL
-        else:
-            run_kwargs["input"] = stdin.encode("utf-8") if isinstance(stdin, str) else stdin
-
-        try:
-            result = subprocess.run(command, **run_kwargs)
-        except FileNotFoundError:
-            return fail(127, f"Command not found: {command[0]!r}")
-        except PermissionError:
-            return fail(126, f"Permission denied: {command[0]!r}")
-        except subprocess.TimeoutExpired as exc:
-            stdout = decode_output(exc.stdout)
-            stderr = decode_output(exc.stderr)
-            message = f"Command timed out after {timeout}s: {' '.join(command)}"
-            stderr = clean_terminal_transcript(f"{stderr.rstrip()}\n{message}".lstrip())
-            emit(stdout, stderr)
-            return RunResult(124, stdout, stderr)
-        except OSError as exc:
-            return fail(1, f"OS error running {command[0]!r}: {exc}")
-        except Exception as exc:
-            return fail(1, f"Unexpected error running {command[0]!r}: {exc}")
-
-        stdout = decode_output(result.stdout)
-        stderr = decode_output(result.stderr)
-        emit(stdout, stderr)
-        return RunResult(result.returncode, stdout, stderr)
-
-
-def walk_files(path: str | Path) -> Iterator[Path]:
-    path = Path(path)
-    for root, _dirs, files in path.walk():
-        for name in files:
-            yield root / name
-
-
-def gsz2(path: Path) -> int:
-    """Total apparent size, in bytes, of *path* plus everything below it.
-
-    Behaves like ``du -sb``: directory entries and symlinks are counted at their
-    own ``st_size`` (symlinks are never followed), hard-linked files and
-    directories are counted once, and missing/unreadable entries contribute
-    nothing instead of raising.
+    stdin=None inherits no input (DEVNULL) for backward compatibility; pass a
+    str/bytes to feed the child. env is merged over os.environ. Streams are
+    cleaned with clean_terminal_transcript. Codes 127/126/124 indicate
+    missing executable, permission failure, and timeout. Timeout preserves
+    partial output. Invalid arguments raise immediately.
     """
+    if isinstance(cmd, (str, bytes)):
+        msg = "cmd must be an argument sequence, not a string"
+        raise TypeError(msg)
+    if not cmd:
+        msg = "cmd must be a non-empty sequence of strings"
+        raise ValueError(msg)
+    if not cmd[0]:
+        msg = "cmd[0] must be a non-empty string"
+        raise ValueError(msg)
+    if any(not isinstance(arg, str) for arg in cmd):
+        msg = "All command arguments must be strings"
+        raise TypeError(msg)
+    if timeout is not None and (not isinstance(timeout, (int, float)) or timeout <= 0):
+        msg = "timeout must be a positive number or None"
+        raise ValueError(msg)
+    if stdin is not None and not isinstance(stdin, (str, bytes)):
+        msg = "stdin must be str, bytes, or None"
+        raise TypeError(msg)
+    if env is not None:
+        if not isinstance(env, Mapping):
+            msg = "env must be a mapping of str to str"
+            raise TypeError(msg)
+        for k, v in env.items():
+            if not isinstance(k, str) or not isinstance(v, str):
+                msg = "env keys and values must be strings"
+                raise TypeError(msg)
+
+    command: list[str] = list(cmd)
+
+    def decode_output(data: bytes | str | None) -> str:
+        if data is None:
+            return ""
+        if isinstance(data, str):
+            return clean_terminal_transcript(data) if data else ""
+        return clean_terminal_transcript(data.decode("utf-8", errors="replace")) if data else ""
+
+    def emit(stdout: str, stderr: str) -> None:
+        if not show_output:
+            return
+        if stdout:
+            sys.stdout.write(stdout)
+            sys.stdout.flush()
+        if stderr:
+            sys.stderr.write(stderr)
+            sys.stderr.flush()
+
+    def fail(code: int, message: str) -> RunResult:
+        message = clean_terminal_transcript(message)
+        emit("", message)
+        return RunResult(code, "", message)
+
+    run_kwargs: dict[str, Any] = {
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "timeout": timeout,
+        "check": False,
+        "text": False,
+        "cwd": cwd,
+    }
+    if env is not None:
+        run_kwargs["env"] = {**os.environ, **env}
+    if stdin is None:
+        run_kwargs["stdin"] = subprocess.DEVNULL
+    else:
+        run_kwargs["input"] = stdin.encode("utf-8") if isinstance(stdin, str) else stdin
+
     try:
-        st = os.lstat(path)
-    except OSError:
-        return 0
+        result = subprocess.run(command, **run_kwargs)
+    except FileNotFoundError:
+        return fail(127, f"Command not found: {command[0]!r}")
+    except PermissionError:
+        return fail(126, f"Permission denied: {command[0]!r}")
+    except subprocess.TimeoutExpired as exc:
+        stdout = decode_output(exc.stdout)
+        stderr = decode_output(exc.stderr)
+        message = f"Command timed out after {timeout}s: {' '.join(command)}"
+        stderr = clean_terminal_transcript(f"{stderr.rstrip()}\n{message}".lstrip())
+        emit(stdout, stderr)
+        return RunResult(124, stdout, stderr)
+    except OSError as exc:
+        return fail(1, f"OS error running {command[0]!r}: {exc}")
+    except Exception as exc:
+        return fail(1, f"Unexpected error running {command[0]!r}: {exc}")
 
-    total = st.st_size
-    if not stat.S_ISDIR(st.st_mode):
-        return total  # regular file, symlink, fifo, socket, device, ...
-
-    seen = {(st.st_dev, st.st_ino)}  # hard links / bind mounts / loops
-    stack = [os.fspath(path)]
-    while stack:
-        current = stack.pop()
-        try:
-            with os.scandir(current) as entries:
-                for entry in entries:
-                    try:
-                        est = entry.stat(follow_symlinks=False)
-                    except OSError:  # vanished between readdir() and stat()
-                        continue
-                    key = (est.st_dev, est.st_ino)
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                    total += est.st_size
-                    if stat.S_ISDIR(est.st_mode):
-                        # Queue it; the scandir handle above closes before we open the child.
-                        stack.append(entry.path)
-        except OSError:  # unreadable or vanished directory; its own size is already counted
-            continue
-    return total
+    stdout = decode_output(result.stdout)
+    stderr = decode_output(result.stderr)
+    emit(stdout, stderr)
+    return RunResult(result.returncode, stdout, stderr)

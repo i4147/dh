@@ -6,6 +6,7 @@ from .const import (
     AUDIO_EXT,
     BINARY_EXT,
     BOOK_EXT,
+    BUILTIN_NAMES,
     CHUNK_SIZE,
     CODE_EXT,
     CONTEXT_METHOD,
@@ -27,9 +28,9 @@ from .const import (
     TEXT_FILENAMES,
     THRESHOLD,
     VIDEO_EXT,
-    BUILTIN_NAMES,
 )
 from .cprint import (
+    rainbow,
     Ansi,
     ColorSpec,
     Cube,
@@ -71,9 +72,7 @@ from .fileutils import (
     getfiles,
     gext,
     gsz,
-    gsz2,
-    gsze,
-    is_binary,
+    gsz_by_ext,
     is_empty,
     is_git_repo,
     is_image,
@@ -103,6 +102,9 @@ from .fileutils import (
     worker,
     write_txt_file,
 )
+from .isbinary import is_binary
+from .atomicio import atomic_write
+
 from .jobutils import (
     EXECUTOR_METHODS,
     STAR_METHODS,
@@ -122,6 +124,7 @@ from .utils import WORD_PATTERN, get_sha256, has_doc, is_valid_url, slugify, tok
 
 
 __all__ = [
+    "atomic_write",
     "FileWalkerConfig",
     "ReportGenerator",
     "ReportItem",
@@ -150,8 +153,7 @@ __all__ = [
     "getfiles",
     "gext",
     "gsz",
-    "gsz2",
-    "gsze",
+    "gsz_by_ext",
     "is_binary",
     "is_empty",
     "is_git_repo",
@@ -183,11 +185,11 @@ __all__ = [
     "write_txt_file",
 ]
 __all__ += [
-    "BUILTIN_NAMES",
     "ARCHIVE_EXT",
     "AUDIO_EXT",
     "BINARY_EXT",
     "BOOK_EXT",
+    "BUILTIN_NAMES",
     "CHUNK_SIZE",
     "CODE_EXT",
     "CONTEXT_METHOD",
@@ -222,6 +224,7 @@ __all__ += [
     "cube",
     "gray",
     "rgb_to_ansi256",
+    'rainbow',
 ]
 __all__ += [
     "EXECUTOR_METHODS",
