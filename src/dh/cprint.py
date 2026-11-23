@@ -624,8 +624,9 @@ def rainbow(txt):
                 new_palette.append((int(round(rr * 255)), int(round(gg * 255)), int(round(bb * 255))))
             palette = new_palette
 
-
     _sysrand.shuffle(palette)
+    if isinstance(txt, list):
+        txt = "\n".join(txt)
     text = txt.strip().split("\n")
     H = len(text)
     for i, line in enumerate(text):

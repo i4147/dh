@@ -224,7 +224,7 @@ __all__ += [
     "cube",
     "gray",
     "rgb_to_ansi256",
-    'rainbow',
+    "rainbow",
 ]
 __all__ += [
     "EXECUTOR_METHODS",
