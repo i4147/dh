@@ -4,43 +4,52 @@ import codecs
 import contextlib
 import csv
 import dataclasses
+from dataclasses import dataclass, field
 import gzip
 import io
 import json
-import logging
 import lzma
 import os
+from pathlib import Path
 import pickle
 import secrets
 import shutil
 import time
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Callable, ContextManager, Literal, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Literal, Self
+
+
 if TYPE_CHECKING:
+    import logging
     pass
 __all__ = [
-    "Options",
     "DEFAULT_OPTIONS",
+    "Options",
     "WriteResult",
-    "atomic_write",
     "atomic_read",
-    "atomic_write_text",
+    "atomic_write",
     "atomic_write_bytes",
-    "atomic_write_json",
-    "atomic_write_yaml",
-    "atomic_write_toml",
-    "atomic_write_pickle",
     "atomic_write_csv",
+    "atomic_write_json",
+    "atomic_write_pickle",
+    "atomic_write_text",
+    "atomic_write_toml",
+    "atomic_write_yaml",
 ]
 _RAW_TYPES: tuple[type, ...] = (bytes, bytearray, memoryview)
 _FORMATS = ("json", "yaml", "toml", "pickle", "csv", "text", "bytes", "msgpack")
 _COMPRESSIONS = ("gzip", "bz2", "lzma", "zstd")
+
+
 class _Unset:
     __slots__ = ()
+
     def __repr__(self) -> str:
         return "<UNSET>"
+
+
 _UNSET: Any = _Unset()
+
+
 @dataclass(frozen=True)
 class Options:
     encoding: str = "utf-8"
@@ -91,8 +100,12 @@ class Options:
     on_error: Callable[[BaseException], None] | None = None
     on_success: Callable[["WriteResult"], None] | None = None
     suppress_errors: bool = False
+
+
 DEFAULT_OPTIONS = Options()
 _OPT_KEYS: frozenset[str] = frozenset(f.name for f in dataclasses.fields(Options))
+
+
 @dataclass
 class WriteResult:
     path: Path
@@ -106,14 +119,18 @@ class WriteResult:
     format: str | None = None
     failed: bool = False
     error: BaseException | None = None
+
     def __bool__(self) -> bool:
         return not self.failed
+
+
 class _PathLock:
     def __init__(self, path: str | os.PathLike[str], timeout: float | None = None) -> None:
         self.path = Path(path)
         self.timeout = timeout
         self._fh: Any = None
-    def __enter__(self) -> "_PathLock":
+
+    def __enter__(self) -> Self:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._fh = open(self.path, "a+b")
         start = time.monotonic()
@@ -121,37 +138,47 @@ class _PathLock:
             try:
                 if os.name == "nt":
                     import msvcrt
+
                     msvcrt.locking(self._fh.fileno(), msvcrt.LK_NBLCK, 1)
                 else:
                     import fcntl
+
                     fcntl.flock(self._fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
                 return self
             except OSError:
                 if self.timeout is not None and (time.monotonic() - start) >= self.timeout:
                     self._fh.close()
                     self._fh = None
-                    raise TimeoutError(f"Could not acquire lock on {self.path!r} within {self.timeout}s") from None
+                    msg = f"Could not acquire lock on {self.path!r} within {self.timeout}s"
+                    raise TimeoutError(msg) from None
                 time.sleep(0.05)
+
     def __exit__(self, exc_type, exc, tb) -> None:
         if self._fh is None:
             return
         try:
             if os.name == "nt":
                 import msvcrt
+
                 self._fh.seek(0)
                 msvcrt.locking(self._fh.fileno(), msvcrt.LK_UNLCK, 1)
             else:
                 import fcntl
+
                 fcntl.flock(self._fh.fileno(), fcntl.LOCK_UN)
         finally:
             self._fh.close()
             self._fh = None
+
+
 def _resolve_lock(opts: Options) -> ContextManager[Any]:
     if opts.lock is not None:
         return opts.lock
     if opts.lock_path is not None:
         return _PathLock(opts.lock_path, timeout=opts.lock_timeout)
     return contextlib.nullcontext()
+
+
 def _json_default(o: Any) -> Any:
     if dataclasses.is_dataclass(o) and not isinstance(o, type):
         return dataclasses.asdict(o)
@@ -161,24 +188,35 @@ def _json_default(o: Any) -> Any:
         return os.fspath(o)
     if hasattr(o, "isoformat"):
         return o.isoformat()
-    raise TypeError(f"Cannot serialize {type(o).__name__}")
+    msg = f"Cannot serialize {type(o).__name__}"
+    raise TypeError(msg)
+
+
 def _make_json_default(user_default: Callable[[Any], Any] | None) -> Callable[[Any], Any]:
     if user_default is None:
         return _json_default
+
     def _composed(o: Any) -> Any:
         try:
             return user_default(o)
         except TypeError:
             return _json_default(o)
+
     return _composed
+
+
 def _is_encoding(name: str) -> bool:
     try:
         codecs.lookup(name)
         return True
     except LookupError:
         return False
+
+
 def _is_sig_encoding(name: str) -> bool:
     return name.lower().replace("_", "-").endswith("-sig")
+
+
 def _encode(text: str, opts: Options) -> bytes:
     enc = opts.encoding
     if opts.bom and not _is_sig_encoding(enc):
@@ -189,11 +227,15 @@ def _encode(text: str, opts: Options) -> bytes:
         else:
             enc = enc + "-sig"
     return text.encode(enc, opts.errors)
+
+
 def _apply_newline(text: str, newline: str) -> str:
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     if newline != "\n":
         text = text.replace("\n", newline)
     return text
+
+
 def _serialize_via_format(data: Any, fmt: str, opts: Options) -> bytes:
     if fmt == "json":
         text = json.dumps(
@@ -211,14 +253,16 @@ def _serialize_via_format(data: Any, fmt: str, opts: Options) -> bytes:
         try:
             import yaml
         except ImportError as e:
-            raise ImportError("format='yaml' requires the `PyYAML` package") from e
+            msg = "format='yaml' requires the `PyYAML` package"
+            raise ImportError(msg) from e
         text = yaml.safe_dump(data, sort_keys=opts.sort_keys, allow_unicode=not opts.ensure_ascii)
         return _encode(text, opts)
     if fmt == "toml":
         try:
             import tomli_w
         except ImportError as e:
-            raise ImportError("format='toml' requires the `tomli_w` package") from e
+            msg = "format='toml' requires the `tomli_w` package"
+            raise ImportError(msg) from e
         text = tomli_w.dumps(data)
         return _encode(text, opts)
     if fmt == "pickle":
@@ -234,11 +278,13 @@ def _serialize_via_format(data: Any, fmt: str, opts: Options) -> bytes:
         try:
             import msgpack
         except ImportError as e:
-            raise ImportError("format='msgpack' requires the `msgpack` package") from e
+            msg = "format='msgpack' requires the `msgpack` package"
+            raise ImportError(msg) from e
         return msgpack.packb(data, use_bin_type=True)
     if fmt == "text":
         if not isinstance(data, str):
-            raise TypeError(f"format='text' requires str, got {type(data).__name__}")
+            msg = f"format='text' requires str, got {type(data).__name__}"
+            raise TypeError(msg)
         text = data
         if opts.trailing_newline and not text.endswith(("\n", "\r")):
             text += "\n"
@@ -247,14 +293,19 @@ def _serialize_via_format(data: Any, fmt: str, opts: Options) -> bytes:
         return _encode(text, opts)
     if fmt == "bytes":
         if not isinstance(data, _RAW_TYPES):
-            raise TypeError(f"format='bytes' requires bytes-like, got {type(data).__name__}")
+            msg = f"format='bytes' requires bytes-like, got {type(data).__name__}"
+            raise TypeError(msg)
         return bytes(data)
-    raise ValueError(f"Unknown format: {fmt!r}")
+    msg = f"Unknown format: {fmt!r}"
+    raise ValueError(msg)
+
+
 def _serialize_inner(data: Any, opts: Options) -> bytes:
     if opts.serializer is not None:
         payload = opts.serializer(data)
         if not isinstance(payload, _RAW_TYPES):
-            raise TypeError(f"serializer must return bytes, got {type(payload).__name__}")
+            msg = f"serializer must return bytes, got {type(payload).__name__}"
+            raise TypeError(msg)
         return bytes(payload)
     fmt = opts.format
     if fmt is not None:
@@ -271,7 +322,10 @@ def _serialize_inner(data: Any, opts: Options) -> bytes:
         if opts.newline is not None:
             text = _apply_newline(text, opts.newline)
         return _encode(text, opts)
-    raise TypeError(f"Cannot write {type(data).__name__} as text; use as_json=True or format=")
+    msg = f"Cannot write {type(data).__name__} as text; use as_json=True or format="
+    raise TypeError(msg)
+
+
 def _compress(data: bytes, compression: str, level: int | None) -> bytes:
     if compression == "gzip":
         return gzip.compress(data, compresslevel=level if level is not None else 9)
@@ -283,9 +337,13 @@ def _compress(data: bytes, compression: str, level: int | None) -> bytes:
         try:
             import zstandard
         except ImportError as e:
-            raise ImportError("compression='zstd' requires the `zstandard` package") from e
+            msg = "compression='zstd' requires the `zstandard` package"
+            raise ImportError(msg) from e
         return zstandard.ZstdCompressor(level=level if level is not None else 3).compress(data)
-    raise ValueError(f"Unknown compression: {compression!r}")
+    msg = f"Unknown compression: {compression!r}"
+    raise ValueError(msg)
+
+
 def _decompress(data: bytes, compression: str) -> bytes:
     if compression == "gzip":
         return gzip.decompress(data)
@@ -297,14 +355,20 @@ def _decompress(data: bytes, compression: str) -> bytes:
         try:
             import zstandard
         except ImportError as e:
-            raise ImportError("compression='zstd' requires the `zstandard` package") from e
+            msg = "compression='zstd' requires the `zstandard` package"
+            raise ImportError(msg) from e
         return zstandard.ZstdDecompressor().decompress(data)
-    raise ValueError(f"Unknown compression: {compression!r}")
+    msg = f"Unknown compression: {compression!r}"
+    raise ValueError(msg)
+
+
 def _serialize(data: Any, opts: Options) -> bytes:
     result = _serialize_inner(data, opts)
     if opts.compression is not None:
         result = _compress(result, opts.compression, opts.compresslevel)
     return result
+
+
 def _do_sync(fd: int, sync: str) -> None:
     if sync == "none":
         return
@@ -313,6 +377,8 @@ def _do_sync(fd: int, sync: str) -> None:
             os.fdatasync(fd)
         else:
             os.fsync(fd)
+
+
 def _fsync_dir(directory: Path) -> None:
     if os.name != "posix":
         return
@@ -322,13 +388,19 @@ def _fsync_dir(directory: Path) -> None:
             os.fsync(fd)
         finally:
             os.close(fd)
+
+
 def _reflink(src: Path, dst: Path) -> None:
     if os.name != "posix":
-        raise OSError("reflink not supported on this platform")
+        msg = "reflink not supported on this platform"
+        raise OSError(msg)
     import fcntl
+
     FICLONE = 0x40049409
     with open(src, "rb") as sf, open(dst, "wb") as df:
         fcntl.ioctl(df.fileno(), FICLONE, sf.fileno())
+
+
 def _backup(src: Path, dst: Path, reflink: bool) -> None:
     if reflink:
         try:
@@ -340,6 +412,8 @@ def _backup(src: Path, dst: Path, reflink: bool) -> None:
         shutil.copy2(src, dst)
     except OSError:
         shutil.copyfile(src, dst)
+
+
 def _retry_replace(tmp: Path, target: Path, opts: Options) -> None:
     attempts = max(1, opts.retry + 1)
     last_exc: BaseException | None = None
@@ -366,6 +440,8 @@ def _retry_replace(tmp: Path, target: Path, opts: Options) -> None:
                 time.sleep(opts.retry_delay * (i + 1))
     if last_exc is not None:
         raise last_exc
+
+
 def _replace_atomically(target: Path, payload: bytes, opts: Options, *, exists: bool) -> Path:
     parent = target.parent
     tmp_dir = Path(opts.tmp_dir) if opts.tmp_dir is not None else parent
@@ -400,6 +476,8 @@ def _replace_atomically(target: Path, payload: bytes, opts: Options, *, exists: 
     if opts.fsync and opts.fsync_dir:
         _fsync_dir(parent)
     return tmp
+
+
 def _resolve_options(opt: Any, kwargs: dict[str, Any]) -> Options:
     base = DEFAULT_OPTIONS
     overrides: dict[str, Any] = {}
@@ -420,14 +498,18 @@ def _resolve_options(opt: Any, kwargs: dict[str, Any]) -> Options:
         elif hasattr(opt, "__enter__") and hasattr(opt, "__exit__"):
             overrides["lock"] = opt
         else:
-            raise TypeError(f"Unsupported opt value: {type(opt).__name__}")
+            msg = f"Unsupported opt value: {type(opt).__name__}"
+            raise TypeError(msg)
     for k, v in kwargs.items():
         if k not in _OPT_KEYS:
-            raise TypeError(f"Unknown option: {k!r}")
+            msg = f"Unknown option: {k!r}"
+            raise TypeError(msg)
         overrides[k] = v
     if not overrides:
         return base
     return dataclasses.replace(base, **overrides)
+
+
 def atomic_write(
     path: str | os.PathLike[str],
     data: Any = _UNSET,
@@ -439,14 +521,16 @@ def atomic_write(
     opts = _resolve_options(opt, kwargs)
     if update is not None:
         if opts.update is not None:
-            raise TypeError("Specify `update=` either as kwarg or inside Options, not both")
+            msg = "Specify `update=` either as kwarg or inside Options, not both"
+            raise TypeError(msg)
         opts = dataclasses.replace(opts, update=update)
     if opts.update is not None:
         if data is not _UNSET:
-            raise TypeError("Provide either `data` or `update=`, not both")
-    else:
-        if data is _UNSET:
-            raise TypeError("atomic_write() requires `data` or `update=`")
+            msg = "Provide either `data` or `update=`, not both"
+            raise TypeError(msg)
+    elif data is _UNSET:
+        msg_0 = "atomic_write() requires `data` or `update=`"
+        raise TypeError(msg_0)
     target = Path(os.path.realpath(path)) if opts.follow_symlinks else Path(path)
     start = time.monotonic()
     result = WriteResult(path=target, dry_run=opts.dry_run, format=opts.format)
@@ -462,7 +546,8 @@ def atomic_write(
             if opts.pre_write_hook is not None:
                 payload_data = opts.pre_write_hook(payload_data)
             if opts.validate is not None and not opts.validate(payload_data):
-                raise ValueError("validate() returned False; refusing to write")
+                msg = "validate() returned False; refusing to write"
+                raise ValueError(msg)
             payload = _serialize(payload_data, opts)
             result.bytes_written = len(payload)
             if opts.skip_unchanged and exists and not opts.dry_run:
@@ -511,7 +596,8 @@ def atomic_write(
                     if result.backup_path is not None:
                         with contextlib.suppress(OSError):
                             shutil.copy2(result.backup_path, target)
-                    raise OSError(f"Verification failed for {target}: written bytes differ")
+                    msg = f"Verification failed for {target}: written bytes differ"
+                    raise OSError(msg)
             if opts.post_write_hook is not None:
                 with contextlib.suppress(Exception):
                     opts.post_write_hook(target)
@@ -540,6 +626,8 @@ def atomic_write(
             with contextlib.suppress(Exception):
                 opts.on_error(e)
         raise
+
+
 def atomic_read(
     path: str | os.PathLike[str],
     *,
@@ -564,7 +652,8 @@ def atomic_read(
         try:
             import yaml
         except ImportError as e:
-            raise ImportError("format='yaml' requires the `PyYAML` package") from e
+            msg = "format='yaml' requires the `PyYAML` package"
+            raise ImportError(msg) from e
         return yaml.safe_load(raw.decode(encoding, errors))
     if format == "toml":
         try:
@@ -578,30 +667,46 @@ def atomic_read(
         try:
             import msgpack
         except ImportError as e:
-            raise ImportError("format='msgpack' requires the `msgpack` package") from e
+            msg = "format='msgpack' requires the `msgpack` package"
+            raise ImportError(msg) from e
         return msgpack.unpackb(raw, raw=False)
     if format == "csv":
         text = raw.decode(encoding, errors)
         return list(csv.reader(io.StringIO(text)))
-    raise ValueError(f"Unknown format: {format!r}")
+    msg = f"Unknown format: {format!r}"
+    raise ValueError(msg)
+
+
 def atomic_write_text(path: str | os.PathLike[str], text: str, **kwargs: Any) -> WriteResult:
     kwargs.setdefault("format", "text")
     return atomic_write(path, text, **kwargs)
+
+
 def atomic_write_bytes(path: str | os.PathLike[str], data: bytes, **kwargs: Any) -> WriteResult:
     kwargs.setdefault("format", "bytes")
     return atomic_write(path, data, **kwargs)
+
+
 def atomic_write_json(path: str | os.PathLike[str], obj: Any, **kwargs: Any) -> WriteResult:
     kwargs.setdefault("format", "json")
     return atomic_write(path, obj, **kwargs)
+
+
 def atomic_write_yaml(path: str | os.PathLike[str], obj: Any, **kwargs: Any) -> WriteResult:
     kwargs.setdefault("format", "yaml")
     return atomic_write(path, obj, **kwargs)
+
+
 def atomic_write_toml(path: str | os.PathLike[str], obj: Any, **kwargs: Any) -> WriteResult:
     kwargs.setdefault("format", "toml")
     return atomic_write(path, obj, **kwargs)
+
+
 def atomic_write_pickle(path: str | os.PathLike[str], obj: Any, **kwargs: Any) -> WriteResult:
     kwargs.setdefault("format", "pickle")
     return atomic_write(path, obj, **kwargs)
+
+
 def atomic_write_csv(path: str | os.PathLike[str], rows: Any, **kwargs: Any) -> WriteResult:
     kwargs.setdefault("format", "csv")
     return atomic_write(path, rows, **kwargs)

@@ -1,19 +1,14 @@
 """Modern cprint: rich-based colored printing with ANSI-256 cube support."""
 
 from __future__ import annotations
-
+import colorsys
 from enum import IntEnum
 import io
-import os
-from typing import IO, Final, TypeAlias
-import colorsys
 import math
 import os
 import random
 import sys
-
-from rich.console import Console
-from rich.text import Text
+from typing import IO, Final, TypeAlias
 
 from rich.color import Color, ColorParseError
 from rich.console import Console
@@ -32,8 +27,8 @@ __all__ = [
     "cstr",
     "cube",
     "gray",
-    "rgb_to_ansi256",
     "rainbow",
+    "rgb_to_ansi256",
 ]
 
 
@@ -610,7 +605,7 @@ def rainbow(txt):
             v = min(max(val_center + (_sysrand.random() - 0.5) * 0.18, 0.35), 1.0)
 
             r_f, g_f, b_f = colorsys.hsv_to_rgb(h, s, v)
-            r, g, b = int(round(r_f * 255)), int(round(g_f * 255)), int(round(b_f * 255))
+            r, g, b = round(r_f * 255), round(g_f * 255), round(b_f * 255)
 
             palette.append((r, g, b))
 
@@ -621,7 +616,7 @@ def rainbow(txt):
                 h, s, v = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
                 v = min(max(v + delta_v, 0.2), 1.0)
                 rr, gg, bb = colorsys.hsv_to_rgb(h, s, v)
-                new_palette.append((int(round(rr * 255)), int(round(gg * 255)), int(round(bb * 255))))
+                new_palette.append((round(rr * 255), round(gg * 255), round(bb * 255)))
             palette = new_palette
 
     _sysrand.shuffle(palette)

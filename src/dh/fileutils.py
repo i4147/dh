@@ -1,3 +1,4 @@
+from __future__ import annotations
 import codecs
 from collections import defaultdict
 from collections.abc import Callable, Collection, Generator, Iterator, Mapping, Sequence
@@ -12,6 +13,8 @@ import subprocess
 import sys
 import time
 from typing import Any, Literal, NamedTuple, overload
+
+from loguru import logger
 
 from .const import BINARY_EXT, CHUNK_SIZE, EMULATED, IMAGE_EXT, SDCARD, SKIP_DIRS, TEXT_EXT, TEXT_FILENAMES, THRESHOLD
 from .utils import clean_terminal_transcript
@@ -182,12 +185,67 @@ def unique_path(path: Path | str) -> Path:
         counter += 1
 
 
-def get_random_filename(length: int = 10) -> str:
-    """Generate a random lowercase filename stem of the requested length."""
-    from secrets import choice
-    from string import ascii_lowercase
+from collections.abc import Collection
+from pathlib import Path
+from secrets import choice
+from string import ascii_letters, digits
 
-    return "".join(choice(ascii_lowercase) for _ in range(length))
+
+DEFAULT_ALPHABET = ascii_letters + digits
+_FORBIDDEN_CHARS = frozenset("/\x00")
+
+
+def _check_part(value: str, label: str) -> None:
+    if any(c in _FORBIDDEN_CHARS for c in value):
+        msg = f"{label} contains a path separator or NUL byte"
+        raise ValueError(msg)
+
+
+def get_random_filename(
+    length: int = 10,
+    ext: str = "",
+    *,
+    prefix: str = "",
+    suffix: str = "",
+    alphabet: str = DEFAULT_ALPHABET,
+    directory: Path | None = None,
+    unique_against: Path | Collection[str] | None = None,
+    max_attempts: int = 100,
+) -> Path:
+    if length < 1:
+        msg = "length must be at least 1"
+        raise ValueError(msg)
+    if not alphabet:
+        msg = "alphabet must not be empty"
+        raise ValueError(msg)
+    if max_attempts < 1:
+        msg = "max_attempts must be at least 1"
+        raise ValueError(msg)
+    if directory is not None and not Path(directory).is_dir():
+        msg = f"directory does not exist: {directory}"
+        raise NotADirectoryError(msg)
+
+    ext = ext.lstrip(".")
+    for value, label in ((prefix, "prefix"), (suffix, "suffix"), (ext, "ext")):
+        _check_part(value, label)
+
+    def is_taken(name: str) -> bool:
+        if unique_against is None:
+            return False
+        if isinstance(unique_against, Path):
+            return (unique_against / name).exists()
+        return name in unique_against
+
+    for _ in range(max_attempts):
+        core = "".join(choice(alphabet) for _ in range(length))
+        name = f"{prefix}{core}{suffix}"
+        if ext:
+            name = f"{name}.{ext}"
+        if not is_taken(name):
+            return Path(directory or "") / name
+
+    msg = f"no unique name found after {max_attempts} attempts"
+    raise RuntimeError(msg)
 
 
 def should_skip(path: str | Path) -> bool:
@@ -345,30 +403,29 @@ def _finish_lines(text: str, keep_ends: bool) -> list[str]:
     return lines
 
 
+_UTF8_BOM = b"\xef\xbb\xbf"
+
+
+def iter_lines(path: str | Path, keep_ends: bool = True) -> Iterator[str]:
+    """Yield UTF-8 lines one at a time, replacing malformed bytes.
+
+    Memory use stays constant regardless of file size.
+    """
+    with Path(path).open("rb") as f:
+        for i, raw in enumerate(f):
+            if i == 0 and raw.startswith(_UTF8_BOM):
+                raw = raw[len(_UTF8_BOM) :]
+            if not keep_ends:
+                raw = raw.removesuffix(b"\r\n").removesuffix(b"\n")
+            yield raw.decode("utf-8", errors="replace")
+
+
 def read_lines(path: str | Path, ke: bool = True) -> list[str]:
-    """Read UTF-8 lines, replacing malformed bytes; optionally retain line endings."""
-    path = Path(path)
+    """Return all lines as a list. Use iter_lines() for large files."""
     try:
-        if path.stat().st_size > THRESHOLD:
-            return read_lines_mmap(path, ke)
-        return _finish_lines(path.read_bytes().decode("utf-8", errors="replace"), ke)
-    except OSError:
-        return []
-
-
-def read_lines_mmap(path: Path, keep_ends: bool = True) -> list[str]:
-    """Read UTF-8 lines through a read-only memory map."""
-    import mmap
-
-    path = Path(path)
-    try:
-        size = path.stat().st_size
-        if size == 0:
-            return []
-        with path.open("rb") as f, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
-            text = mm[:].decode("utf-8", errors="replace")
-        return _finish_lines(text, keep_ends)
-    except OSError:
+        return list(iter_lines(path, ke))
+    except OSError as exc:
+        logger.warning("Failed to read {}: {}", path, exc)
         return []
 
 
