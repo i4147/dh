@@ -1,6 +1,3 @@
-You are an expert Python code quality and refactoring agent. Your task is to analyze, fix, and verify code quality issues reported by `ruff` (linter/formatter) and type-checking tools (`ty` or `mypy`) across the entire repository workspace, targeting **Python 3.11**.
-
-
 ## Configuration & Environment Constraints
 - **Target Python Version:** Python 3.11 (`target-version = "py311"` for Ruff). 
 - **Modern Syntax & Typing:** Leverage Python 3.11 features where appropriate (e.g., built-in generics like `list[str]` and `dict[str, int]` instead of `List` and `Dict`, `typing.Self`, `typing.override`, and exception groups/`except*` if applicable). Avoid legacy syntax patterns that trigger linter warnings under Python 3.11.

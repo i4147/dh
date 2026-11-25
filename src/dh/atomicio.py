@@ -20,8 +20,9 @@ from typing import TYPE_CHECKING, Any, Callable, ContextManager, Literal, Self
 
 if TYPE_CHECKING:
     import logging
+
     pass
-__all__ = [
+__all__: list[str] = [
     "DEFAULT_OPTIONS",
     "Options",
     "WriteResult",
@@ -36,8 +37,8 @@ __all__ = [
     "atomic_write_yaml",
 ]
 _RAW_TYPES: tuple[type, ...] = (bytes, bytearray, memoryview)
-_FORMATS = ("json", "yaml", "toml", "pickle", "csv", "text", "bytes", "msgpack")
-_COMPRESSIONS = ("gzip", "bz2", "lzma", "zstd")
+_FORMATS: tuple[str, ...] = ("json", "yaml", "toml", "pickle", "csv", "text", "bytes", "msgpack")
+_COMPRESSIONS: tuple[str, str, str, str] = ("gzip", "bz2", "lzma", "zstd")
 
 
 class _Unset:
@@ -153,7 +154,7 @@ class _PathLock:
                     raise TimeoutError(msg) from None
                 time.sleep(0.05)
 
-    def __exit__(self, exc_type, exc, tb) -> None:
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
         if self._fh is None:
             return
         try:

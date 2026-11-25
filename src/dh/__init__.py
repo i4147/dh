@@ -84,9 +84,7 @@ from .fileutils import (
     move_dir,
     normalize_filename,
     normalize_path,
-    process_files,
     read_lines,
-    read_lines_mmap,
     remove_blank_lines,
     restore_bak,
     reverse_dict,
@@ -122,7 +120,7 @@ from .jobutils import (
 from .utils import WORD_PATTERN, get_sha256, has_doc, is_valid_url, slugify, tokenize_text
 
 
-__all__ = [
+__all__: list[str] = [
     "FileWalkerConfig",
     "ReportGenerator",
     "ReportItem",
@@ -164,9 +162,7 @@ __all__ = [
     "move_dir",
     "normalize_filename",
     "normalize_path",
-    "process_files",
     "read_lines",
-    "read_lines_mmap",
     "remove_blank_lines",
     "restore_bak",
     "reverse_dict",
@@ -260,7 +256,6 @@ __all__ += [
     "slugify",
     "tokenize_text",
 ]
-
 from .textutils import (
     count_words,
     is_real_text,

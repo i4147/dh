@@ -23,9 +23,7 @@ from loguru import logger
 
 if TYPE_CHECKING:
     from multiprocessing.pool import Pool as MpPool
-
-
-__all__ = [
+__all__: list[str] = [
     "Method",
     "MethodUnavailableError",
     "MpfError",
@@ -37,7 +35,6 @@ __all__ = [
 ]
 T = TypeVar("T")
 R = TypeVar("R")
-
 ProgressKind: TypeAlias = Literal["tqdm", "rich"]
 StartMethod: TypeAlias = Literal["fork", "forkserver", "spawn"]
 ErrorMode: TypeAlias = Literal["collect", "raise"]

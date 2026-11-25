@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 
 logger = _getLogger(__name__)
-__all__ = [
+__all__: list[str] = [
     "is_binary",
 ]
 BINARY_EXTENSIONS: frozenset[str] = frozenset({
@@ -225,7 +225,7 @@ BINARY_SIGNATURES: tuple[bytes, ...] = tuple(
         reverse=True,
     )
 )
-CHUNK_SIZE = 512
+CHUNK_SIZE: int = 512
 _CONTROL_BYTES: frozenset[int] = frozenset(range(32)) - {9, 10, 13}
 
 
@@ -247,7 +247,7 @@ def get_starting_chunk(path: str | bytes | Path, length: int = CHUNK_SIZE) -> by
         return f.read(length)
 
 
-_DECODE_TRY = (
+_DECODE_TRY: tuple[str, ...] = (
     "utf-16-le",
     "utf-16-be",
     "utf-32-le",

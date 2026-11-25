@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from dh.fileutils import runcmd
+from dh import runcmd
 
 
 def test_clean_output_and_emit(capsys: pytest.CaptureFixture[str]) -> None:

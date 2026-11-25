@@ -2,7 +2,7 @@
 
 ```python
 from pathlib import Path
-from dh.fileutils import get_files, get_filez, get_dirs
+from dh-slim.fileutils import get_files, get_filez, get_dirs
 
 rst_files = get_files(Path("docs"), ext=[".rst"], skip_dirs={"vendor"})
 for script in get_filez("src", pyfiles=True, nobinary=True):
@@ -21,7 +21,7 @@ assert dirs == sorted(get_dirs("src"))
 - `pyfiles=True` accepts `.py` files (including empty files) and extensionless
   files whose first line is a Python shebang. It does not parse arbitrary text.
 - `nobinary=True` uses the package's extension/content-based binary classifier.
-- `skip_dirs=None` uses `dh.const.SKIP_DIRS`; a custom set replaces this set.
+- `skip_dirs=None` uses `dh-slim.const.SKIP_DIRS`; a custom set replaces this set.
   Entries below matching directory components are excluded as well.
 - `dirs_only=True` ignores all file filters and includes the root directory,
   `get_dirs` delegates to this mode.
@@ -39,7 +39,7 @@ its children are visited; `get_files` sorts its final results.
 
 ## Compatibility
 
-`dh.pathutils` is a compatibility import layer, not a second implementation.
+`dh-slim.pathutils` is a compatibility import layer, not a second implementation.
 `get_pyfiles` and `get_nobinary` delegate to the same filtering engine.
 Older helpers such as `getfiles`, `walkfiles`, `get_files_scandir`, and configurable
 walkers share this engine while retaining their specialized filtering/error semantics;

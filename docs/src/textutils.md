@@ -1,9 +1,9 @@
 # Text utilities
 
-`dh.textutils` offers dependency-free text helpers, also exported from `dh`.
+`dh-slim.textutils` offers dependency-free text helpers, also exported from `dh-slim`.
 
 ```python
-from dh import (
+from dh-slim import (
     levenshtein,
     text_distance,
     count_words,

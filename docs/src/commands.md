@@ -2,7 +2,7 @@
 
 ```python
 import sys
-from dh import runcmd
+from dh-slim import runcmd
 
 code, stdout, stderr = runcmd(
     [sys.executable, "-c", "print('hello')"],
@@ -16,7 +16,7 @@ Commands use argument vectors without a shell. Standard input is disconnected;
 stdout and stderr are captured separately. `show_output=True` emits the cleaned
 streams after the process finishes, rather than streaming live output.
 
-`dh.utils.clean_terminal_transcript` removes ANSI/OSC escapes, control characters,
+`dh-slim.utils.clean_terminal_transcript` removes ANSI/OSC escapes, control characters,
 backspace artifacts, and carriage-return progress updates. It trims trailing
 whitespace, collapses long blank-line runs, and terminates nonempty output with a
 newline. `runcmd` preserves truly empty streams as `""`.

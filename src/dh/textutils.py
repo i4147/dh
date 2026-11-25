@@ -6,7 +6,7 @@ import re
 import unicodedata
 
 
-__all__ = [
+__all__: list[str] = [
     "count_words",
     "levenshtein",
     "text_distance",
@@ -14,7 +14,6 @@ __all__ = [
     "to_snake",
     "word_frequencies",
 ]
-
 # Unicode letters and numbers, excluding underscores. Internal apostrophes keep
 # contractions together; other punctuation and whitespace separate words.
 _WORD_RE = re.compile(r"[^\W_]+(?:['’][^\W_]+)*")
@@ -28,7 +27,6 @@ def _words(text: str) -> Iterator[str]:
 
 def levenshtein(left: str, right: str) -> int:
     """Return unit-cost insertion/deletion/substitution distance between strings.
-
     Comparisons are case-sensitive and operate on Unicode code points, not
     grapheme clusters. No normalization is implicit. Uses O(min(m, n)) memory
     and O(m*n) time; transpositions count as two edits.
@@ -51,7 +49,6 @@ def levenshtein(left: str, right: str) -> int:
 
 def text_distance(left: str, right: str) -> float:
     """Return Levenshtein distance divided by the longer string length.
-
     The result lies in [0, 1]: zero means identical and one means maximally
     different. Two empty strings have distance zero. Case and Unicode behavior
     are the same as levenshtein; this is a distance, not a similarity score.
@@ -62,7 +59,6 @@ def text_distance(left: str, right: str) -> float:
 
 def count_words(text: str) -> int:
     """Count Unicode letter/number words, keeping internal apostrophes together.
-
     Underscores, hyphens, and punctuation separate words. Numbers count as
     words. This is a lexical heuristic, not language-specific segmentation
     (e.g. an unspaced Chinese sentence is a single token).
@@ -72,7 +68,6 @@ def count_words(text: str) -> int:
 
 def word_frequencies(text: str, *, case_sensitive: bool = False) -> Counter[str]:
     """Count words using count_words tokenization and optional case sensitivity.
-
     By default Unicode casefold merges case variants. Tokens use NFC Unicode
     normalization and curly apostrophes are canonicalized to straight ones.
     Return a Counter, supporting most_common() and zero for missing words.
@@ -103,7 +98,6 @@ def _identifier_words(text: str) -> Iterator[str]:
 
 def to_snake(text: str) -> str:
     """Convert words or identifiers to lowercase snake_case.
-
     Handles acronyms (HTTPServer -> http_server), Unicode case boundaries,
     punctuation separators, and digit runs (version2 -> version_2). Empty or
     punctuation-only input returns an empty string. No identifier validity is
@@ -114,7 +108,6 @@ def to_snake(text: str) -> str:
 
 def to_camel(text: str, *, upper_first: bool = False) -> str:
     """Convert words or identifiers to lowerCamelCase, or PascalCase if requested.
-
     Uses to_snake boundary rules and normalizes acronyms (HTTPServer becomes
     httpServer). Empty or punctuation-only input returns an empty string.
     """
@@ -127,10 +120,8 @@ def to_camel(text: str, *, upper_first: bool = False) -> str:
 def is_real_text(text: str, *, allow_digits: bool = False, min_letters: int = 1) -> bool:
     """
     Return True if `text` contains real textual content in *any* language.
-
     A character counts as "text" if it is a Unicode letter (category L*).
     Optionally, digits/numbers (category N*) can also count.
-
     Parameters
     ----------
     text : str
@@ -141,7 +132,6 @@ def is_real_text(text: str, *, allow_digits: bool = False, min_letters: int = 1)
     min_letters : int
         Minimum number of text characters required to return True.
         Use a value > 1 if you want to reject e.g. a stray single letter.
-
     Returns
     -------
     bool
@@ -153,7 +143,6 @@ def is_real_text(text: str, *, allow_digits: bool = False, min_letters: int = 1)
     if not isinstance(text, str):
         msg = f"expected str, got {type(text).__name__}"
         raise TypeError(msg)
-
     count = 0
     for ch in text:
         cat = unicodedata.category(ch)

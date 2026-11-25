@@ -966,7 +966,6 @@ TEXT_EXT: Final[frozenset[str]] = frozenset({
     ".zig",
     ".zsh",
 })
-
 # Exact text basenames (case-insensitive), separate from filename extensions.
 TEXT_FILENAMES: Final[frozenset[str]] = frozenset({
     ".authors",
@@ -1316,7 +1315,7 @@ PKG_MAPPING: dict[str, str] = {
     "binstar_build_client": "anaconda_build",
     "binstar_client": "anaconda_client",
     "biocommons": "biocommons.dev",
-    "birdhousebuilder": "birdhousebuilder.recipe.supervisor",
+    "birdh-slimousebuilder": "birdh-slimousebuilder.recipe.supervisor",
     "blender26-meshio": "pymeshio",
     "borg": "borg.localrole",
     "bow": "bagofwords",
@@ -1433,7 +1432,7 @@ PKG_MAPPING: dict[str, str] = {
     "depot": "filedepot",
     "devtools": "tg.devtools",
     "dgis": "2gis",
-    "dhtmlparser": "pyDHTMLParser",
+    "dh-slimtmlparser": "pyDH-SLIMTMLParser",
     "digitalocean": "python_digitalocean",
     "discord": "discord.py",
     "distribute_setup": "ez_setup",
@@ -1678,7 +1677,7 @@ PKG_MAPPING: dict[str, str] = {
     "pyjsonrpc": "python_jsonrpc",
     "pykka": "Pykka",
     "pylogo": "PyLogo",
-    "pylons": "adhocracy_Pylons",
+    "pylons": "adh-slimocracy_Pylons",
     "pymagic": "libmagic",
     "pymycraawler": "Amalwebcrawler",
     "pynma": "AbakaffeNotifier",
@@ -1818,7 +1817,6 @@ PKG_MAPPING: dict[str, str] = {
     "zmq": "pyzmq",
     "zopyx": "zopyx.textindexng3",
 }
-
 EXT2MIME: dict[str, str] = {
     ".otf": "font/otf",
     ".ttf": "font/ttf",
@@ -2275,7 +2273,7 @@ MIME2EXT: dict[str, list[str]] = {
     "application/vnd.groove-tool-template": [".tpl"],
     "application/vnd.groove-vcard": [".vcg"],
     "application/vnd.hal+xml": [".hal"],
-    "application/vnd.handheld-entertainment+xml": [".zmm"],
+    "application/vnd.handh-slimeld-entertainment+xml": [".zmm"],
     "application/vnd.hbci": [".hbci"],
     "application/vnd.hhe.lesson-player": [".les"],
     "application/vnd.hp-hpgl": [".hpgl"],
@@ -3675,7 +3673,7 @@ STDLIB: Final[frozenset[str]] = frozenset({
     "site",
     "smtpd",
     "smtplib",
-    "sndhdr",
+    "sndh-slimdr",
     "socket",
     "socketserver",
     "spwd",
@@ -3736,7 +3734,6 @@ STDLIB: Final[frozenset[str]] = frozenset({
     "zlib",
     "zoneinfo",
 })
-
 CSS_COLORS: dict[str, tuple[int, int, int]] = {
     "aliceblue": (240, 248, 255),
     "antiquewhite": (250, 235, 215),
@@ -3887,7 +3884,6 @@ CSS_COLORS: dict[str, tuple[int, int, int]] = {
     "yellow": (255, 255, 0),
     "yellowgreen": (154, 205, 50),
 }
-
 SKIP_DIRS: Final[frozenset[str]] = frozenset({
     ".cache",
     ".git",

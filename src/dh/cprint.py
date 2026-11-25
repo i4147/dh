@@ -8,7 +8,7 @@ import math
 import os
 import random
 import sys
-from typing import IO, Final, TypeAlias
+from typing import IO, Any, Final, Sequence, TypeAlias
 
 from rich.color import Color, ColorParseError
 from rich.console import Console
@@ -16,7 +16,7 @@ from rich.style import Style
 from rich.text import Text
 
 
-__all__ = [
+__all__: list[str] = [
     "Ansi",
     "ColorSpec",
     "Cube",
@@ -30,10 +30,7 @@ __all__ = [
     "rainbow",
     "rgb_to_ansi256",
 ]
-
-
 # --- ANSI 256 palette tables ---
-
 _ANSI_16_RGB: Final[tuple[tuple[int, int, int], ...]] = (
     (0, 0, 0),
     (128, 0, 0),
@@ -59,8 +56,6 @@ _GRAY_COUNT: Final[int] = 24
 
 
 # --- Named color enums ---
-
-
 class Ansi(IntEnum):
     """The standard 16 ANSI colors, ordered by their palette indices."""
 
@@ -106,8 +101,6 @@ class Cube(IntEnum):
 
 
 # --- Palette helpers ---
-
-
 def cube(r: int, g: int, b: int) -> int:
     """Return a cube palette index; each coordinate must be an integer from 0 to 5."""
     for name, value in (("r", r), ("g", g), ("b", b)):
@@ -130,10 +123,8 @@ def ansi_to_rgb(n: int) -> tuple[int, int, int]:
     if not isinstance(n, int) or not 0 <= n <= 255:
         msg = f"ANSI index must be int 0..255, got {n!r}"
         raise ValueError(msg)
-
     if n < 16:
         return _ANSI_16_RGB[n]
-
     if n < 232:
         index = n - 16
         return (
@@ -141,7 +132,6 @@ def ansi_to_rgb(n: int) -> tuple[int, int, int]:
             _CUBE_LEVELS[(index // 6) % 6],
             _CUBE_LEVELS[index % 6],
         )
-
     value = 8 + (n - 232) * 10
     return (value, value, value)
 
@@ -157,11 +147,9 @@ def rgb_to_ansi256(r: int, g: int, b: int) -> int:
         if not isinstance(value, int) or not 0 <= value <= 255:
             msg = f"RGB {name} must be int 0..255, got {value!r}"
             raise ValueError(msg)
-
     target = (r, g, b)
     best_idx = 16
     best_dist = _dist2(ansi_to_rgb(16), target)
-
     for red in range(6):
         for green in range(6):
             for blue in range(6):
@@ -169,21 +157,17 @@ def rgb_to_ansi256(r: int, g: int, b: int) -> int:
                 distance = _dist2(ansi_to_rgb(index), target)
                 if distance < best_dist:
                     best_idx, best_dist = index, distance
-
     for level in range(_GRAY_COUNT):
         index = gray(level)
         distance = _dist2(ansi_to_rgb(index), target)
         if distance < best_dist:
             best_idx, best_dist = index, distance
-
     return best_idx
 
 
 # --- Color resolution ---
-
 ColorSpec: TypeAlias = str | int | tuple[int, int, int] | Ansi | Cube | Color
 """A color accepted by the public printing functions."""
-
 # termcolor-era names rich's parser rejects -> nearest valid name (grey/gray: bright_black, SGR 90).
 _LEGACY_ALIASES: Final[dict[str, str]] = {
     "grey": "bright_black",
@@ -202,56 +186,45 @@ def _resolve_color(spec: ColorSpec) -> Color:
     """Convert a supported color specification to a Rich ``Color``."""
     if isinstance(spec, Color):
         return spec
-
     if isinstance(spec, (Ansi, Cube)):
         return Color.from_ansi(int(spec))
-
     if isinstance(spec, int):
         if not 0 <= spec <= 255:
             msg = f"ANSI index must be int 0..255, got {spec!r}"
             raise ValueError(msg)
         return Color.from_ansi(spec)
-
     if isinstance(spec, tuple):
         if len(spec) != 3 or any(not isinstance(value, int) or not 0 <= value <= 255 for value in spec):
             msg = f"RGB tuple must be 3 ints 0..255, got {spec!r}"
             raise ValueError(msg)
         return Color.from_rgb(*spec)
-
     if isinstance(spec, str):
         normalized = spec.strip().lower()
-
         if normalized.startswith("cube(") and normalized.endswith(")"):
             parts = [int(part.strip()) for part in normalized[5:-1].split(",")]
             if len(parts) != 3:
                 msg = f"cube() expects 3 int args, got {spec!r}"
                 raise ValueError(msg)
             return Color.from_ansi(cube(*parts))
-
         if normalized.startswith("gray(") and normalized.endswith(")"):
             level = int(normalized[5:-1].strip())
             return Color.from_ansi(gray(level))
-
         if normalized.startswith("ansi(") and normalized.endswith(")"):
             index = int(normalized[5:-1].strip())
             return _resolve_color(index)
-
         if normalized.startswith("rgb(") and normalized.endswith(")"):
             parts = [int(part.strip()) for part in normalized[4:-1].split(",")]
             if len(parts) != 3:
                 msg = f"rgb() expects 3 int args, got {spec!r}"
                 raise ValueError(msg)
             return Color.from_rgb(*parts)
-
         try:
             return Color.parse(spec)
         except ColorParseError as exc:  # Color.parse raises, it never returns None
             if spec in _LEGACY_ALIASES:
                 return _resolve_color(_LEGACY_ALIASES[spec])
             msg = f"could not parse color: {spec!r}"
-
             raise ValueError(msg)
-
     msg = f"unsupported color spec: {type(spec).__name__}"
     raise TypeError(msg)
 
@@ -307,8 +280,6 @@ def _env_forces_no_color() -> bool:
 
 
 # --- Public API ---
-
-
 def colored(
     text: str,
     *,
@@ -324,20 +295,16 @@ def colored(
     no_color: bool | None = None,
 ) -> str:
     """Return text wrapped in ANSI SGR codes matching the requested style.
-
     If ``no_color`` is ``None``, the ``NO_COLOR`` environment variable is
     honored. Set it to ``True`` to return plain text or ``False`` to force
     ANSI output.
     """
     if not isinstance(text, str):
         text = str(text)
-
     if no_color is None:
         no_color = _env_forces_no_color()
-
     if no_color or not text:
         return text
-
     style = _build_style(
         color=color,
         bg=bg,
@@ -349,7 +316,6 @@ def colored(
         reverse=reverse,
         strike=strike,
     )
-
     buffer = io.StringIO()
     console = Console(
         file=buffer,
@@ -395,12 +361,9 @@ def cprint(
         reverse=reverse,
         strike=strike,
     )
-
     if console is None:
         console = _make_console(file, force_terminal)
-
     console.print(Text(text, style=style), end=end)
-
     if flush:
         console.file.flush()
 
@@ -475,24 +438,20 @@ def cprint_compat(
     force_terminal: bool | None = None,
 ) -> None:
     """Print with support for the legacy positional color syntax.
-
     For example, ``cprint_compat("text", "cyan")`` is treated as
     ``cprint("text", color="cyan")``. A third legacy string argument is
     treated as a background color when no explicit ``bg`` is supplied.
     """
     new_args = args
-
     if color is None and 2 <= len(args) <= 3 and isinstance(args[1], str) and args[1].lower() in _LEGACY_COLORS:
         color = args[1]
         new_args = (args[0],)
-
         if len(args) == 3:
             third_arg = args[2]
             if bg is None and isinstance(third_arg, str):
                 bg = third_arg[3:] if third_arg.lower().startswith("on_") else third_arg
             else:
                 new_args = (args[0], third_arg)
-
     cprint(
         *new_args,
         color=color,
@@ -513,11 +472,11 @@ def cprint_compat(
     )
 
 
-def lerp(a, b, t):
+def lerp(a: Any, b: int, t: Any):
     return a + (b - a) * t
 
 
-def blend(c1, c2, t):
+def blend(c1: Sequence[Any], c2: Sequence[Any], t: float) -> str:
     t = t**1.47
     t = 0.82 * t + 0.08 * math.sin(3.2 * t)
     r = int(lerp(c1[0], c2[0], t))
@@ -526,7 +485,7 @@ def blend(c1, c2, t):
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
-def rainbow(txt):
+def rainbow(txt: str) -> None:
     console = Console()
     fixed_palettes = [
         [
@@ -572,7 +531,6 @@ def rainbow(txt):
             (0xFF, 0x88, 0xA8),
         ],
     ]
-
     _sysrand = random.SystemRandom()
     idx_env = os.getenv("PALETTE_NUM")
     if idx_env is not None:
@@ -586,29 +544,21 @@ def rainbow(txt):
             palette = None
     else:
         palette = None
-
     if palette is None:
         N = 5
-
         base_h = _sysrand.random()
         spacing = 1.0 / N
-
         sat_center = 0.72 + (_sysrand.random() - 0.5) * 0.2
         val_center = 0.78 + (_sysrand.random() - 0.5) * 0.2
-
         palette = []
         for i in range(N):
             jitter = (_sysrand.random() - 0.5) * (spacing * 0.6)
             h = (base_h + i * spacing + jitter) % 1.0
-
             s = min(max(sat_center + (_sysrand.random() - 0.5) * 0.18, 0.35), 1.0)
             v = min(max(val_center + (_sysrand.random() - 0.5) * 0.18, 0.35), 1.0)
-
             r_f, g_f, b_f = colorsys.hsv_to_rgb(h, s, v)
             r, g, b = round(r_f * 255), round(g_f * 255), round(b_f * 255)
-
             palette.append((r, g, b))
-
         if _sysrand.random() < 0.25:
             delta_v = (_sysrand.random() - 0.5) * 0.18
             new_palette = []
@@ -618,7 +568,6 @@ def rainbow(txt):
                 rr, gg, bb = colorsys.hsv_to_rgb(h, s, v)
                 new_palette.append((round(rr * 255), round(gg * 255), round(bb * 255)))
             palette = new_palette
-
     _sysrand.shuffle(palette)
     if isinstance(txt, list):
         txt = "\n".join(txt)
@@ -627,18 +576,20 @@ def rainbow(txt):
     for i, line in enumerate(text):
         tline = Text()
         W = len(line)
-
         for j, ch in enumerate(line):
             raw = i * 0.72 + j * 0.44
             t = raw / (H * 0.72 + W * 0.44)
-
             seg = t * (len(palette) - 1)
             idx = int(seg)
             t2 = seg - idx
-
             c1 = palette[idx]
             c2 = palette[min(idx + 1, len(palette) - 1)]
-
             tline.append(ch, style=blend(c1, c2, t2))
-
         console.print(tline)
+
+
+def type_writer(text: str, speed: float = 0.03, style: str = "green") -> None:
+    for char in text:
+        console.print(char, end="", style=style)
+        time.sleep(speed)
+    print()

@@ -8,7 +8,7 @@ import sys
 
 import pytest
 from dh import const
-from dh.fileutils import is_binary, is_text_file
+from dh import is_binary, is_text_file
 
 
 @pytest.mark.parametrize("extension", [".pyc", ".class", ".doc", ".docx", ".qm", ".vsmacros"])

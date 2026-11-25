@@ -1,6 +1,6 @@
-# dh utilities
+# dh-slim utilities
 
-dh provides typed filesystem helpers, terminal formatting, text processing, and
+dh-slim provides typed filesystem helpers, terminal formatting, text processing, and
 parallel task execution. Python 3.11 or newer is supported.
 
 ```sh
@@ -11,14 +11,14 @@ Rich and Loguru are installed as runtime dependencies. Joblib and tqdm are
 optional: install the `parallel` extra when using those backends/progress bars.
 
 ```python
-from dh import get_files, get_dirs
+from dh-slim import get_files, get_dirs
 
 sources = get_files("src", ext=[".py"])
 directories = list(get_dirs("src"))
 ```
 
-Filesystem helpers are implemented in `dh.fileutils`. Existing imports from
-`dh.pathutils` still work and refer to the same functions. The package root also
+Filesystem helpers are implemented in `dh-slim.fileutils`. Existing imports from
+`dh-slim.pathutils` still work and refer to the same functions. The package root also
 re-exports these helpers.
 
 ## Pure-Python traversal

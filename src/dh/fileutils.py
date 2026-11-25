@@ -53,7 +53,6 @@ RED: str = "\x1b[31m"
 RESET: str = "\x1b[0m"
 DIM: str = "\x1b[2m"
 BLUE: str = "\x1b[34m"
-
 _NORMALIZE_RE: re.Pattern[str] = re.compile(r"[-_.]+")
 _COUNTER_RE: re.Pattern[str] = re.compile(r"(?:_\d+)+$")
 _FILENAME_TABLE: dict[int, str] = dict.fromkeys(range(32), "_") | {ord(c): "_" for c in '<>:"/\\|?*'}
@@ -92,8 +91,6 @@ def _exepath(cmd: str) -> Path | None:
 # ---------------------------------------------------------------------------
 # Path helpers (formerly _PathOps)
 # ---------------------------------------------------------------------------
-
-
 def suffix(name: str) -> str:
     i = name.rfind(".")
     return name[i:] if 0 < i < len(name) - 1 else ""
@@ -212,9 +209,6 @@ def get_random_filename(
     unique_against: Path | Collection[str] | None = None,
     max_attempts: int = 100,
 ) -> Path:
-    if length < 1:
-        msg = "length must be at least 1"
-        raise ValueError(msg)
     if not alphabet:
         msg = "alphabet must not be empty"
         raise ValueError(msg)
@@ -224,7 +218,6 @@ def get_random_filename(
     if directory is not None and not Path(directory).is_dir():
         msg = f"directory does not exist: {directory}"
         raise NotADirectoryError(msg)
-
     ext = ext.lstrip(".")
     for value, label in ((prefix, "prefix"), (suffix, "suffix"), (ext, "ext")):
         _check_part(value, label)
@@ -243,7 +236,6 @@ def get_random_filename(
             name = f"{name}.{ext}"
         if not is_taken(name):
             return Path(directory or "") / name
-
     msg = f"no unique name found after {max_attempts} attempts"
     raise RuntimeError(msg)
 
@@ -270,8 +262,6 @@ def get_mime_type(path: str | Path) -> str | None:
 # ---------------------------------------------------------------------------
 # File walking (formerly _FileWalker)
 # ---------------------------------------------------------------------------
-
-
 def iter_entries(
     root: Path,
     *,
@@ -280,7 +270,6 @@ def iter_entries(
     recursive: bool = True,
 ) -> Iterator[tuple[Path, bool]]:
     """Yield (path, is_directory) with one scandir handle open at a time.
-
     DirEntry caches file-type metadata. An explicit stack avoids recursion
     limits; exclusions prune subtrees before opening them. Errors propagate
     to callers, which may retain their legacy best-effort error policies.
@@ -382,7 +371,6 @@ def walker(
     suffixes: tuple[str, ...] | None = None
     if exts is not None:
         suffixes = tuple((e if e.startswith(".") else f".{e}").lower() for e in exts)
-
     try:
         for candidate, is_dir in iter_entries(root, skip_dirs=skip_dirs, hidden=True, recursive=recursive):
             if not is_dir and (suffixes is None or candidate.name.lower().endswith(suffixes)):
@@ -394,8 +382,6 @@ def walker(
 # ---------------------------------------------------------------------------
 # File operations (formerly _FileOps)
 # ---------------------------------------------------------------------------
-
-
 def _finish_lines(text: str, keep_ends: bool) -> list[str]:
     lines = text.splitlines(keepends=keep_ends)
     if lines and not lines[-1].endswith(("\n", "\r\n", "\r")) and text.endswith("\n"):
@@ -403,12 +389,11 @@ def _finish_lines(text: str, keep_ends: bool) -> list[str]:
     return lines
 
 
-_UTF8_BOM = b"\xef\xbb\xbf"
+_UTF8_BOM: bytes = b"\xef\xbb\xbf"
 
 
 def iter_lines(path: str | Path, keep_ends: bool = True) -> Iterator[str]:
     """Yield UTF-8 lines one at a time, replacing malformed bytes.
-
     Memory use stays constant regardless of file size.
     """
     with Path(path).open("rb") as f:
@@ -588,8 +573,6 @@ def is_python_file(path: str | Path) -> bool:
 def get_file_age(path: str | Path, str_mode: Literal[False] = False) -> float: ...
 @overload
 def get_file_age(path: str | Path, str_mode: Literal[True]) -> str: ...
-
-
 def get_file_age(path: str | Path, str_mode: bool = False) -> float | str:
     try:
         st = Path(path).stat()
@@ -597,7 +580,6 @@ def get_file_age(path: str | Path, str_mode: bool = False) -> float | str:
         return "0 sec" if str_mode else 0.0
     if not stat.S_ISREG(st.st_mode):
         return "0 sec" if str_mode else -1.0
-
     mtime = getattr(st, "st_birthtime", None) or st.st_mtime
     age = time.time() - mtime
     if not str_mode:
@@ -619,12 +601,10 @@ def gsz(path: str | Path) -> int:
         st = path.lstat()
     except OSError:
         return 0
-
     if stat.S_ISREG(st.st_mode):
         return st.st_size
     if not stat.S_ISDIR(st.st_mode) or path.is_symlink():
         return 0
-
     total = 0
     stack = [path]
     while stack:
@@ -671,8 +651,6 @@ def gsz_by_ext(root_dir: str | Path = ".", ext: list[str] | None = None) -> int:
 # ---------------------------------------------------------------------------
 # Directory operations (formerly _DirOps)
 # ---------------------------------------------------------------------------
-
-
 def copy_file(args: tuple[Path, Path]) -> tuple[bool, Path, Exception | None]:
     from shutil import copy2
 
@@ -803,8 +781,6 @@ def move_dir(src: str, dest: str) -> bool:
 # ---------------------------------------------------------------------------
 # Package info (formerly _PackageInfo)
 # ---------------------------------------------------------------------------
-
-
 def _iter_dists() -> Iterator[tuple[str, str | None]]:
     from importlib import metadata
 
@@ -831,8 +807,6 @@ def get_installed_pkgs() -> list[str]:
 # ---------------------------------------------------------------------------
 # Formatting helpers (formerly _Format)
 # ---------------------------------------------------------------------------
-
-
 def format_bytes(n: int) -> str:
     """Format an integer byte count using binary units."""
     sign = "-" if n < 0 else ""
@@ -941,8 +915,6 @@ def rrs(path: str | Path, before: float, after: float) -> None:
 # ---------------------------------------------------------------------------
 # Report types (kept as classes / dataclasses)
 # ---------------------------------------------------------------------------
-
-
 @dataclass
 class FileWalkerConfig:
     skip_hidden: bool = False
@@ -1060,8 +1032,6 @@ class ReportGenerator:
 # ---------------------------------------------------------------------------
 # Higher-level helpers that used the classes
 # ---------------------------------------------------------------------------
-
-
 def get_files_scandir(path: str | Path, include_hidden: bool = True, ext: list[str] | None = None) -> list[Path]:
     """Return sorted files using scandir traversal and optional suffix filters."""
     path = Path(path)
@@ -1088,7 +1058,6 @@ def get_filez(
     dirs_only: bool = False,
 ) -> Generator[Path, None, None]:
     """Yield paths using the shared scandir walker and combined filters.
-
     Extensions accept leading dots and are case-insensitive. None or an empty
     list disables extension filtering. Directory mode ignores file filters.
     The root directory itself is included in directory mode.
@@ -1339,8 +1308,6 @@ def sorted_by_size(paths: list[Path]) -> list[tuple[float, Path]]:
 # ---------------------------------------------------------------------------
 # Process runner (formerly _ProcRunner)
 # ---------------------------------------------------------------------------
-
-
 class RunResult(NamedTuple):
     code: int
     stdout: str
@@ -1356,7 +1323,6 @@ def runcmd(
     env: Mapping[str, str] | None = None,
 ) -> RunResult:
     """Run an argument vector without a shell and return (code, stdout, stderr).
-
     stdin=None inherits no input (DEVNULL) for backward compatibility; pass a
     str/bytes to feed the child. env is merged over os.environ. Streams are
     cleaned with clean_terminal_transcript. Codes 127/126/124 indicate
@@ -1389,7 +1355,6 @@ def runcmd(
             if not isinstance(k, str) or not isinstance(v, str):
                 msg = "env keys and values must be strings"
                 raise TypeError(msg)
-
     command: list[str] = list(cmd)
 
     def decode_output(data: bytes | str | None) -> str:
@@ -1428,7 +1393,6 @@ def runcmd(
         run_kwargs["stdin"] = subprocess.DEVNULL
     else:
         run_kwargs["input"] = stdin.encode("utf-8") if isinstance(stdin, str) else stdin
-
     try:
         result = subprocess.run(command, **run_kwargs)
     except FileNotFoundError:
@@ -1446,7 +1410,6 @@ def runcmd(
         return fail(1, f"OS error running {command[0]!r}: {exc}")
     except Exception as exc:
         return fail(1, f"Unexpected error running {command[0]!r}: {exc}")
-
     stdout = decode_output(result.stdout)
     stderr = decode_output(result.stderr)
     emit(stdout, stderr)

@@ -6,7 +6,7 @@ from itertools import product
 import pytest
 import dh
 from dh import textutils
-from dh.textutils import (
+from dh import (
     count_words,
     levenshtein,
     text_distance,

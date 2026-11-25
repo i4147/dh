@@ -17,7 +17,7 @@ settings determine whether ANSI color sequences are emitted.
 ## Parallel execution
 
 ```python
-from dh import Method, mpf, values, failures
+from dh-slim import Method, mpf, values, failures
 
 outcomes = mpf(abs, [-2, -1, 0], method=Method.THREAD, progress=None)
 assert values(outcomes) == [2, 1, 0]
